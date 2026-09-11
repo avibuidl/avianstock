@@ -1,10 +1,11 @@
 node_modules/
 dist/
 
-# Copied or downloaded at prepare time — `npm run prepare:all && npm run fonts`
-public/fonts/*.woff2
-public/logo/
-public/pfp/
+# public/fonts/*.woff2, public/logo/ and public/pfp/ are COMMITTED although a
+# script regenerates them (`npm run prepare:all && npm run fonts`): the script
+# reads the parent project's art and font sources, which a repository made from
+# this folder alone does not have, and a build without them ships no logo, no
+# portraits and fallback fonts.
 
 # Design-canvas working output
 design/_preview/

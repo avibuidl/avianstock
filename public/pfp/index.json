@@ -1,0 +1,293 @@
+{
+ "note": "Rendered through the on-chain parity oracle: byte-identical to tokenURI for these combinations. Every one is mintable and none is reserved.",
+ "birds": [
+  {
+   "background": 6,
+   "plumage": 10,
+   "eyes": 6,
+   "beak": 5,
+   "neckwear": 1,
+   "headwear": 4
+  },
+  {
+   "background": 11,
+   "plumage": 0,
+   "eyes": 7,
+   "beak": 3,
+   "neckwear": 3,
+   "headwear": 3
+  },
+  {
+   "background": 0,
+   "plumage": 4,
+   "eyes": 12,
+   "beak": 8,
+   "neckwear": 1,
+   "headwear": 11
+  },
+  {
+   "background": 3,
+   "plumage": 10,
+   "eyes": 5,
+   "beak": 7,
+   "neckwear": 1,
+   "headwear": 9
+  },
+  {
+   "background": 10,
+   "plumage": 0,
+   "eyes": 11,
+   "beak": 1,
+   "neckwear": 5,
+   "headwear": 8
+  },
+  {
+   "background": 6,
+   "plumage": 4,
+   "eyes": 1,
+   "beak": 1,
+   "neckwear": 2,
+   "headwear": 8
+  },
+  {
+   "background": 2,
+   "plumage": 1,
+   "eyes": 4,
+   "beak": 3,
+   "neckwear": 0,
+   "headwear": 1
+  },
+  {
+   "background": 10,
+   "plumage": 9,
+   "eyes": 12,
+   "beak": 5,
+   "neckwear": 3,
+   "headwear": 8
+  },
+  {
+   "background": 3,
+   "plumage": 10,
+   "eyes": 5,
+   "beak": 2,
+   "neckwear": 2,
+   "headwear": 10
+  },
+  {
+   "background": 4,
+   "plumage": 2,
+   "eyes": 12,
+   "beak": 0,
+   "neckwear": 4,
+   "headwear": 4
+  },
+  {
+   "background": 1,
+   "plumage": 1,
+   "eyes": 6,
+   "beak": 8,
+   "neckwear": 5,
+   "headwear": 8
+  },
+  {
+   "background": 2,
+   "plumage": 8,
+   "eyes": 10,
+   "beak": 3,
+   "neckwear": 2,
+   "headwear": 15
+  },
+  {
+   "background": 2,
+   "plumage": 6,
+   "eyes": 14,
+   "beak": 8,
+   "neckwear": 1,
+   "headwear": 0
+  },
+  {
+   "background": 6,
+   "plumage": 7,
+   "eyes": 8,
+   "beak": 1,
+   "neckwear": 2,
+   "headwear": 9
+  },
+  {
+   "background": 7,
+   "plumage": 10,
+   "eyes": 13,
+   "beak": 6,
+   "neckwear": 5,
+   "headwear": 3
+  },
+  {
+   "background": 9,
+   "plumage": 1,
+   "eyes": 9,
+   "beak": 0,
+   "neckwear": 4,
+   "headwear": 9
+  },
+  {
+   "background": 1,
+   "plumage": 10,
+   "eyes": 11,
+   "beak": 2,
+   "neckwear": 4,
+   "headwear": 12
+  },
+  {
+   "background": 2,
+   "plumage": 0,
+   "eyes": 6,
+   "beak": 6,
+   "neckwear": 0,
+   "headwear": 3
+  },
+  {
+   "background": 10,
+   "plumage": 11,
+   "eyes": 0,
+   "beak": 4,
+   "neckwear": 3,
+   "headwear": 7
+  },
+  {
+   "background": 8,
+   "plumage": 4,
+   "eyes": 13,
+   "beak": 7,
+   "neckwear": 1,
+   "headwear": 9
+  },
+  {
+   "background": 2,
+   "plumage": 9,
+   "eyes": 1,
+   "beak": 5,
+   "neckwear": 0,
+   "headwear": 6
+  },
+  {
+   "background": 4,
+   "plumage": 9,
+   "eyes": 0,
+   "beak": 2,
+   "neckwear": 2,
+   "headwear": 2
+  },
+  {
+   "background": 3,
+   "plumage": 10,
+   "eyes": 10,
+   "beak": 0,
+   "neckwear": 5,
+   "headwear": 0
+  },
+  {
+   "background": 11,
+   "plumage": 8,
+   "eyes": 12,
+   "beak": 8,
+   "neckwear": 1,
+   "headwear": 7
+  },
+  {
+   "background": 3,
+   "plumage": 8,
+   "eyes": 3,
+   "beak": 6,
+   "neckwear": 5,
+   "headwear": 9
+  },
+  {
+   "background": 3,
+   "plumage": 5,
+   "eyes": 9,
+   "beak": 4,
+   "neckwear": 3,
+   "headwear": 7
+  },
+  {
+   "background": 5,
+   "plumage": 3,
+   "eyes": 10,
+   "beak": 8,
+   "neckwear": 5,
+   "headwear": 7
+  },
+  {
+   "background": 4,
+   "plumage": 3,
+   "eyes": 4,
+   "beak": 2,
+   "neckwear": 5,
+   "headwear": 10
+  },
+  {
+   "background": 6,
+   "plumage": 5,
+   "eyes": 11,
+   "beak": 7,
+   "neckwear": 1,
+   "headwear": 10
+  },
+  {
+   "background": 8,
+   "plumage": 2,
+   "eyes": 9,
+   "beak": 0,
+   "neckwear": 4,
+   "headwear": 5
+  },
+  {
+   "background": 5,
+   "plumage": 6,
+   "eyes": 13,
+   "beak": 8,
+   "neckwear": 5,
+   "headwear": 15
+  },
+  {
+   "background": 3,
+   "plumage": 5,
+   "eyes": 2,
+   "beak": 7,
+   "neckwear": 5,
+   "headwear": 14
+  },
+  {
+   "background": 4,
+   "plumage": 4,
+   "eyes": 8,
+   "beak": 2,
+   "neckwear": 4,
+   "headwear": 5
+  },
+  {
+   "background": 9,
+   "plumage": 9,
+   "eyes": 2,
+   "beak": 4,
+   "neckwear": 3,
+   "headwear": 12
+  },
+  {
+   "background": 0,
+   "plumage": 9,
+   "eyes": 10,
+   "beak": 8,
+   "neckwear": 3,
+   "headwear": 5
+  },
+  {
+   "background": 9,
+   "plumage": 8,
+   "eyes": 5,
+   "beak": 5,
+   "neckwear": 2,
+   "headwear": 1
+  }
+ ]
+}
