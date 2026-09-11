@@ -1761,6 +1761,17 @@ export const avianStockAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidCategory",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidTrait",
     "inputs": []
   },
@@ -1809,6 +1820,17 @@ export const avianStockAbi = [
   {
     "type": "error",
     "name": "OnlyThePerch",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OnlyTraitMarket",
     "inputs": [
       {
         "name": "caller",
@@ -1920,6 +1942,33 @@ export const avianStockAbi = [
   },
   {
     "type": "error",
+    "name": "SameBird",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SameTrait",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "trait",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SelectorNotAllowed",
     "inputs": [
       {
@@ -1933,6 +1982,17 @@ export const avianStockAbi = [
     "type": "error",
     "name": "SoldOut",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TraitMarketNotAContract",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -4498,6 +4558,17 @@ export const treasuryAbi = [
   },
   {
     "type": "error",
+    "name": "NotAListedRewardToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotAV3Pool",
     "inputs": [
       {
@@ -4592,6 +4663,27 @@ export const treasuryAbi = [
       },
       {
         "name": "claimable",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingToStream",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "held",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "asked",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -4739,6 +4831,11 @@ export const treasuryAbi = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "StreamOnlyErc20",
+    "inputs": []
   },
   {
     "type": "error",
@@ -5756,6 +5853,114 @@ export const liquidityVaultAbi = [
   }
 ] as const;
 
+/** From `contracts/out/AvianLens.sol/AvianLens.json`. */
+export const avianLensAbi = [
+  {
+    "type": "function",
+    "name": "ownersOf",
+    "inputs": [
+      {
+        "name": "collection",
+        "type": "address",
+        "internalType": "contract IOwnerOf"
+      },
+      {
+        "name": "start",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stop",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "owners",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokensOfOwnerIn",
+    "inputs": [
+      {
+        "name": "collection",
+        "type": "address",
+        "internalType": "contract IOwnerOf"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "start",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stop",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
 /** From `contracts/out/IV4Quoter.sol/IV4Quoter.json`. */
 export const v4QuoterAbi = [
   {
@@ -6366,6 +6571,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "OnlyTraitMarket",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -6416,6 +6632,17 @@ export const errorAbi = [
         "type": "address",
         "internalType": "address"
       },
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TraitMarketNotAContract",
+    "inputs": [
       {
         "name": "given",
         "type": "address",
@@ -7055,6 +7282,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "StreamOnlyErc20",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NoRoute",
     "inputs": [
       {
@@ -7463,6 +7695,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "SameBird",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC721InvalidApprover",
     "inputs": [
       {
@@ -7554,6 +7797,17 @@ export const errorAbi = [
     "type": "error",
     "name": "RendererRendersNothing",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAListedRewardToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -7991,6 +8245,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidCategory",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "TotalSupplyOverflow",
     "inputs": []
   },
@@ -8166,6 +8431,27 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NothingToStream",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "held",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "asked",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "AllowanceOverflow",
     "inputs": []
   },
@@ -8184,6 +8470,22 @@ export const errorAbi = [
     "type": "error",
     "name": "ZeroProbe",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SameTrait",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "trait",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
   },
   {
     "type": "error",
@@ -8253,11 +8555,13 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x1890e3f1": "NotHeld(uint256)",
   "0x19cd4595": "AlreadyListed(address)",
   "0x1a15a3cc": "PermitExpired()",
+  "0x1c85340d": "OnlyTraitMarket(address)",
   "0x1e4fbdf7": "OwnableInvalidOwner(address)",
   "0x1eaf226f": "NotAFunder(address)",
   "0x1f8ecfbc": "SlippageBpsTooHigh(uint16,uint16)",
   "0x24d35a26": "ExcessiveInvalidation()",
   "0x27171b09": "PoolManagerMismatch(address,address)",
+  "0x2921c7ef": "TraitMarketNotAContract(address)",
   "0x2a5cb1c3": "CreatorTokenTransferValidator__ReceiverAccountIsFrozen()",
   "0x2b635c88": "CreatorTokenTransferValidator__SenderAccountIsFrozen()",
   "0x2c4029e9": "ExecutionFailed(uint256,bytes)",
@@ -8317,6 +8621,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x7f954ba1": "CreatorTokenTransferValidator__CallerMustHaveElevatedPermissionsForSpecifiedNFT()",
   "0x81489ec0": "NotPoolManager(address)",
   "0x81645f75": "NotTheInitializer(address,address)",
+  "0x818c5023": "StreamOnlyErc20()",
   "0x81fff07f": "NoRoute(address,address)",
   "0x8301ab38": "AllowanceUnderflow()",
   "0x8395f495": "BadCategory(uint8)",
@@ -8350,6 +8655,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xa172870c": "IntervalTooShort(uint32,uint256)",
   "0xa17cfa12": "NotTheV3Pool(address,address)",
   "0xa48e684e": "TransferValidatorIsAvians()",
+  "0xa7091309": "SameBird(uint256)",
   "0xa9fbf51f": "ERC721InvalidApprover(address)",
   "0xa9fe246a": "TooManyRewardTokens(uint256,uint256)",
   "0xab143c06": "Reentrancy()",
@@ -8358,6 +8664,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xb0a5e923": "WrongPool(address,address,uint24,int24,address)",
   "0xb12d13eb": "ETHTransferFailed()",
   "0xb26960e4": "RendererRendersNothing()",
+  "0xb435202d": "NotAListedRewardToken(address)",
   "0xb6d9900a": "ERC2981InvalidDefaultRoyaltyReceiver(address)",
   "0xb8eaf7a1": "RescueFailed()",
   "0xb9a73952": "BadDeployment(string)",
@@ -8393,6 +8700,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xdf098a09": "NoLiveStream(address,uint256)",
   "0xdfc8cc23": "StreamDurationOutOfRange(uint32,uint256,uint256)",
   "0xdfd1fc1b": "ERC2981InvalidTokenRoyalty(uint256,uint256,uint256)",
+  "0xe4e866a9": "InvalidCategory(uint8)",
   "0xe5cfe957": "TotalSupplyOverflow()",
   "0xe602809f": "UnlockNotLater(uint256,uint256)",
   "0xe7b5a518": "V3NotConfigured()",
@@ -8410,9 +8718,11 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xf80a23ec": "InvalidFeeRecipient(address)",
   "0xf85e8912": "TransferValidatorIsThisContract()",
   "0xf8e2cc5e": "BadStakeData(uint256)",
+  "0xf8e51b81": "NothingToStream(address,uint256,uint256)",
   "0xf9067066": "AllowanceOverflow()",
   "0xf96fb071": "InsufficientAllowance(uint256)",
   "0xf999fbe6": "ZeroProbe()",
+  "0xfa982d6a": "SameTrait(uint8,uint8)",
   "0xfb7f7079": "AlreadyHoldsAPosition(uint256)",
   "0xfc7b572c": "RendererMismatch(address,address)",
   "0xff170a29": "MinOutIsZero(address,address,uint256)"
@@ -8436,11 +8746,13 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x1890e3f1": "ThePerch.sol/ThePerch.json",
   "0x19cd4595": "TheNest.sol/TheNest.json",
   "0x1a15a3cc": "Avians.sol/Avians.json",
+  "0x1c85340d": "AvianStock.sol/AvianStock.json",
   "0x1e4fbdf7": "AvianStock.sol/AvianStock.json",
   "0x1eaf226f": "TheNest.sol/TheNest.json",
   "0x1f8ecfbc": "Treasury.sol/Treasury.json",
   "0x24d35a26": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
   "0x27171b09": "LiquidityVault.sol/LiquidityVault.json",
+  "0x2921c7ef": "AvianStock.sol/AvianStock.json",
   "0x2a5cb1c3": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0x2b635c88": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0x2c4029e9": "IUniversalRouter.sol/IUniversalRouter.json",
@@ -8500,6 +8812,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x7f954ba1": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0x81489ec0": "AviansHook.sol/AviansHook.json",
   "0x81645f75": "AviansHook.sol/AviansHook.json",
+  "0x818c5023": "Treasury.sol/Treasury.json",
   "0x81fff07f": "Treasury.sol/Treasury.json",
   "0x8301ab38": "Avians.sol/Avians.json",
   "0x8395f495": "TraitRegistry.sol/TraitRegistry.json",
@@ -8533,6 +8846,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xa172870c": "Treasury.sol/Treasury.json",
   "0xa17cfa12": "Treasury.sol/Treasury.json",
   "0xa48e684e": "AvianStock.sol/AvianStock.json",
+  "0xa7091309": "AvianStock.sol/AvianStock.json",
   "0xa9fbf51f": "AvianStock.sol/AvianStock.json",
   "0xa9fe246a": "TheNest.sol/TheNest.json",
   "0xab143c06": "ThePerch.sol/ThePerch.json",
@@ -8541,6 +8855,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xb0a5e923": "AviansHook.sol/AviansHook.json",
   "0xb12d13eb": "SafeTransferLib.sol/SafeTransferLib.json",
   "0xb26960e4": "AvianStock.sol/AvianStock.json",
+  "0xb435202d": "Treasury.sol/Treasury.json",
   "0xb6d9900a": "AvianStock.sol/AvianStock.json",
   "0xb8eaf7a1": "AvianStock.sol/AvianStock.json",
   "0xb9a73952": "TraitRegistry.sol/TraitRegistry.json",
@@ -8576,6 +8891,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xdf098a09": "TheNest.sol/TheNest.json",
   "0xdfc8cc23": "Treasury.sol/Treasury.json",
   "0xdfd1fc1b": "AvianStock.sol/AvianStock.json",
+  "0xe4e866a9": "AvianStock.sol/AvianStock.json",
   "0xe5cfe957": "Avians.sol/Avians.json",
   "0xe602809f": "LiquidityVault.sol/LiquidityVault.json",
   "0xe7b5a518": "Treasury.sol/Treasury.json",
@@ -8593,9 +8909,11 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xf80a23ec": "ThePerch.sol/ThePerch.json",
   "0xf85e8912": "AvianStock.sol/AvianStock.json",
   "0xf8e2cc5e": "TheNest.sol/TheNest.json",
+  "0xf8e51b81": "Treasury.sol/Treasury.json",
   "0xf9067066": "Avians.sol/Avians.json",
   "0xf96fb071": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
   "0xf999fbe6": "TheNest.sol/TheNest.json",
+  "0xfa982d6a": "AvianStock.sol/AvianStock.json",
   "0xfb7f7079": "LiquidityVault.sol/LiquidityVault.json",
   "0xfc7b572c": "AvianStock.sol/AvianStock.json",
   "0xff170a29": "Treasury.sol/Treasury.json"
@@ -8610,6 +8928,7 @@ export const GENERATED_FROM = [
   "AviansHook.sol/AviansHook.json",
   "TraitRegistry.sol/TraitRegistry.json",
   "LiquidityVault.sol/LiquidityVault.json",
+  "AvianLens.sol/AvianLens.json",
   "IV4Quoter.sol/IV4Quoter.json",
   "IUniversalRouter.sol/IUniversalRouter.json",
   "IAllowanceTransfer.sol/IAllowanceTransfer.json",

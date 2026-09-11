@@ -1,7 +1,21 @@
 import { Suspense, lazy, useState } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { DevPanel } from './components/DevPanel';
+
+/*
+  THE STATE SWITCHER DOES NOT SHIP.
+
+  It was a static import rendered unconditionally, so it was in the production
+  bundle and on the deployed site. `import.meta.env.DEV` is a build-time
+  constant: Vite replaces it with `false` for a build, the conditional folds
+  to null, and — because the import is DYNAMIC — the module is never reached
+  and never emitted. A static import would still be bundled even behind a false
+  condition. Same arrangement as `src/dev/injected-wallet.ts`, and the same
+  guard: `npm run check` fails if "State switcher" is found in `dist/`.
+*/
+const DevPanel = import.meta.env.DEV
+  ? lazy(() => import('./components/DevPanel').then((m) => ({ default: m.DevPanel })))
+  : null;
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TxProvider } from './components/Tx';
 import { NetworkBar, WalletDialog } from './components/Wallet';
@@ -66,7 +80,7 @@ export function App() {
 
       <WalletDialog open={walletOpen} onClose={() => setWalletOpen(false)} />
       <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
-      <DevPanel />
+      {DevPanel ? <Suspense fallback={null}><DevPanel /></Suspense> : null}
     </TxProvider>
   );
 }

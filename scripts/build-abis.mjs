@@ -230,6 +230,17 @@ const SOURCES = [
     ],
   },
   {
+    export: 'avianLensAbi',
+    file: 'AvianLens.sol/AvianLens.json',
+    // Our own lens: stateless, reads the collection through `ownerOf` like
+    // anyone else, and never reverts — a burnt or unminted id is the zero
+    // address. Two views, both taking the collection as their first argument,
+    // ids 1-based and `stop` inclusive. It replaces the Transfer-log scan
+    // wherever the manifest names one; see `ownedBy` in chain/birds.ts.
+    functions: ['tokensOfOwnerIn', 'ownersOf'],
+    events: [],
+  },
+  {
     export: 'v4QuoterAbi',
     file: 'IV4Quoter.sol/IV4Quoter.json',
     // Uniswap's own lens. Not imported by anything in `src/`, so `forge build`

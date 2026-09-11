@@ -819,6 +819,17 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidCategory",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidTrait",
     "inputs": []
   },
@@ -867,6 +878,17 @@ export const avianStockAdminAbi = [
   {
     "type": "error",
     "name": "OnlyThePerch",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OnlyTraitMarket",
     "inputs": [
       {
         "name": "caller",
@@ -978,6 +1000,33 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "error",
+    "name": "SameBird",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SameTrait",
+    "inputs": [
+      {
+        "name": "category",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "trait",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SelectorNotAllowed",
     "inputs": [
       {
@@ -991,6 +1040,17 @@ export const avianStockAdminAbi = [
     "type": "error",
     "name": "SoldOut",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TraitMarketNotAContract",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -3306,6 +3366,17 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotAListedRewardToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotAV3Pool",
     "inputs": [
       {
@@ -3400,6 +3471,27 @@ export const treasuryAdminAbi = [
       },
       {
         "name": "claimable",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingToStream",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "held",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "asked",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -3547,6 +3639,11 @@ export const treasuryAdminAbi = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "StreamOnlyErc20",
+    "inputs": []
   },
   {
     "type": "error",

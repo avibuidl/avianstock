@@ -115,6 +115,29 @@ export async function tryReadMany<T = unknown>(calls: Call[], at?: At): Promise<
       : { ok: false, error: r.error }) as Attempt<T>[];
 }
 
+/**
+ * Several reads, EACH ITS OWN `eth_call`, merged at the JSON-RPC layer.
+ *
+ * Not `readMany`. That aggregates through Multicall3, which is right for a
+ * hundred cheap reads and wrong for a few expensive ones: a lens page is about
+ * 8M gas (some 4,100 per id, measured), and Multicall3 would carry the sum of
+ * every page in ONE call — past what a node will execute. `batch: false` keeps
+ * each page out of the aggregator; the transport's own `batch: true` still
+ * puts the concurrent calls in one HTTP request. So: one round trip, one
+ * `eth_call` per page, each within the limit.
+ */
+export async function readEach<T = unknown>(calls: Call[], at?: At): Promise<T[]> {
+  if (calls.length === 0) return [];
+  return Promise.all(calls.map((call) => client().readContract({
+    address: call.address,
+    abi: call.abi,
+    functionName: call.functionName,
+    args: call.args,
+    batch: false,
+    blockNumber: at?.blockNumber,
+  } as never) as Promise<T>));
+}
+
 export async function readOne<T = unknown>(call: Call, at?: At): Promise<T> {
   const [v] = await readMany<T>([call], at);
   return v;

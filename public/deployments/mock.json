@@ -35,6 +35,7 @@
     "V4Quoter": "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94"
   },
   "multicall3": null,
+  "lens": null,
   "startBlock": 0,
   "allowlistProofs": null,
   "generated": {

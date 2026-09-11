@@ -121,6 +121,8 @@ async function boot() {
         account: Number(q.get('devwallet')) || 1,
         pretendChainId: q.has('wrongchain') ? Number(q.get('wrongchain')) || 1 : undefined,
         pretendUnknownChain: q.has('unknownchain'),
+        // ?as=0x… — read a real wallet's pages without its key. Dev only.
+        as: /^0x[0-9a-fA-F]{40}$/.test(q.get('as') ?? '') ? (q.get('as') as `0x${string}`) : undefined,
       });
     }
 

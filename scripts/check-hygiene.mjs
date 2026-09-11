@@ -150,12 +150,16 @@ if (existsSync(dist)) {
     ['HDKey', 'a BIP-32 hierarchical key'],
     ['mnemonicToSeed', 'a mnemonic-to-seed function'],
     ['AVIAN_STOCK_DEV_WALLET_MUST_NOT_SHIP', 'the dev-only injected wallet'],
+    // Rendered only under import.meta.env.DEV, as a dynamic import, so the
+    // module should never be emitted. This is the string its heading carries.
+    ['State switcher', 'the dev-only state switcher', 'a development panel must not reach a collector'],
   ];
+  const SEED = 'nothing here should ask for or handle a seed phrase';
   for (const bundle of bundles) {
     const text = readFileSync(bundle, 'utf8');
-    for (const [needle, says] of markers) {
+    for (const [needle, says, why = SEED] of markers) {
       if (text.includes(needle)) {
-        problems.push(`${relative(root, bundle)}  ships ${says} — nothing here should ask for or handle a seed phrase`);
+        problems.push(`${relative(root, bundle)}  ships ${says} — ${why}`);
       }
     }
   }

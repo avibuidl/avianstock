@@ -27,7 +27,8 @@ import {
 import { ContractError, SELECTORS } from '../mock/errors';
 import { asContractError } from './errors';
 import {
-  confirmOwnership, invalidateOwnership, ownedBy, ownershipConsistency,
+  confirmOwnership, heldByFrom, invalidateOwnership, mintedSoFar, ownedBy, ownersAt,
+  ownershipConsistency,
   rememberTraits, traitsFor, traitsForId,
 } from './birds';
 import { birdForAccount, computeAccount, satchelAddressOf } from './safety';
@@ -238,7 +239,15 @@ async function locationOf(id: TokenId, owner: Address, totalMinted: number, at: 
   return { where: 'wallet', owner };
 }
 
-async function satchelOf(id: TokenId, totalMinted: number, at: At): Promise<Bird['satchel']> {
+/**
+ * `owners` is the page's one `ownersAt` sweep, when there is a lens. Birds
+ * inside this satchel are then the ids whose owner is the satchel's address —
+ * a local filter, no read. Null means no lens, and the log scan runs for this
+ * one satchel as it always did.
+ */
+async function satchelOf(
+  id: TokenId, totalMinted: number, at: At, owners: Address[] | null,
+): Promise<Bird['satchel']> {
   const account = satchelAddressOf(id);
   const c = contracts();
 
@@ -265,16 +274,23 @@ async function satchelOf(id: TokenId, totalMinted: number, at: At): Promise<Bird
   });
 
   // Birds inside this bird's satchel — the reason the stake warning and the
-  // cycle refusal exist. Log scan for candidates, `ownerOf` for the truth.
-  try {
-    const inside = await ownedBy(account, at);
-    for (const inner of inside) holds.push({ kind: 'avian', id: inner });
-  } catch {
-    // A failed inner scan must not fail the whole bird. It is reported as an
-    // unknown rather than as an empty satchel by the caller's own error state;
-    // here the safe reading is "we did not see any", and every place that ACTS
-    // on this (staking, transfers) re-checks with `checkTransferSafety`, which
-    // refuses rather than allows when it cannot read.
+  // cycle refusal exist.
+  if (owners) {
+    // The sweep already holds every owner at this block. No read.
+    for (const inner of heldByFrom(owners, account)) holds.push({ kind: 'avian', id: inner });
+  } else {
+    // No lens: log scan for candidates, `ownerOf` for the truth.
+    try {
+      const inside = await ownedBy(account, at);
+      for (const inner of inside) holds.push({ kind: 'avian', id: inner });
+    } catch {
+      // A failed inner scan must not fail the whole bird. It is reported as an
+      // unknown rather than as an empty satchel by the caller's own error
+      // state; here the safe reading is "we did not see any", and every place
+      // that ACTS on this (staking, transfers) re-checks with
+      // `checkTransferSafety`, which refuses rather than allows when it cannot
+      // read.
+    }
   }
 
   void totalMinted;
@@ -313,11 +329,12 @@ export async function getBird(id: TokenId, at?: At): Promise<Bird> {
       : unpackCombo(combo);
     rememberTraits(id, traits);
 
+    const owners = await ownersAt(a);
     const [location, satchel] = await Promise.all([
       ownerRes.ok
         ? locationOf(id, ownerRes.value as Address, totalMinted, a)
         : Promise.resolve({ where: 'burnt' } as BirdLocation),
-      satchelOf(id, totalMinted, a),
+      satchelOf(id, totalMinted, a, owners),
     ]);
 
     return { id, traits, combo, location, satchel };
@@ -327,27 +344,40 @@ export async function getBird(id: TokenId, at?: At): Promise<Bird> {
 export async function getBirdsOf(who: Address, at?: At): Promise<Bird[]> {
   return guard('reading your birds', async () => {
     const a = at ?? await pin();
-    const ids = await ownedBy(who, a);
-    const traits = await traitsFor(ids, a);
-    const totalMinted = Number(await readOne<number>({
-      address: contracts().AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'totalMinted',
-    }, a));
+    /*
+      THREE ROUND TRIPS, and the shape is the point.
 
-    const birds = await Promise.all(ids.map(async (id) => {
-      const satchel = await satchelOf(id, totalMinted, a);
-      const combo = await readOne<bigint>({
+        1. `totalMinted` — once. It used to be read three times over, each
+           behind its own await, and every extra read was a round trip nothing
+           else could share.
+        2. The lens: the wallet's ids AND the owners sweep, together. Both page
+           over `1..totalMinted`, neither depends on the other, and the
+           transport puts them in one HTTP request.
+        3. Everything per bird — traits, combos, and every satchel's code,
+           balance and token balances — together. The satchels need only the
+           ids and the sweep, not the traits, so they do not wait for them.
+
+      Without a lens, `ownersAt` is null and each satchel scans as it always
+      did; the round count is then the scan's, not this function's.
+    */
+    const totalMinted = await mintedSoFar(a);
+    const [ids, owners] = await Promise.all([ownedBy(who, a, totalMinted), ownersAt(a, totalMinted)]);
+    const [traits, combos, satchels] = await Promise.all([
+      traitsFor(ids, a),
+      readMany<bigint>(ids.map((id) => ({
         address: contracts().AvianStock, abi: avianStockAbi as unknown as Abi,
         functionName: 'tokenCombo', args: [BigInt(id)],
-      }, a);
-      return {
-        id,
-        traits: traits.get(id) ?? traitsForId(id),
-        combo,
-        location: { where: 'wallet', owner: who } as BirdLocation,
-        satchel,
-      } satisfies Bird;
-    }));
-    return birds;
+      })), a),
+      Promise.all(ids.map((id) => satchelOf(id, totalMinted, a, owners))),
+    ]);
+
+    return ids.map((id, i) => ({
+      id,
+      traits: traits.get(id) ?? traitsForId(id),
+      combo: combos[i],
+      location: { where: 'wallet', owner: who } as BirdLocation,
+      satchel: satchels[i],
+    } satisfies Bird));
   });
 }
 

@@ -39,6 +39,7 @@ const GOOD = () => ({
     V4Quoter: '0xdddd444444444444444444444444444444444444',
   },
   multicall3: null,
+  lens: null,
   startBlock: 100,
   allowlistProofs: null,
 } as Record<string, unknown>);
@@ -136,13 +137,24 @@ test('an unknown driver is refused', () => {
   assert.deepEqual(paths(raw), ['driver']);
 });
 
-test('multicall3 and allowlistProofs must be present, even as null', () => {
+test('multicall3, lens and allowlistProofs must be present, even as null', () => {
   const raw = GOOD();
   delete raw.multicall3;
+  delete raw.lens;
   delete raw.allowlistProofs;
   const got = paths(raw);
   assert.ok(got.includes('multicall3'));
+  assert.ok(got.includes('lens'));
   assert.ok(got.includes('allowlistProofs'));
+});
+
+test('a lens is an address or null, never a string that is not one', () => {
+  const raw = GOOD();
+  raw.lens = '0xnot-an-address';
+  assert.ok(paths(raw).includes('lens'));
+  raw.lens = '0x0aa91c20a4d78596c7e20c0ba39a44b67eae5718';
+  const { manifest } = validateManifest(raw, 'local-fork');
+  assert.equal(manifest?.lens?.toLowerCase(), '0x0aa91c20a4d78596c7e20c0ba39a44b67eae5718');
 });
 
 test('several problems are all reported, not just the first', () => {

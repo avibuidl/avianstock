@@ -17,6 +17,7 @@
 //
 //   --explorer <url>      default https://robinhoodchain.blockscout.com
 //   --proofs <path>       e.g. ./deployments/proofs/mainnet-4663.json
+//   --lens <address>      the AvianLens; default: read from DeployLens.s.sol's broadcast
 //   --broadcast <dir>     default ../contracts/broadcast
 //   --dry-run             print it, write nothing
 //   --skip-verify         write without asking the chain (say why in the PR)
@@ -111,6 +112,11 @@ if (!deploy.run) {
   );
 }
 const launch = readRun('DeployLaunch.s.sol');
+// The lens is stateless and may have been deployed by any key at any time;
+// a flag names one deployed earlier, the broadcast file names one deployed now.
+const lensRun = readRun('DeployLens.s.sol');
+const lens = flag('lens', lensRun.run ? (creates(lensRun.run, lensRun.path).get('AvianLens') ?? null) : null);
+if (lens !== null && !isAddress(lens)) die(`--lens: ${lens} is not an address.`);
 
 const deployed = creates(deploy.run, deploy.path);
 const launched = launch.run ? creates(launch.run, launch.path) : new Map();
@@ -222,6 +228,9 @@ const manifest = {
   contracts,
   thirdParty,
   multicall3,
+  // HANDOVER section 9: who holds what, as a read. null = the site falls
+  // back to the transfer-log scan, which is slow on this chain.
+  lens,
   startBlock,
   allowlistProofs: proofs,
   generated: {
@@ -326,6 +335,7 @@ console.log(`  contracts  ${Object.entries(contracts).filter(([, v]) => v).lengt
   + `${contracts.AviansHook ? '' : ' (no pool on this deployment)'}`);
 console.log(`  startBlock ${startBlock}`);
 console.log(`  multicall3 ${multicall3 ?? 'none — JSON-RPC batching'}`);
+console.log(`  lens       ${lens ?? 'none — deploy script/DeployLens.s.sol, or pass --lens'}`);
 if (thirdParty) {
   for (const [name, address] of Object.entries(thirdParty)) console.log(`  ${name.padEnd(16)} ${address}`);
 }

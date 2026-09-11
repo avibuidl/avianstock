@@ -53,12 +53,21 @@ export type DevWalletOptions = {
   pretendChainId?: number;
   /** Refuse the first `wallet_switchEthereumChain` with 4902. */
   pretendUnknownChain?: boolean;
+  /**
+   * READ AS this address instead of the anvil account's. For looking at a real
+   * wallet's pages on a real chain — nine birds on the testnet, say — without
+   * holding its key. Every read takes the address at face value; a write would
+   * be signed by the anvil key for a different sender and refused by the node,
+   * which is the correct outcome for a wallet you do not control.
+   */
+  as?: `0x${string}`;
 };
 
 export function installDevWallet(o: DevWalletOptions) {
   if (!import.meta.env.DEV) return;                     // belt, in case of a stray import
   const key = ANVIL_KEYS[o.account ?? 1];
   const account = privateKeyToAccount(key);
+  const reportedAddress = o.as ?? account.address;
 
   const chain = {
     id: o.chainId,
@@ -85,9 +94,9 @@ export function installDevWallet(o: DevWalletOptions) {
       switch (method) {
         case 'eth_requestAccounts':
           connected = true;
-          return [account.address];
+          return [reportedAddress];
         case 'eth_accounts':
-          return connected ? [account.address] : [];
+          return connected ? [reportedAddress] : [];
         case 'eth_chainId':
           return `0x${reported.toString(16)}`;
 

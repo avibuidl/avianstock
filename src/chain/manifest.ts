@@ -79,7 +79,14 @@ export type Manifest = {
   thirdParty: ThirdPartySet | null;
   /** Canonical Multicall3, if this chain has one. Null ⇒ JSON-RPC batching. */
   multicall3: Address | null;
-  /** The deploy block. Where the `Transfer` log scan starts. */
+  /**
+   * `AvianLens`, if one is deployed: a stateless view that answers "which ids
+   * does this address hold" and "who holds each id" in a handful of reads.
+   * Null ⇒ the `Transfer` log scan, which is the same answer found the slow
+   * way. When it is set, the scan does not run at all.
+   */
+  lens: Address | null;
+  /** The deploy block. Where the `Transfer` log scan starts, when it runs. */
   startBlock: number;
   /** Where `proofs.json` lives for this deployment, or null for no allowlist file. */
   allowlistProofs: string | null;
@@ -312,6 +319,13 @@ export function validateManifest(raw: unknown, expectedId: string): {
     multicall3 = checkAddress(raw.multicall3, 'multicall3', problems);
   }
 
+  let lens: Address | null = null;
+  if (!('lens' in raw)) {
+    problems.push({ path: 'lens', says: 'required — use null if no AvianLens is deployed (the log scan will run)' });
+  } else if (raw.lens !== null) {
+    lens = checkAddress(raw.lens, 'lens', problems);
+  }
+
   if (typeof raw.startBlock !== 'number' || !Number.isInteger(raw.startBlock) || raw.startBlock < 0) {
     problems.push({ path: 'startBlock', says: `must be a non-negative integer (the deploy block), got ${describe(raw.startBlock)}` });
   }
@@ -333,6 +347,7 @@ export function validateManifest(raw: unknown, expectedId: string): {
       contracts: contracts as ContractSet,
       thirdParty,
       multicall3,
+      lens,
       startBlock: raw.startBlock as number,
       allowlistProofs: (raw.allowlistProofs ?? null) as string | null,
       generated: isPlainObject(raw.generated) ? (raw.generated as Manifest['generated']) : undefined,
