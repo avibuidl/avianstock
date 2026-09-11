@@ -1,0 +1,20 @@
+// Cloudflare Workers: serve the built site as static assets.
+//
+// This file exists so `wrangler deploy` (the deploy command Cloudflare runs
+// after `npm run build`) treats the project as a folder of files to serve and
+// does not try to convert it into a Worker automatically — that conversion
+// wants Vite 6, and the site is on Vite 5 on purpose. There is no Worker code:
+// every request is answered from `dist/`. The `_headers` the build writes into
+// `dist/` is honoured, so the CSP and the other security headers apply.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "avianstock",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    // The router is hash-based (`#/...`), so every real page is `/`. A path
+    // that is not a file is a mistake, and a 404 says so instead of serving
+    // the app under a wrong address.
+    "not_found_handling": "404-page"
+  }
+}

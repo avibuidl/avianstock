@@ -33,3 +33,6 @@ desktop.ini
 *-PLAN.md
 *-REPORT.md
 PLAN.md
+
+# Wrangler's local state (login, logs). The config file wrangler.jsonc is committed.
+.wrangler/
