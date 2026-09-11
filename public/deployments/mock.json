@@ -1,0 +1,43 @@
+{
+  "id": "mock",
+  "label": "Mock (no chain)",
+  "driver": "mock",
+  "network": {
+    "chainId": 4663,
+    "chainName": "Robinhood Chain",
+    "nativeCurrency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "rpcUrls": [
+      "https://rpc.mainnet.chain.robinhood.com"
+    ],
+    "blockExplorerUrls": [
+      "https://robinhoodchain.blockscout.com"
+    ]
+  },
+  "contracts": {
+    "Avians": "0x4a1F7bE0c8D31596aA20e4B71cF03d8a5E9b2C41",
+    "TraitRegistry": "0x9c02Ee4b1A73dF085C6e91Bb4370aD52fE18c907",
+    "BirdRenderer": "0x27fB5aC1e04D9836bB1e0A45C7fD3928e6b04A15",
+    "TheNest": "0xb3E9017C4a52Fd8106e42B0dA71C935fE0847bC6",
+    "Treasury": "0x61aD3c0f9E27B45810cA7e3b0D25FC48a19e07B2",
+    "ThePerch": "0xE05b71cA4930fD8267e1B04a3C6f9812dE5A0374",
+    "AvianStock": "0x1d8Ae5F3b0C74921eA36Bd07fC5148e9036aB2E7",
+    "AviansHook": "0x3fA1e08C25B7d94610eF3a02Dc8B7159e4a0Cc88",
+    "LiquidityVault": "0x5B2e91Df0aC48317eE6a05Bd91cF7a4038e12b60"
+  },
+  "thirdParty": {
+    "PoolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "UniversalRouter": "0x8876789976dEcBfCbBbe364623C63652db8C0904",
+    "Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "V4Quoter": "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94"
+  },
+  "multicall3": null,
+  "startBlock": 0,
+  "allowlistProofs": null,
+  "generated": {
+    "from": "not a deployment — driver \"mock\" serves the fixtures in src/mock and never opens a socket. The addresses below are the ones the mock has always shown on the contracts screen; nothing reads them."
+  }
+}

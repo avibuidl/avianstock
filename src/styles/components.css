@@ -1,0 +1,244 @@
+/* The shared vocabulary: surfaces, controls, status. Screen-specific layout
+   lives in a .module.css beside its screen. */
+
+/* ── surfaces ─────────────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: var(--s5);
+}
+.panel--tight { padding: var(--s4); }
+.panel--accent { border-color: var(--accent); }
+.panel--bad { border-color: var(--crimson); }
+
+.inset {
+  background: var(--panel-inset);
+  border: 1px solid var(--line);
+  padding: var(--s4) var(--s4);
+}
+
+.band {
+  background: var(--panel-inset);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.rule { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+.page {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s6) var(--s5) var(--s8);
+}
+.page--wide { max-width: 1440px; }
+
+.row { display: flex; align-items: center; gap: var(--s3); }
+.row--top { align-items: flex-start; }
+.row--wrap { flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: var(--s4); }
+.spacer { flex: 1 1 auto; }
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+
+.btn {
+  /* Six of these are anchors rather than buttons. Without this they inherit
+     the underline from `a:hover` and grow a line under the label, which no
+     other control on the site does. */
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: var(--s3) var(--s5);
+  min-height: 48px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  cursor: pointer;
+  text-align: center;
+  transition: background var(--motion) linear, border-color var(--motion) linear, color var(--motion) linear;
+}
+.btn:hover { text-decoration: none; }
+.btn:hover:not(:disabled) { background: var(--teal-pale); border-color: var(--teal-pale); }
+
+.btn--ghost { background: transparent; border-color: var(--line-strong); color: var(--text-strong); }
+.btn--ghost:hover:not(:disabled) { background: transparent; border-color: var(--accent); color: var(--accent); }
+
+.btn--danger { background: transparent; border-color: var(--crimson); color: var(--refusal); }
+.btn--danger:hover:not(:disabled) { background: var(--wash-bad); border-color: var(--crimson-light); }
+
+.btn--small { padding: var(--s2) var(--s3); min-height: 40px; font-size: 13px; }
+.btn--wide { width: 100%; }
+
+/* A disabled control still has to be readable — it is telling you something. */
+.btn:disabled {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-dim);
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+/* A hit target is never under 44px on a phone. */
+@media (max-width: 720px) {
+  .btn { min-height: 48px; }
+  .btn--small { min-height: 44px; }
+}
+
+.field {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-inset);
+}
+.field:focus-within { border-color: var(--accent); }
+.field input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-strong);
+  padding: var(--s3) var(--s4);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  outline: none;
+}
+.field--bad { border-color: var(--crimson); }
+
+.select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  border: 1px solid var(--line-strong);
+  background: var(--panel-inset);
+  color: var(--text-strong);
+  padding: var(--s2) var(--s3);
+  min-height: 40px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.select--on { border-color: var(--accent); color: var(--accent); }
+/* For a row of short choices in a narrow box — the trade modal's slippage. */
+.select--tight { padding: var(--s1) var(--s3); min-height: 34px; font-size: 12.5px; }
+
+/* ── status ───────────────────────────────────────────────────────────── */
+
+/* Colour never carries meaning alone: every one of these has an icon and a
+   word beside it. */
+.tag {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.tag--ok { border-color: var(--moss); color: var(--confirm); }
+.tag--bad { border-color: var(--crimson); color: var(--refusal); }
+.tag--hot { border-color: var(--rust); color: var(--attention); }
+.tag--accent { border-color: var(--teal-mid); color: var(--accent); }
+
+.note {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.note > svg { flex: none; margin-top: 3px; }
+.note--ok { color: var(--confirm); }
+.note--warn { color: var(--attention); }
+.note--bad { color: var(--refusal); }
+.note--info { color: var(--text); }
+
+.box { border: 1px solid var(--line); padding: var(--s4); }
+.box--ok { border-color: var(--moss); background: var(--wash-ok); }
+.box--warn { border-color: var(--rust); background: var(--wash-warn); }
+.box--bad { border-color: var(--crimson); background: var(--wash-bad); }
+.box--accent { border-color: var(--teal-mid); background: var(--wash-accent); }
+
+.numbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1;
+  flex: none;
+}
+.numbox--big { width: 38px; height: 38px; font-size: 17px; }
+
+.kv { display: grid; grid-template-columns: minmax(96px, auto) 1fr; gap: var(--s1) var(--s3); font-size: 13px; margin: 0; }
+.kv dt { color: var(--text-dim); }
+.kv dd { margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-strong); overflow-wrap: anywhere; }
+
+.bar { height: 10px; background: var(--panel-inset); border: 1px solid var(--line); }
+.bar > i { display: block; height: 100%; background: var(--teal-mid); }
+
+/* ── art ──────────────────────────────────────────────────────────────── */
+
+.avian {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  display: block;
+  width: 100%;
+}
+.avian img { width: 100%; height: auto; }
+
+/* ── skeletons: pixel blocks on the 8px grid, not spinners ────────────── */
+
+.skel { background: var(--slate); animation: skel 1.2s ease-in-out infinite; }
+@keyframes skel { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
+
+/* ── tables ───────────────────────────────────────────────────────────── */
+
+.table { width: 100%; border-collapse: collapse; }
+.table td, .table th { border-bottom: 1px solid var(--line); padding: var(--s3) var(--s2); font-size: 15px; vertical-align: baseline; text-align: left; }
+.table th { font-weight: 600; color: var(--text-dim); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+.table td:last-child { text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-strong); font-size: 14px; }
+
+/*
+  A column of figures. `td:last-child` above right-aligns the LAST cell only,
+  which is right for a two-column table and wrong for every other one: a middle
+  column of numbers sat left under a right-aligned heading. Mark the pair and
+  they agree — the heading keeps its own small-caps styling, the cells get the
+  mono face every amount on this site is set in, and both sit right so the
+  digits line up against each other.
+*/
+.table th.right { text-align: right; }
+.table td.num {
+  text-align: right;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Anything wide scrolls inside its own box; the page body never does. */
+/*
+  An external-link icon belongs on the same line as the address it belongs to.
+
+  `base.css` resets `img, svg { display: block }`, which is right nearly
+  everywhere and wrong inside an inline anchor: a block child breaks the anchor
+  across two lines, and the icon lands under the address at the cell's left edge
+  while the address stays right-aligned. Making the anchor the row it is already
+  drawn as puts them back together.
+*/
+.table a.mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scroll-x { overflow-x: auto; }

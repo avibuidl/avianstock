@@ -1,0 +1,172 @@
+/* The admin panel.
+   A reference layout, like Docs: a sticky contents list beside a long column
+   of controls, because this page is read out of order. */
+
+.wrap {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--s8);
+  align-items: start;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--s6) var(--s5) var(--s8);
+}
+
+.toc { position: sticky; top: calc(var(--header-h) + var(--s4)); }
+.tocItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid var(--line);
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+}
+.tocItem:hover { color: var(--text-strong); }
+.tocItemOn { border-left-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+  .toc { position: static; display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .tocItem { width: auto; border-left: 0; border-bottom: 2px solid var(--line); }
+  .tocItemOn { border-bottom-color: var(--accent); }
+}
+
+/* Nothing on a phone is a hit target under 44px. The buttons already have that
+   from `.btn`; the contents list and the selects on this page did not, and
+   measured 39 and 40. Scoped here rather than changed site-wide. */
+@media (max-width: 720px) {
+  .tocItem { min-height: 44px; display: flex; align-items: center; }
+  .wrap :global(.select) { min-height: 44px; }
+}
+
+/* Wrapped rows do not need the hanging-hint reservation between LINES — the
+   row gap already separates them — but the last line still does, so it stays.
+   What changes is that a field on its own line is full width. */
+@media (max-width: 620px) {
+  .field { flex: 1 1 100%; }
+}
+
+/* One control: what it is now, what changes it, and what that means. */
+.control {
+  border: 1px solid var(--line);
+  padding: var(--s4);
+  margin-top: var(--s4);
+}
+.control + .control { margin-top: var(--s3); }
+.controlHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.controlTitle { font-size: 15px; font-weight: 600; color: var(--text-strong); margin: 0; }
+.now {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+/*
+  ONE ROW OF CONTROLS, ALL THE SAME HEIGHT, ALL ON THE SAME LINE.
+
+  Two things were wrong here and both came from the same place — the row aligns
+  its children's BOTTOMS, so anything that changes a child's height moves the
+  control inside it:
+
+    1. A hint under an input is part of the field's height, so a field with a
+       hint pushed its input 22px ABOVE the button beside it. Eleven rows on
+       this page did that. The hint is now out of flow, hanging under the
+       control, so a field is label + control whether it has one or not, and
+       every control in the row lands on the same line.
+
+    2. The bordered input box is 46px and `.btn--small` is 40, so even when the
+       bottoms agreed the shapes did not. Everything in a form row is 46px.
+
+  The reservation for the hanging hint is added only to rows that actually have
+  a hint, so a row of plain buttons keeps its tight spacing. Where `:has()` is
+  not supported the hint simply overlaps the row below by a few pixels, which
+  is the layout this page had before — degraded, not broken.
+*/
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: flex-end;
+  margin-top: var(--s3);
+}
+.form:has(.hint) > * { margin-bottom: 21px; }
+
+.field {
+  display: flex; flex-direction: column; gap: 5px;
+  flex: 1 1 220px; min-width: 0;
+  position: relative;
+}
+.fieldWide { flex: 1 1 100%; }
+
+/* Under the control, out of the field's height, so it cannot move it. */
+.hint {
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  margin-top: 5px;
+  line-height: 1.3;
+}
+
+.label {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* The one height every control on this screen agrees on. 46px is what the
+   bordered input box already measured, so the inputs do not move; the buttons
+   and the selects come up to meet them. The confirmation dialog is included:
+   it is the same screen, and a 47px input and a 40px button there was the same
+   inconsistency in a smaller box. */
+.form :global(.field),
+.dialog :global(.field) { min-height: 46px; }
+.form :global(.field) input,
+.dialog :global(.field) input { padding-top: 0; padding-bottom: 0; height: 44px; }
+.form :global(.btn),
+.form :global(.select),
+.dialog :global(.btn) { min-height: 46px; }
+
+.bad { color: var(--refusal); font-size: 12.5px; margin: 6px 0 0; }
+
+/* Calldata, shown before it is signed and never editable. */
+.calldata {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--panel-inset);
+  border: 1px solid var(--line);
+  padding: var(--s3);
+  margin-top: var(--s3);
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* The type-to-confirm dialog for the five that cannot be undone. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s4);
+  z-index: 60;
+}
+.dialog {
+  background: var(--panel);
+  border: 1px solid var(--crimson);
+  padding: var(--s5);
+  max-width: 520px;
+  width: 100%;
+}

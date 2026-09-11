@@ -1,0 +1,44 @@
+{
+  "id": "testnet-46630",
+  "label": "Robinhood Testnet",
+  "driver": "chain",
+  "network": {
+    "chainId": 46630,
+    "chainName": "Robinhood Testnet",
+    "nativeCurrency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "rpcUrls": [
+      "https://rpc.testnet.chain.robinhood.com"
+    ],
+    "blockExplorerUrls": [
+      "https://explorer.testnet.chain.robinhood.com"
+    ]
+  },
+  "contracts": {
+    "Avians": "0x7e3fb76dcb313505344581b213423226ebb64263",
+    "TraitRegistry": "0xef474b391c2a1b86dafb55992cc324c7d2b95ef4",
+    "BirdRenderer": "0x176467a448ee00918568ab969b12e76e96cf5634",
+    "TheNest": "0xa18e95fa3f5d91c80d8bab17615f73bcdafa92df",
+    "Treasury": "0xeea834d05ca0f6be5ed9cd8a2665ec776b7ec5fd",
+    "ThePerch": "0x54b612510ccf26d77df6d7b5b513aa0200d7469a",
+    "AvianStock": "0x028bde64f22271c80e3204201a3f4997392e57b7",
+    "AviansHook": "0x2da72199d057cfebc0b9901087d099b56e2120cc",
+    "LiquidityVault": "0xb2b56c1cdd19c577210d3f7d0615f41819b69e2e"
+  },
+  "thirdParty": {
+    "PoolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "UniversalRouter": "0x8876789976dEcBfCbBbe364623C63652db8C0904",
+    "Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "V4Quoter": "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94"
+  },
+  "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+  "startBlock": 116262794,
+  "allowlistProofs": null,
+  "generated": {
+    "at": "2026-09-09T14:38:44.670Z",
+    "from": "../contracts/broadcast/Deploy.s.sol/46630/run-latest.json + ../contracts/broadcast/DeployLaunch.s.sol/46630/run-latest.json"
+  }
+}

@@ -1,0 +1,291 @@
+/* Component styles that are shared across screens. */
+
+/* ── the header ───────────────────────────────────────────────────────── */
+
+.site {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  height: var(--header-h);
+  padding: 0 var(--s5);
+  border-bottom: 1px solid var(--line);
+  background: var(--ink);
+}
+/*
+  THE HEADER SHRINKS IN A DEFINITE ORDER, and nothing in it may push the page
+  sideways.
+
+  It used to. `flex: none` on the brand and `white-space: nowrap` on the wallet
+  chip meant neither could give, so at 375px the header was 425px wide and the
+  whole document scrolled horizontally — on every screen, not only this one.
+
+  So: the MARK never shrinks, because it is the way back to the home page and a
+  0px link is not a link. The WORDMARK gives first, truncating and then leaving
+  altogether below 440px. The CHIP gives last, truncating its own text, which
+  matters for "Waiting for your wallet…" at 320px — the longest thing that can
+  appear there. Each of those is a floor, and the breakpoints below mean the
+  first two are the only ones normally reached.
+*/
+.site__brand {
+  display: flex; align-items: center; gap: var(--s3);
+  /* Shrinkable, but no `min-width: 0` — that would let it go under its own
+     min-content and squash the mark, which is exactly what must not happen.
+     The wordmark carries the `min-width: 0` instead, so it is the part that
+     gives. */
+  flex: 0 1 auto; overflow: hidden;
+}
+/* `flex: none` alone is not enough: the global `img { max-width: 100% }` still
+   lets the mark be squeezed by a narrowed brand, and it was — 27px wide inside
+   a 32px box at 320px, a subtly stretched bird. Pin it. */
+.site__brand > img { flex: none; width: 32px; height: 32px; max-width: none; }
+.site__wordmark {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--text-strong);
+  flex: 0 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.site__nav { display: flex; gap: var(--s5); font-size: 14px; }
+.site__nav a { color: var(--text); padding-bottom: 3px; text-decoration: none; }
+.site__nav a:hover { text-decoration: none; }
+.site__nav a[aria-current='page'] { color: var(--text-strong); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* An action among the routes. Shaped like its neighbours so the row reads as
+   one thing, coloured like a control so it does not read as a page. */
+.site__navAction {
+  background: transparent;
+  border: 0;
+  padding: 0 0 3px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.site__navAction:hover { color: var(--teal-pale); }
+
+.site .site__burger { display: none; }
+
+/*
+  1280, not 1000, and not 1180 either.
+
+  The horizontal nav needs about 693px once the owner's link and the trade
+  action are both in it, and with the brand at 199px and a connected wallet chip
+  at 223px that is 1215px before any slack. Below the old 1000px breakpoint the
+  nav was still being drawn and did not fit — which used to push the whole page
+  sideways and, after the brand was made shrinkable, quietly clipped the
+  wordmark to "Fine Avians …" instead. Neither is what the burger is for.
+
+  Measured again after "Trade AVIANS" joined the row: clean at 1290, clipped at
+  1190. So the breakpoint moves with it. That does put laptops between 1180 and
+  1280 into the burger, which is the price of a ninth item — and the price of
+  keeping the label unambiguous, since a nav containing "The Perch" cannot also
+  say a bare "Trade" without inviting the wrong reading.
+*/
+@media (max-width: 1280px) {
+  .site { gap: var(--s4); padding: 0 var(--s4); }
+  .site__nav {
+    display: none;
+    position: absolute; top: var(--header-h); left: 0; right: 0;
+    flex-direction: column; gap: 0;
+    background: var(--ink); border-bottom: 1px solid var(--line);
+  }
+  .site__nav--open { display: flex; }
+  .site__nav a,
+  .site__nav .site__navAction {
+    padding: var(--s4) var(--s4);
+    border-top: 1px solid var(--line);
+    text-align: left;
+    width: 100%;
+  }
+  .site .site__burger { display: inline-flex; }
+}
+
+.wchip {
+  display: flex; align-items: center; gap: var(--s2);
+  border: 1px solid var(--line-strong);
+  padding: var(--s2) var(--s3);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12.5px; color: var(--text-strong);
+  min-height: 40px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  /* The last thing to give, and only when there is nothing else left. */
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.site .site__burger { flex: none; }
+.wchip--bad { border-color: var(--crimson); }
+.dot { width: 7px; height: 7px; background: var(--confirm); flex: none; }
+.dot--bad { background: var(--refusal); }
+.wchip__net { font-family: Inter, sans-serif; font-size: 11.5px; color: var(--text-dim); }
+
+/* Three things come off the header as it narrows, in the order they are worth
+   least. The network name goes first — the chip is already a network
+   indicator. Then the wordmark shrinks. Then, on the narrowest phones, the
+   wordmark goes and the 32px mark carries the brand on its own; the link keeps
+   its `aria-label`, so nothing is lost to a screen reader. */
+@media (max-width: 620px) {
+  .wchip__net { display: none; }
+  .site__wordmark { font-size: 17px; }
+}
+@media (max-width: 440px) {
+  .site { gap: var(--s3); padding: 0 var(--s3); }
+  .site__wordmark { display: none; }
+}
+
+/* ── the network bar ──────────────────────────────────────────────────── */
+
+.warnbar {
+  display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap;
+  padding: var(--s3) var(--s5);
+  border-bottom: 1px solid var(--crimson);
+  background: var(--wash-bad);
+  color: var(--text-strong);
+}
+
+/* ── swatches ─────────────────────────────────────────────────────────── */
+
+.swatch {
+  position: relative;
+  width: 56px; height: 56px;
+  padding: 0;
+  background: var(--panel-inset);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  flex: none;
+  transition: border-color var(--motion) linear;
+}
+.swatch img { width: 100%; height: 100%; }
+.swatch:hover { border-color: var(--line-strong); }
+.swatch--on { border-color: var(--accent); outline: 1px solid var(--accent); }
+.swatch--taken { opacity: 0.34; }
+.swatch__mark {
+  position: absolute; right: -1px; bottom: -1px;
+  background: var(--accent); color: var(--ink);
+  width: 15px; height: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.swatch__mark--bad { background: var(--crimson); color: var(--chalk); }
+
+.strip { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+@media (max-width: 720px) {
+  .swatch { width: 52px; height: 52px; }
+}
+
+/* ── the transaction drawer ───────────────────────────────────────────── */
+
+.drawer {
+  position: fixed;
+  right: var(--s5); bottom: var(--s5);
+  width: 420px; max-width: calc(100vw - var(--s5) * 2);
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: var(--s5);
+}
+/* One line per item of a batch result. The icon carries the state as well as
+   the colour, because a skipped row and a paid row must not differ by hue. */
+.txrows { list-style: none; margin: 14px 0 0; padding: 0; }
+.txrows li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.txrows li:first-child { border-top: 0; }
+.txrows svg { flex: none; }
+
+.drawer--ok { border-color: var(--moss); }
+.drawer--bad { border-color: var(--crimson); }
+/* Sent, receipt unseen: neither landed nor refused, and coloured as neither. */
+.drawer--waiting { border-color: var(--rust); }
+
+@media (max-width: 720px) {
+  .drawer { left: 0; right: 0; bottom: 0; width: auto; max-width: none; border-left: 0; border-right: 0; border-bottom: 0; }
+}
+
+.steps { display: flex; align-items: center; gap: var(--s2); }
+.steps__dot {
+  width: 8px; height: 8px; background: var(--slate); flex: none;
+}
+.steps__dot--on { background: var(--accent); }
+.steps__dot--done { background: var(--moss-light); }
+
+/* ── modal ────────────────────────────────────────────────────────────── */
+
+.scrim {
+  position: fixed; inset: 0; z-index: 70;
+  background: var(--scrim);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: var(--s8) var(--s4) var(--s5);
+  overflow-y: auto;
+}
+.modal {
+  width: 100%; max-width: 780px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: var(--s6);
+}
+.modal--bad { border-color: var(--crimson); }
+@media (max-width: 720px) { .modal { padding: var(--s5) var(--s4); } .scrim { padding: var(--s4); } }
+
+/* ── the dev panel ────────────────────────────────────────────────────── */
+
+.dev {
+  position: fixed;
+  right: 0; top: var(--header-h); bottom: 0;
+  width: 320px;
+  z-index: 80;
+  background: var(--panel);
+  border-left: 1px solid var(--accent);
+  display: flex; flex-direction: column;
+}
+.dev__head {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-inset);
+  flex: none;
+}
+.dev__body { overflow-y: auto; padding: var(--s4); flex: 1; }
+.dev__toggle {
+  position: fixed; right: 0; bottom: var(--s5); z-index: 79;
+  border: 1px solid var(--accent); border-right: 0;
+  background: var(--panel); color: var(--accent);
+  padding: var(--s3) var(--s3);
+  font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+}
+.dev__group { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); margin: var(--s4) 0 var(--s2); }
+.dev__preset {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 10px; font-size: 12px;
+  border: 1px solid var(--line); color: var(--text);
+  background: transparent; margin-bottom: 4px; cursor: pointer;
+}
+.dev__preset:hover { border-color: var(--line-strong); text-decoration: none; }
+.dev__preset--on { border-color: var(--accent); color: var(--accent); background: var(--wash-accent); }
+.dev__row { padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.dev__opts { display: flex; gap: 4px; flex-wrap: wrap; }
+.dev__opt {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  padding: 3px 6px; border: 1px solid var(--line); color: var(--text-dim);
+  background: transparent; cursor: pointer;
+}
+.dev__opt--on { border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 900px) {
+  .dev { width: 100%; top: auto; height: 70vh; border-left: 0; border-top: 1px solid var(--accent); }
+}
+
+/* ── footer ───────────────────────────────────────────────────────────── */
+
+.foot { border-top: 1px solid var(--line); padding: var(--s7) var(--s5) var(--s8); }
+.foot__inner { max-width: var(--measure); margin: 0 auto; display: flex; gap: var(--s4); align-items: flex-start; }
+@media (max-width: 720px) { .foot__inner { flex-direction: column; } }

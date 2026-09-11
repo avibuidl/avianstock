@@ -1,0 +1,259 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; background: #06050C; color: #C4C0D8;
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    a { color: #43C4BC; text-decoration: none; }
+    a:hover { color: #93E8DC; text-decoration: underline; }
+    img { display: block; }
+    .px { image-rendering: pixelated; }
+
+    /* ---- type ------------------------------------------------------ */
+    .display, h1, h2, h3, h4 {
+      font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+      color: #F2F0FA; margin: 0; font-weight: 700; letter-spacing: -0.02em;
+    }
+    h1 { font-size: 76px; line-height: 0.94; font-weight: 800; letter-spacing: -0.035em; }
+    h2 { font-size: 40px; line-height: 1.06; }
+    h3 { font-size: 24px; line-height: 1.2; }
+    h4 { font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+    .eyebrow {
+      font-family: Inter, sans-serif; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase; color: #7A7498;
+      margin: 0 0 12px;
+    }
+    .lede { font-size: 19px; line-height: 1.55; color: #C4C0D8; margin: 16px 0 0; }
+    p { margin: 12px 0 0; }
+    .small { font-size: 13px; line-height: 1.5; }
+    .tiny { font-size: 11.5px; line-height: 1.45; }
+    .dim { color: #7A7498; }
+    .chalk { color: #F2F0FA; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; letter-spacing: -0.01em; }
+    .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #F2F0FA; }
+
+    /* ---- surfaces --------------------------------------------------- */
+    .panel { background: #241E3A; border: 1px solid #363050; padding: 24px; }
+    .inset { background: #161125; border: 1px solid #363050; padding: 20px; }
+    .band  { background: #161125; border-top: 1px solid #363050; border-bottom: 1px solid #363050; }
+    .rule  { height: 1px; background: #363050; border: 0; margin: 0; }
+    .stack { display: flex; flex-direction: column; }
+    .row   { display: flex; align-items: center; }
+
+    /* ---- controls --------------------------------------------------- */
+    .btn {
+      font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      padding: 14px 24px; border: 1px solid #43C4BC; background: #43C4BC; color: #06050C;
+      display: inline-flex; align-items: center; gap: 10px; min-height: 48px; cursor: pointer;
+    }
+    .btn.ghost { background: transparent; border-color: #4E4870; color: #F2F0FA; }
+    .btn.small { padding: 9px 14px; min-height: 40px; font-size: 13px; }
+    .btn.wide  { width: 100%; justify-content: center; }
+    .btn.off   { background: transparent; border-color: #363050; color: #4E4870; cursor: not-allowed; }
+    .btn.focus { outline: 2px solid #43C4BC; outline-offset: 2px; }
+    .btn.danger{ background: transparent; border-color: #B32A4E; color: #DE5E77; }
+
+    /* ---- status ----------------------------------------------------- */
+    .note { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; }
+    .note svg { flex: none; margin-top: 2px; }
+    .note.ok   { color: #86B94E; }
+    .note.warn { color: #F5AC3E; }
+    .note.bad  { color: #DE5E77; }
+    .note.info { color: #C4C0D8; }
+    .box { border: 1px solid #363050; padding: 16px 18px; }
+    .box.ok   { border-color: #4E7A34; background: rgba(78,122,52,0.10); }
+    .box.warn { border-color: #C05A22; background: rgba(192,90,34,0.10); }
+    .box.bad  { border-color: #B32A4E; background: rgba(179,42,78,0.12); }
+    .tag {
+      font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 7px; border: 1px solid #4E4870; color: #C4C0D8;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .tag.ok  { border-color: #4E7A34; color: #86B94E; }
+    .tag.bad { border-color: #B32A4E; color: #DE5E77; }
+    .tag.hot { border-color: #C05A22; color: #F5AC3E; }
+    .numbox { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+      border:1px solid #43C4BC; color:#43C4BC; font-family:"JetBrains Mono", monospace; font-size:11px;
+      flex:none; line-height:1; }
+    .numbox.big { width:38px; height:38px; font-size:17px; }
+
+    /* ---- header ----------------------------------------------------- */
+    .site {
+      display: flex; align-items: center; gap: 32px; height: 72px; padding: 0 40px;
+      border-bottom: 1px solid #363050; background: #06050C;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .wordmark {
+      font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 20px;
+      letter-spacing: -0.02em; color: #F2F0FA;
+    }
+    .site nav { display: flex; gap: 26px; font-size: 14px; }
+    .site nav a { color: #C4C0D8; }
+    .site nav a.on { color: #F2F0FA; box-shadow: inset 0 -2px 0 #43C4BC; padding-bottom: 3px; }
+    .spacer { flex: 1 1 auto; }
+    .wchip {
+      display: flex; align-items: center; gap: 9px; border: 1px solid #4E4870;
+      padding: 9px 13px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: #F2F0FA;
+    }
+    .dot { width: 7px; height: 7px; background: #86B94E; flex: none; }
+    .dot.bad { background: #DE5E77; }
+
+    /* ---- art -------------------------------------------------------- */
+    .frame { border: 1px solid #363050; background: #241E3A; padding: 0; display: block; }
+    .sw {
+      width: 56px; height: 56px; background: #161125; border: 1px solid #363050;
+      display: block; position: relative; padding: 0;
+    }
+    .sw img { width: 100%; height: 100%; }
+    .sw.on { border-color: #43C4BC; outline: 1px solid #43C4BC; }
+    .sw.gone { opacity: 0.34; }
+    .strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .avian { border: 1px solid #363050; background: #241E3A; }
+    .avian img { width: 100%; height: auto; }
+
+    /* ---- layout ----------------------------------------------------- */
+    .page { padding: 40px; }
+    .grid { display: grid; gap: 24px; }
+    .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; font-size: 13px; }
+    .kv dt { color: #7A7498; font-family: Inter, sans-serif; }
+    .kv dd { margin: 0; font-family: "JetBrains Mono", monospace; color: #F2F0FA; }
+
+    .page { padding: 36px 40px 44px; }
+    .three { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 24px; align-items: start; margin-top: 32px; }
+    .tiles { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .tile { border: 1px solid #363050; background: #241E3A; padding: 6px; }
+    .tile.on { border-color: #43C4BC; outline: 1px solid #43C4BC; }
+    .tile img { width: 100%; height: auto; }
+    .poolgrid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .bar { height: 10px; background: #161125; border: 1px solid #363050; }
+    .bar > i { display: block; height: 100%; background: #1C8A94; }
+  
+  </style>
+</helmet>
+<header class="site">
+  <div class="brand"><img class="px" src="mark.svg" width="32" height="32" alt="Fine Avians Club"><span class="wordmark">Fine Avians Club</span></div>
+  <nav><a href="#">Compose</a><a href="#">The Flock</a><a href="#" class="on">The Perch</a><a href="#">My Birds</a><a href="#">The Nest</a><a href="#">Contracts</a><a href="#">Docs</a></nav>
+  <div class="spacer"></div>
+  <div class="wchip"><span class="dot"></span>0x8F3C…A19D<span class="dim" style="font-family:Inter;font-size:11.5px">Robinhood Chain</span></div>
+</header>
+<div class="page">
+  <p class="eyebrow">The perch</p>
+  <h2>It never closes.</h2>
+  <p class="lede" style="max-width:900px">It buys any bird for <span class="num">90,000 AVIANS</span>, sells the next one
+    out of its own holdings for <span class="num">110,000</span>, and a bird you name for <span class="num">115,000</span>.
+    Half of every fee is burned; half goes to the Treasury. The prices do not move with supply, demand or time.</p>
+
+  <div class="three">
+    <div class="panel">
+      <div class="row"><h3>Sell a bird</h3><span class="spacer"></span><span class="num" style="color:#86B94E">90,000</span></div>
+      <p class="small dim" style="margin-top:6px">You receive 90,000 AVIANS each, instantly. The 10% fee is on the
+        perch&rsquo;s side, not yours.</p>
+      <div class="tiles" style="margin-top:18px">
+        <span class="tile on"><img class="px" src="avian-02.svg" alt=""></span>
+        <span class="tile"><img class="px" src="avian-09.svg" alt=""></span>
+        <span class="tile on"><img class="px" src="avian-15.svg" alt=""></span>
+        <span class="tile"><img class="px" src="avian-21.svg" alt=""></span>
+        <span class="tile"><img class="px" src="avian-27.svg" alt=""></span>
+        <span class="tile"><img class="px" src="avian-30.svg" alt=""></span>
+      </div>
+      <div class="row" style="margin-top:18px;padding-top:14px;border-top:1px solid #363050">
+        <span class="small">2 selected</span><span class="spacer"></span>
+        <span class="num" style="font-size:17px">180,000 AVIANS</span></div>
+      <div class="note ok small" style="margin-top:12px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>
+        <span>The perch is already approved for your birds.</span></div>
+      <button class="btn wide" style="margin-top:16px">Sell 2 birds to the perch</button>
+      <p class="tiny dim" style="margin-top:12px">Selling one bird? We send it in directly instead — same price, one
+        transaction, no approval needed.</p>
+    </div>
+
+    <div class="panel">
+      <div class="row"><h3>Buy the next bird</h3><span class="spacer"></span><span class="num" style="color:#F5AC3E">110,000</span></div>
+      <p class="small dim" style="margin-top:6px">The next bird is the lowest id the perch is holding. Not random, not
+        the most recently sold.</p>
+      <div style="margin-top:18px"><span class="avian " style="width:240px;height:240px;display:block"><img class="px" src="avian-03.svg" width="240" height="240" alt=""></span></div>
+      <div class="row" style="margin-top:12px">
+        <span class="chalk" style="font-weight:600">Avian #214</span>
+        <span class="spacer"></span><span class="tag"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#C4C0D8" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg> IN THE PERCH</span></div>
+      <p class="tiny dim" style="margin-top:6px">Nocturne · Kingfisher · Scholar · Crossbill · Scarf · Ramshorn</p>
+      <div class="row" style="gap:10px;margin-top:18px">
+        <span class="small dim">How many</span><span class="spacer"></span>
+        <button class="btn ghost small" style="min-height:36px;padding:6px 10px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#F2F0FA" stroke-width="1.5" stroke-linecap="square"><path d="M3 8h10"/></svg></button>
+        <span class="num" style="font-size:17px;min-width:24px;text-align:center">1</span>
+        <button class="btn ghost small" style="min-height:36px;padding:6px 10px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#F2F0FA" stroke-width="1.5" stroke-linecap="square"><path d="M8 3v10M3 8h10"/></svg></button>
+      </div>
+      <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid #363050">
+        <span class="small">You pay</span><span class="spacer"></span>
+        <span class="num" style="font-size:17px">110,000 AVIANS</span></div>
+      <button class="btn wide" style="margin-top:16px">Buy Avian #214</button>
+      <p class="tiny dim" style="margin-top:12px">Ask for two and you get #214 and #219 — the two lowest, in order. You
+        see exactly which birds before you sign.</p>
+    </div>
+
+    <div class="panel">
+      <div class="row"><h3>Buy a bird you name</h3><span class="spacer"></span><span class="num" style="color:#F5AC3E">115,000</span></div>
+      <p class="small dim" style="margin-top:6px">The extra 5,000 AVIANS is what picking costs. All or nothing: one bird
+        gone from the pool and the whole purchase is refused.</p>
+      <div class="row" style="gap:10px;margin-top:16px">
+        <span class="tag">37 birds in the perch</span>
+        <span class="tag">LOWEST ID 214</span></div>
+      <div class="poolgrid" style="margin-top:14px">
+        <span class="tile" title="Avian #214">
+          <img class="px" src="avian-03.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#214</span></span><span class="tile" title="Avian #219">
+          <img class="px" src="avian-06.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#219</span></span><span class="tile" title="Avian #231">
+          <img class="px" src="avian-09.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#231</span></span><span class="tile" title="Avian #244">
+          <img class="px" src="avian-11.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#244</span></span><span class="tile" title="Avian #258">
+          <img class="px" src="avian-14.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#258</span></span><span class="tile on" title="Avian #263">
+          <img class="px" src="avian-16.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#263</span></span><span class="tile" title="Avian #277">
+          <img class="px" src="avian-18.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#277</span></span><span class="tile" title="Avian #281">
+          <img class="px" src="avian-20.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#281</span></span><span class="tile" title="Avian #296">
+          <img class="px" src="avian-24.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#296</span></span><span class="tile" title="Avian #303">
+          <img class="px" src="avian-26.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#303</span></span><span class="tile" title="Avian #317">
+          <img class="px" src="avian-29.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#317</span></span><span class="tile" title="Avian #322">
+          <img class="px" src="avian-33.svg" alt=""><span class="mono tiny dim" style="display:block;text-align:center;margin-top:4px">#322</span></span>
+      </div>
+      <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid #363050">
+        <span class="small">Avian #263</span><span class="spacer"></span>
+        <span class="num" style="font-size:17px">115,000 AVIANS</span></div>
+      <button class="btn wide" style="margin-top:16px">Buy Avian #263</button>
+      <div class="note warn small" style="margin-top:12px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#F5AC3E" stroke-width="1.5" stroke-linecap="square"><path d="M8 2.5L14.5 13.5H1.5z"/><path d="M8 6.5v3.2M8 11.6v.1"/></svg>
+        <span>Approve 115,000 AVIANS to the perch first — it doesn&rsquo;t check your allowance before it pulls.</span></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:24px;display:grid;grid-template-columns:1fr 420px;gap:48px;align-items:center">
+    <div>
+      <p class="eyebrow" style="margin:0">The perch can always pay</p>
+      <p class="small" style="margin-top:10px;max-width:760px">It must hold <span class="num">143,550,000
+        AVIANS</span> to buy back every bird that isn&rsquo;t already in it. It holds
+        <span class="num">149,112,400 AVIANS</span>. The second is never less than the first — that is a property of
+        the contract, proved in the test suite, not a promise from us.</p>
+      <div class="bar" style="margin-top:16px"><i style="width:96.3%"></i></div>
+      <div class="row" style="margin-top:8px">
+        <span class="tiny dim">REQUIRED 143,550,000</span><span class="spacer"></span>
+        <span class="tiny" style="color:#43C4BC">HELD 149,112,400</span></div>
+    </div>
+    <div class="inset">
+      <p class="eyebrow" style="margin:0">Every fee, split</p>
+      <div class="row" style="margin-top:12px"><span class="small">Burned</span><span class="spacer"></span>
+        <span class="num">50%</span></div>
+      <div class="row" style="margin-top:6px"><span class="small">To the Treasury</span><span class="spacer"></span>
+        <span class="num">50%</span></div>
+      <p class="tiny dim" style="margin-top:12px">Burned AVIANS leave the supply. Nobody can print them back.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

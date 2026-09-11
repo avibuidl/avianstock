@@ -1,0 +1,35 @@
+{
+  "name": "avian-stock-dapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The Avian Stock mint site. Every screen and every state, against a typed mock layer. No chain.",
+  "scripts": {
+    "art": "node scripts/build-art.mjs",
+    "assets": "node scripts/sync-assets.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "prepare:all": "npm run art && npm run assets",
+    "check:art": "node scripts/check-art.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "abis": "node scripts/build-abis.mjs",
+    "manifest": "node scripts/make-manifest.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "check": "npm run build && npm run test && npm run check:art && node scripts/check-hygiene.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "0.21.5",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "2.56.3"
+  }
+}

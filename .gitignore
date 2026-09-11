@@ -1,0 +1,34 @@
+node_modules/
+dist/
+
+# Copied or downloaded at prepare time — `npm run prepare:all && npm run fonts`
+public/fonts/*.woff2
+public/logo/
+public/pfp/
+
+# Design-canvas working output
+design/_preview/
+design/fine-avians-club-mint-site.html
+
+# esbuild output for `npm test`
+.test-build/
+
+# Secrets. The site reads no secret and never should; the rule is here so the
+# first .env somebody writes is not one `git add -A` away from public. Vite
+# also loads *.local files.
+.env
+.env.*
+!.env.example
+*.local
+.vite/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Working notes. Plans and reports are internal; README.md is the one document
+# that is published with the code.
+*-PLAN.md
+*-REPORT.md
+PLAN.md

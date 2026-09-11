@@ -1,0 +1,384 @@
+{
+ "counts": {
+  "background": 12,
+  "plumage": 12,
+  "eyes": 15,
+  "beak": 9,
+  "neckwear": 6,
+  "headwear": 16
+ },
+ "names": {
+  "background": [
+   "Nocturne",
+   "Duskline",
+   "Meridian",
+   "Tessera",
+   "Lattice",
+   "Quarry",
+   "Bunting",
+   "Chevron",
+   "Kiln",
+   "Downpour",
+   "Fanfare",
+   "Solstice"
+  ],
+  "plumage": [
+   "Ashling",
+   "Frostcap",
+   "Cardinal",
+   "Rosefinch",
+   "Kingfisher",
+   "Tidewater",
+   "Amethyst",
+   "Vesper",
+   "Mosswing",
+   "Lichen",
+   "Emberdown",
+   "Kestrel"
+  ],
+  "eyes": [
+   "Wideawake",
+   "Drowse",
+   "Sidelong",
+   "Doleful",
+   "Thunderbrow",
+   "Wink",
+   "Sunglasses",
+   "Bandit",
+   "Rosy Shades",
+   "Aviators",
+   "Mirrorshade",
+   "Anaglyph",
+   "Scholar",
+   "Monocle",
+   "Foxfire"
+  ],
+  "beak": [
+   "Seedcracker",
+   "Hooktip",
+   "Grosbeak",
+   "Needlepoint",
+   "Upsweep",
+   "Spoonbill",
+   "Notchbill",
+   "Songgape",
+   "Crossbill"
+  ],
+  "neckwear": [
+   "Bare Throat",
+   "Scarf",
+   "Cravat",
+   "Bandolier",
+   "Chain",
+   "Amulet"
+  ],
+  "headwear": [
+   "Bare",
+   "Wool Cap",
+   "Dockhand",
+   "Beanie",
+   "Corsair",
+   "Drover",
+   "Stovepipe",
+   "Crest",
+   "Knife",
+   "Spark",
+   "Warcrest",
+   "Ramshorn",
+   "Seedling",
+   "Sovereign",
+   "Wildfire",
+   "Aureole"
+  ]
+ },
+ "pfp": [
+  {
+   "background": "Bunting",
+   "plumage": "Emberdown",
+   "eyes": "Sunglasses",
+   "beak": "Spoonbill",
+   "neckwear": "Scarf",
+   "headwear": "Corsair"
+  },
+  {
+   "background": "Solstice",
+   "plumage": "Ashling",
+   "eyes": "Bandit",
+   "beak": "Needlepoint",
+   "neckwear": "Bandolier",
+   "headwear": "Beanie"
+  },
+  {
+   "background": "Nocturne",
+   "plumage": "Kingfisher",
+   "eyes": "Scholar",
+   "beak": "Crossbill",
+   "neckwear": "Scarf",
+   "headwear": "Ramshorn"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Emberdown",
+   "eyes": "Wink",
+   "beak": "Songgape",
+   "neckwear": "Scarf",
+   "headwear": "Spark"
+  },
+  {
+   "background": "Fanfare",
+   "plumage": "Ashling",
+   "eyes": "Anaglyph",
+   "beak": "Hooktip",
+   "neckwear": "Amulet",
+   "headwear": "Knife"
+  },
+  {
+   "background": "Bunting",
+   "plumage": "Kingfisher",
+   "eyes": "Drowse",
+   "beak": "Hooktip",
+   "neckwear": "Cravat",
+   "headwear": "Knife"
+  },
+  {
+   "background": "Meridian",
+   "plumage": "Frostcap",
+   "eyes": "Thunderbrow",
+   "beak": "Needlepoint",
+   "neckwear": "Bare Throat",
+   "headwear": "Wool Cap"
+  },
+  {
+   "background": "Fanfare",
+   "plumage": "Lichen",
+   "eyes": "Scholar",
+   "beak": "Spoonbill",
+   "neckwear": "Bandolier",
+   "headwear": "Knife"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Emberdown",
+   "eyes": "Wink",
+   "beak": "Grosbeak",
+   "neckwear": "Cravat",
+   "headwear": "Warcrest"
+  },
+  {
+   "background": "Lattice",
+   "plumage": "Cardinal",
+   "eyes": "Scholar",
+   "beak": "Seedcracker",
+   "neckwear": "Chain",
+   "headwear": "Corsair"
+  },
+  {
+   "background": "Duskline",
+   "plumage": "Frostcap",
+   "eyes": "Sunglasses",
+   "beak": "Crossbill",
+   "neckwear": "Amulet",
+   "headwear": "Knife"
+  },
+  {
+   "background": "Meridian",
+   "plumage": "Mosswing",
+   "eyes": "Mirrorshade",
+   "beak": "Needlepoint",
+   "neckwear": "Cravat",
+   "headwear": "Aureole"
+  },
+  {
+   "background": "Meridian",
+   "plumage": "Amethyst",
+   "eyes": "Foxfire",
+   "beak": "Crossbill",
+   "neckwear": "Scarf",
+   "headwear": "Bare"
+  },
+  {
+   "background": "Bunting",
+   "plumage": "Vesper",
+   "eyes": "Rosy Shades",
+   "beak": "Hooktip",
+   "neckwear": "Cravat",
+   "headwear": "Spark"
+  },
+  {
+   "background": "Chevron",
+   "plumage": "Emberdown",
+   "eyes": "Monocle",
+   "beak": "Notchbill",
+   "neckwear": "Amulet",
+   "headwear": "Beanie"
+  },
+  {
+   "background": "Downpour",
+   "plumage": "Frostcap",
+   "eyes": "Aviators",
+   "beak": "Seedcracker",
+   "neckwear": "Chain",
+   "headwear": "Spark"
+  },
+  {
+   "background": "Duskline",
+   "plumage": "Emberdown",
+   "eyes": "Anaglyph",
+   "beak": "Grosbeak",
+   "neckwear": "Chain",
+   "headwear": "Seedling"
+  },
+  {
+   "background": "Meridian",
+   "plumage": "Ashling",
+   "eyes": "Sunglasses",
+   "beak": "Notchbill",
+   "neckwear": "Bare Throat",
+   "headwear": "Beanie"
+  },
+  {
+   "background": "Fanfare",
+   "plumage": "Kestrel",
+   "eyes": "Wideawake",
+   "beak": "Upsweep",
+   "neckwear": "Bandolier",
+   "headwear": "Crest"
+  },
+  {
+   "background": "Kiln",
+   "plumage": "Kingfisher",
+   "eyes": "Monocle",
+   "beak": "Songgape",
+   "neckwear": "Scarf",
+   "headwear": "Spark"
+  },
+  {
+   "background": "Meridian",
+   "plumage": "Lichen",
+   "eyes": "Drowse",
+   "beak": "Spoonbill",
+   "neckwear": "Bare Throat",
+   "headwear": "Stovepipe"
+  },
+  {
+   "background": "Lattice",
+   "plumage": "Lichen",
+   "eyes": "Wideawake",
+   "beak": "Grosbeak",
+   "neckwear": "Cravat",
+   "headwear": "Dockhand"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Emberdown",
+   "eyes": "Mirrorshade",
+   "beak": "Seedcracker",
+   "neckwear": "Amulet",
+   "headwear": "Bare"
+  },
+  {
+   "background": "Solstice",
+   "plumage": "Mosswing",
+   "eyes": "Scholar",
+   "beak": "Crossbill",
+   "neckwear": "Scarf",
+   "headwear": "Crest"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Mosswing",
+   "eyes": "Doleful",
+   "beak": "Notchbill",
+   "neckwear": "Amulet",
+   "headwear": "Spark"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Tidewater",
+   "eyes": "Aviators",
+   "beak": "Upsweep",
+   "neckwear": "Bandolier",
+   "headwear": "Crest"
+  },
+  {
+   "background": "Quarry",
+   "plumage": "Rosefinch",
+   "eyes": "Mirrorshade",
+   "beak": "Crossbill",
+   "neckwear": "Amulet",
+   "headwear": "Crest"
+  },
+  {
+   "background": "Lattice",
+   "plumage": "Rosefinch",
+   "eyes": "Thunderbrow",
+   "beak": "Grosbeak",
+   "neckwear": "Amulet",
+   "headwear": "Warcrest"
+  },
+  {
+   "background": "Bunting",
+   "plumage": "Tidewater",
+   "eyes": "Anaglyph",
+   "beak": "Songgape",
+   "neckwear": "Scarf",
+   "headwear": "Warcrest"
+  },
+  {
+   "background": "Kiln",
+   "plumage": "Cardinal",
+   "eyes": "Aviators",
+   "beak": "Seedcracker",
+   "neckwear": "Chain",
+   "headwear": "Drover"
+  },
+  {
+   "background": "Quarry",
+   "plumage": "Amethyst",
+   "eyes": "Monocle",
+   "beak": "Crossbill",
+   "neckwear": "Amulet",
+   "headwear": "Aureole"
+  },
+  {
+   "background": "Tessera",
+   "plumage": "Tidewater",
+   "eyes": "Sidelong",
+   "beak": "Songgape",
+   "neckwear": "Amulet",
+   "headwear": "Wildfire"
+  },
+  {
+   "background": "Lattice",
+   "plumage": "Kingfisher",
+   "eyes": "Rosy Shades",
+   "beak": "Grosbeak",
+   "neckwear": "Chain",
+   "headwear": "Drover"
+  },
+  {
+   "background": "Downpour",
+   "plumage": "Lichen",
+   "eyes": "Sidelong",
+   "beak": "Upsweep",
+   "neckwear": "Bandolier",
+   "headwear": "Seedling"
+  },
+  {
+   "background": "Nocturne",
+   "plumage": "Lichen",
+   "eyes": "Mirrorshade",
+   "beak": "Crossbill",
+   "neckwear": "Bandolier",
+   "headwear": "Drover"
+  },
+  {
+   "background": "Downpour",
+   "plumage": "Mosswing",
+   "eyes": "Wink",
+   "beak": "Spoonbill",
+   "neckwear": "Cravat",
+   "headwear": "Wool Cap"
+  }
+ ]
+}

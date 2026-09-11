@@ -1,0 +1,15 @@
+{
+  "default": "mock",
+  "deployments": [
+    {
+      "id": "mock",
+      "label": "Mock (no chain)",
+      "file": "./mock.json"
+    },
+    {
+      "id": "testnet-46630",
+      "label": "Robinhood Testnet",
+      "file": "./testnet-46630.json"
+    }
+  ]
+}

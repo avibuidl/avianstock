@@ -1,0 +1,112 @@
+/* The trade modal. Compact: figures, the controls that change them, and the
+   reasons a trade is refused. The explanations live in the Docs. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s4);
+  z-index: 60;
+  overflow-y: auto;
+}
+
+.dialog {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  padding: var(--s4);
+  max-width: 380px;
+  width: 100%;
+  margin: auto;
+}
+.dialog:focus { outline: none; }
+
+/* Buy / sell. Two halves of one control, not two buttons that happen to sit
+   together — the pair reads as a choice because it is one. */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line-strong);
+  margin-top: var(--s4);
+}
+.tab {
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--s2);
+  min-height: 40px;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line-strong); }
+.tabOn { background: var(--panel-inset); color: var(--accent); }
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-top: var(--s3); }
+.fieldHead { display: flex; align-items: baseline; gap: var(--s2); }
+.label {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.field :global(.field) { min-height: 48px; align-items: stretch; }
+.field :global(.field) input { font-size: 17px; padding: 0 var(--s3); }
+
+/*
+  MAX, inside the box rather than under it.
+
+  The bordered `.field` is already a flex row with the input at `flex: 1`, so
+  the button takes the right edge without any positioning — and the balance it
+  fills in sits directly above it, so the two read as one control. A divider
+  rather than a border-box, because a button-inside-a-button reads as two.
+*/
+.maxBtn {
+  flex: none;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--line);
+  color: var(--accent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 var(--s3);
+  cursor: pointer;
+}
+.maxBtn:hover:not(:disabled) { color: var(--teal-pale); }
+.maxBtn:disabled { color: var(--text-dim); cursor: not-allowed; }
+
+.bad { color: var(--refusal); font-size: 12px; line-height: 1.4; margin: 8px 0 0; }
+.state {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text-dim); font-size: 12.5px; margin: var(--s3) 0 0;
+}
+
+/* The decaying opening fee — the one figure that survived the tidy-up. */
+.window {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  color: var(--attention);
+  font-size: 12.5px;
+  margin: var(--s3) 0 0;
+}
+
+.slippage { margin-top: var(--s3); }
+
+.result {
+  border: 1px solid var(--line);
+  background: var(--panel-inset);
+  padding: var(--s3);
+  margin-top: var(--s3);
+}
+.line { display: flex; align-items: baseline; gap: var(--s2); }
+.line + .line { margin-top: 4px; }
+
+.steps { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s3); }
+
+@media (max-width: 620px) {
+  .scrim { padding: 0; align-items: stretch; }
+  .dialog { max-width: none; border: 0; border-top: 1px solid var(--line-strong); margin: auto 0 0; }
+}

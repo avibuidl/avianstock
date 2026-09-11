@@ -1,0 +1,84 @@
+/* Nightjar — art/palettes/nightjar.json. Nothing on this site uses a colour
+   that is not in here. 48 slots; the ones the interface needs are named. */
+
+:root {
+  /* neutrals */
+  --ink: #06050C;
+  --ink-warm: #161125;
+  --nocturne: #241E3A;
+  --slate: #363050;
+  --steel: #4E4870;
+  --ash: #7A7498;
+  --bone: #C4C0D8;
+  --chalk: #F2F0FA;
+
+  /* keratin */
+  --ember-deep: #5A2412;
+  --ember: #8E3A18;
+  --rust: #C05A22;
+  --orange: #E5822C;
+  --amber: #F5AC3E;
+  --straw: #FBD98A;
+
+  /* crimson */
+  --crimson-deep: #3E0C1E;
+  --crimson-dark: #7A1633;
+  --crimson: #B32A4E;
+  --crimson-light: #DE5E77;
+
+  /* teal — the one interactive colour */
+  --teal-deep: #06232C;
+  --teal-dark: #0F4C58;
+  --teal-mid: #1C8A94;
+  --teal: #43C4BC;
+  --teal-pale: #93E8DC;
+
+  /* the rest of the jewels, rationed */
+  --violet: #6440A8;
+  --violet-light: #9B78DC;
+  --moss-dark: #2C4A22;
+  --moss: #4E7A34;
+  --moss-light: #86B94E;
+  --azure: #4C9CE8;
+  --rose: #B0339A;
+  --gold: #F0C64C;
+  --signal: #35E4BE;
+
+  /* roles */
+  --bg: var(--ink);
+  --panel: var(--nocturne);
+  --panel-inset: var(--ink-warm);
+  --line: var(--slate);
+  --line-strong: var(--steel);
+  /* Ash reads at 3.62:1 on a nocturne panel, which is not enough for 11.5px
+     text — and enumerating which grounds are lighter is the kind of rule that
+     silently breaks the next time somebody adds a panel. So the whole ramp
+     moves up one step: chalk for body, bone for secondary. Both clear AA on
+     every ground this site uses. Ash stays in the palette, for rules and
+     dividers rather than for words. */
+  --text: var(--chalk);
+  --text-strong: var(--chalk);
+  --text-dim: var(--bone);
+  --accent: var(--teal);
+  --attention: var(--amber);
+  --refusal: var(--crimson-light);
+  --confirm: var(--moss-light);
+
+  /* translucent washes, all derived from the palette hues */
+  --wash-ok: rgba(78, 122, 52, 0.10);
+  --wash-warn: rgba(192, 90, 34, 0.10);
+  --wash-bad: rgba(179, 42, 78, 0.12);
+  --wash-accent: rgba(67, 196, 188, 0.09);
+  --scrim: rgba(6, 5, 12, 0.72);
+
+  /* an 8px scale, and nothing off it */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 40px; --s8: 64px;
+
+  --measure: 1200px;
+  --header-h: 72px;
+
+  /* Nothing is rounded, nothing bounces. */
+  --radius: 0;
+  --motion: 120ms;
+}

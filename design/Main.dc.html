@@ -1,0 +1,411 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; background: #06050C; color: #C4C0D8;
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    a { color: #43C4BC; text-decoration: none; }
+    a:hover { color: #93E8DC; text-decoration: underline; }
+    img { display: block; }
+    .px { image-rendering: pixelated; }
+
+    /* ---- type ------------------------------------------------------ */
+    .display, h1, h2, h3, h4 {
+      font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+      color: #F2F0FA; margin: 0; font-weight: 700; letter-spacing: -0.02em;
+    }
+    h1 { font-size: 76px; line-height: 0.94; font-weight: 800; letter-spacing: -0.035em; }
+    h2 { font-size: 40px; line-height: 1.06; }
+    h3 { font-size: 24px; line-height: 1.2; }
+    h4 { font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+    .eyebrow {
+      font-family: Inter, sans-serif; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase; color: #7A7498;
+      margin: 0 0 12px;
+    }
+    .lede { font-size: 19px; line-height: 1.55; color: #C4C0D8; margin: 16px 0 0; }
+    p { margin: 12px 0 0; }
+    .small { font-size: 13px; line-height: 1.5; }
+    .tiny { font-size: 11.5px; line-height: 1.45; }
+    .dim { color: #7A7498; }
+    .chalk { color: #F2F0FA; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; letter-spacing: -0.01em; }
+    .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #F2F0FA; }
+
+    /* ---- surfaces --------------------------------------------------- */
+    .panel { background: #241E3A; border: 1px solid #363050; padding: 24px; }
+    .inset { background: #161125; border: 1px solid #363050; padding: 20px; }
+    .band  { background: #161125; border-top: 1px solid #363050; border-bottom: 1px solid #363050; }
+    .rule  { height: 1px; background: #363050; border: 0; margin: 0; }
+    .stack { display: flex; flex-direction: column; }
+    .row   { display: flex; align-items: center; }
+
+    /* ---- controls --------------------------------------------------- */
+    .btn {
+      font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      padding: 14px 24px; border: 1px solid #43C4BC; background: #43C4BC; color: #06050C;
+      display: inline-flex; align-items: center; gap: 10px; min-height: 48px; cursor: pointer;
+    }
+    .btn.ghost { background: transparent; border-color: #4E4870; color: #F2F0FA; }
+    .btn.small { padding: 9px 14px; min-height: 40px; font-size: 13px; }
+    .btn.wide  { width: 100%; justify-content: center; }
+    .btn.off   { background: transparent; border-color: #363050; color: #4E4870; cursor: not-allowed; }
+    .btn.focus { outline: 2px solid #43C4BC; outline-offset: 2px; }
+    .btn.danger{ background: transparent; border-color: #B32A4E; color: #DE5E77; }
+
+    /* ---- status ----------------------------------------------------- */
+    .note { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; }
+    .note svg { flex: none; margin-top: 2px; }
+    .note.ok   { color: #86B94E; }
+    .note.warn { color: #F5AC3E; }
+    .note.bad  { color: #DE5E77; }
+    .note.info { color: #C4C0D8; }
+    .box { border: 1px solid #363050; padding: 16px 18px; }
+    .box.ok   { border-color: #4E7A34; background: rgba(78,122,52,0.10); }
+    .box.warn { border-color: #C05A22; background: rgba(192,90,34,0.10); }
+    .box.bad  { border-color: #B32A4E; background: rgba(179,42,78,0.12); }
+    .tag {
+      font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 7px; border: 1px solid #4E4870; color: #C4C0D8;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .tag.ok  { border-color: #4E7A34; color: #86B94E; }
+    .tag.bad { border-color: #B32A4E; color: #DE5E77; }
+    .tag.hot { border-color: #C05A22; color: #F5AC3E; }
+    .numbox { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+      border:1px solid #43C4BC; color:#43C4BC; font-family:"JetBrains Mono", monospace; font-size:11px;
+      flex:none; line-height:1; }
+    .numbox.big { width:38px; height:38px; font-size:17px; }
+
+    /* ---- header ----------------------------------------------------- */
+    .site {
+      display: flex; align-items: center; gap: 32px; height: 72px; padding: 0 40px;
+      border-bottom: 1px solid #363050; background: #06050C;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .wordmark {
+      font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 20px;
+      letter-spacing: -0.02em; color: #F2F0FA;
+    }
+    .site nav { display: flex; gap: 26px; font-size: 14px; }
+    .site nav a { color: #C4C0D8; }
+    .site nav a.on { color: #F2F0FA; box-shadow: inset 0 -2px 0 #43C4BC; padding-bottom: 3px; }
+    .spacer { flex: 1 1 auto; }
+    .wchip {
+      display: flex; align-items: center; gap: 9px; border: 1px solid #4E4870;
+      padding: 9px 13px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: #F2F0FA;
+    }
+    .dot { width: 7px; height: 7px; background: #86B94E; flex: none; }
+    .dot.bad { background: #DE5E77; }
+
+    /* ---- art -------------------------------------------------------- */
+    .frame { border: 1px solid #363050; background: #241E3A; padding: 0; display: block; }
+    .sw {
+      width: 56px; height: 56px; background: #161125; border: 1px solid #363050;
+      display: block; position: relative; padding: 0;
+    }
+    .sw img { width: 100%; height: 100%; }
+    .sw.on { border-color: #43C4BC; outline: 1px solid #43C4BC; }
+    .sw.gone { opacity: 0.34; }
+    .strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .avian { border: 1px solid #363050; background: #241E3A; }
+    .avian img { width: 100%; height: auto; }
+
+    /* ---- layout ----------------------------------------------------- */
+    .page { padding: 40px; }
+    .grid { display: grid; gap: 24px; }
+    .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; font-size: 13px; }
+    .kv dt { color: #7A7498; font-family: Inter, sans-serif; }
+    .kv dd { margin: 0; font-family: "JetBrains Mono", monospace; color: #F2F0FA; }
+
+    .hero { display: grid; grid-template-columns: minmax(0,1fr) 480px; gap: 64px; padding: 76px 64px 68px; align-items: start; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #363050; margin-top: 44px; }
+    .stats > div { padding: 18px 20px; border-right: 1px solid #363050; }
+    .stats > div:last-child { border-right: 0; }
+    .sec { padding: 72px 64px; }
+    .four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #363050; border: 1px solid #363050; }
+    .four > div { background: #06050C; padding: 28px 26px 32px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .step { border-top: 2px solid #43C4BC; padding-top: 18px; }
+    .receipts { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #363050; border: 1px solid #363050; margin-top: 32px; }
+    .receipts > div { background: #06050C; padding: 22px 24px; }
+    table.nums { width: 100%; border-collapse: collapse; margin-top: 28px; }
+    table.nums td { border-bottom: 1px solid #363050; padding: 13px 8px; font-size: 15px; vertical-align: baseline; }
+    table.nums td:last-child { text-align: right; font-family: "JetBrains Mono", monospace; color: #F2F0FA; font-size: 14px; }
+    .faq { border-top: 1px solid #363050; padding: 26px 0; display: grid; grid-template-columns: 380px 1fr; gap: 48px; }
+    .flockband { display: flex; gap: 8px; justify-content: center; }
+  
+  </style>
+</helmet>
+<header class="site">
+  <div class="brand"><img class="px" src="mark.svg" width="32" height="32" alt="Fine Avians Club"><span class="wordmark">Fine Avians Club</span></div>
+  <nav><a href="#" class="on">Compose</a><a href="#">The Flock</a><a href="#">The Perch</a><a href="#">The Nest</a><a href="#">Contracts</a><a href="#">Docs</a></nav>
+  <div class="spacer"></div>
+  <button class="btn small"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#06050C" stroke-width="1.5" stroke-linecap="square"><rect x="2" y="4" width="12" height="9"/><path d="M2 6.5h12M11 9.5h1.5"/></svg> Connect wallet</button>
+</header>
+
+<section class="hero">
+  <div>
+    <p class="eyebrow">5,555 composed pixel birds · Robinhood Chain</p>
+    <h1>Pick your own<br>damn bird.</h1>
+    <p class="lede" style="max-width:600px">5,555 pixel birds you compose yourself — six choices, no reveal, and a chain
+      that refuses to let anyone mint your combination twice. Stored on-chain, all 12,872 bytes of it.</p>
+    <div class="row" style="gap:24px;margin-top:36px">
+      <button class="btn">Compose your Avian <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#06050C" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg></button>
+      <span class="small"><a href="#">See the flock</a> <span class="dim">·</span> <a href="#">Read how the perch works</a></span>
+    </div>
+    <div class="stats">
+      <div><div class="num" style="font-size:24px">1,632 <span class="dim" style="font-size:15px">/ 5,555</span></div><div class="tiny dim" style="margin-top:4px">COMPOSED SO FAR</div></div>
+      <div><div class="num" style="font-size:24px">796</div><div class="tiny dim" style="margin-top:4px">FREE BIRDS LEFT ON THE LIST</div></div>
+      <div><div class="num" style="font-size:24px">100,000 <span class="dim" style="font-size:15px">AVIANS</span></div><div class="tiny dim" style="margin-top:4px">TO COMPOSE ONE</div></div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:20px">
+    <div class="row" style="gap:8px;margin-bottom:14px">
+      <span class="tag ok"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg> AVAILABLE</span>
+      <span class="spacer"></span><span class="tiny dim">LIVE PREVIEW · NOT MINTED</span>
+    </div>
+    <span class="avian " style="width:440px;height:440px;display:block"><img class="px" src="bird-hero.svg" width="440" height="440" alt=""></span>
+    <div style="margin-top:18px">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">6</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Headwear</span>
+        <span class="spacer"></span><span class="mono" style="color:#43C4BC">Crest</span>
+      </div>
+      <div class="strip">
+        <span class="sw "><img class="px" src="sw-hw-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-06.svg" alt=""></span><span class="sw on"><img class="px" src="sw-hw-07.svg" alt=""></span>
+        <span class="sw" style="outline:2px solid #43C4BC;outline-offset:2px"><img class="px" src="sw-hw-08.svg" alt=""></span>
+        <span class="sw "><img class="px" src="sw-hw-09.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-10.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-11.svg" alt=""></span>
+      </div>
+      <p class="tiny dim" style="margin-top:12px">Six choices. Change any one of them and the bird changes with it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band sec">
+  <h2 style="max-width:780px">You&rsquo;ve had this evening before.</h2>
+  <p class="lede" style="max-width:760px">You mint. You wait. A machine hands you a bird wearing a hat you would never
+    have picked, and you say &ldquo;gm&rdquo; and set it as your avatar anyway. Later you find out the art was a link on
+    somebody&rsquo;s server, the proceeds are in a wallet you can&rsquo;t see, and the &ldquo;rewards&rdquo; are a token the
+    team makes for free.</p>
+  <p class="lede" style="max-width:760px;color:#F2F0FA">You don&rsquo;t have to do that again.</p>
+</section>
+
+<section class="sec">
+  <h2>Four things that are true here<br>and rare everywhere else.</h2>
+  <div class="four" style="margin-top:40px">
+    <div>
+      <div class="numbox big">1</div>
+      <h4 style="margin-top:14px">You choose all six.</h4>
+      <p class="small">Background, plumage, eyes, beak, neckwear, headwear. Seventy traits over one locked owlish base.
+        No roll, no reveal, no waiting for an image to load.</p>
+    </div>
+    <div>
+      <div class="numbox big">2</div>
+      <h4 style="margin-top:14px">Nobody can ever have yours.</h4>
+      <p class="small">Your combination goes into the chain&rsquo;s own register. 1,866,240 birds are possible. 5,555 will
+        be minted. A repeat is refused on-chain, permanently.</p>
+    </div>
+    <div>
+      <div class="numbox big">3</div>
+      <h4 style="margin-top:14px">Nothing is rare because we said so.</h4>
+      <p class="small">There are no caps on any trait. Whatever turns out rare is rare because few people chose it — and
+        we find out at the same time you do.</p>
+    </div>
+    <div>
+      <div class="numbox big">4</div>
+      <h4 style="margin-top:14px">There&rsquo;s always a buyer.</h4>
+      <p class="small">The perch buys any bird back for 90,000 AVIANS, and its ability to pay is a proven property of the
+        contract, not a promise from us.</p>
+      <p class="tiny dim" style="font-style:italic">That&rsquo;s a quantity of tokens, not a dollar amount — AVIANS trades
+        at whatever the market says.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band sec">
+  <h2 style="max-width:940px">You&rsquo;ve already made a personality out of a bird you didn&rsquo;t choose.
+    You shouldn&rsquo;t have to do it again.</h2>
+  <p class="lede" style="max-width:820px">Fine Avians Club was built by someone who kept asking why the person paying for the
+    bird doesn&rsquo;t get to pick the bird. Everything below exists to answer that question and then get out of your way.</p>
+  <p class="eyebrow" style="margin-top:44px">The receipts</p>
+  <div class="receipts">
+    <div><div class="note ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg><span><strong class="chalk">All on-chain.</strong>
+      <span class="small">The whole collection is 12,872 bytes on one contract. There is no link to break, because there is no link.</span></span></div></div>
+    <div><div class="note ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg><span><strong class="chalk">Your money never touches us.</strong>
+      <span class="small">A paid mint&rsquo;s 100,000 AVIANS goes to the buy-back perch in the same transaction. We can&rsquo;t hold it and we can&rsquo;t redirect it.</span></span></div></div>
+    <div><div class="note ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg><span><strong class="chalk">Nobody can print AVIANS.</strong>
+      <span class="small">1,000,000,000, minted once. No mint function, no pause, no blacklist, no tax, no upgrade — and no owner at all.</span></span></div></div>
+    <div><div class="note warn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#F5AC3E" stroke-width="1.5" stroke-linecap="square"><path d="M8 2.5L14.5 13.5H1.5z"/><path d="M8 6.5v3.2M8 11.6v.1"/></svg><span><strong class="chalk">Tested, not audited.</strong>
+      <span class="small">Hundreds of tests, invariants proven able to fail, adversarial review after every build phase, fork tests against the live chain — and no paid third-party audit. We&rsquo;d rather say that than let you assume otherwise.</span></span></div></div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>Three steps. That&rsquo;s the whole thing.</h2>
+  <div class="steps" style="margin-top:40px">
+    <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">1</span> GET AVIANS</div>
+      <p class="small">On the pool, once the opening window has run.</p></div>
+    <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">2</span> COMPOSE YOUR BIRD</div>
+      <p class="small">One pick in each of six categories. Combinations already taken are greyed out, so you can&rsquo;t
+        waste a transaction on a bird that exists.</p></div>
+    <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">3</span> MINT IT</div>
+      <p class="small">It&rsquo;s yours, it has its own wallet, and the perch will buy it back for 90,000 AVIANS whenever
+        you want.</p></div>
+  </div>
+  <div style="margin-top:40px"><button class="btn">Compose your Avian <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#06050C" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg></button></div>
+
+  <div class="panel" style="margin-top:56px;padding:32px">
+    <h3>Want it to brood?</h3>
+    <div class="steps" style="margin-top:24px">
+      <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">1</span> STAKE AT A TIER</div>
+        <p class="small">5,000, 15,000 or 25,000 AVIANS, burned, for one, two or three shares of weight.</p></div>
+      <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">2</span> WAIT FOR THE FLYWHEEL TO TURN</div>
+        <p class="small">Pool fees and royalties reach the Treasury, and anyone at all can trigger the conversion.</p></div>
+      <div class="step"><div class="eyebrow" style="color:#43C4BC;display:flex;align-items:center;gap:8px"><span class="numbox">3</span> CLAIM YOUR SHARE</div>
+        <p class="small">NVDA, SPY, SPCX and AAPL, split by weight.</p></div>
+    </div>
+    <div class="box" style="margin-top:26px">
+      <p class="eyebrow" style="margin:0 0 8px">Disclosure</p>
+      <p class="small" style="margin:0;font-style:italic">These are tokenized stock products issued and controlled by
+        Robinhood — not stocks, shares, dividends or equity. Fine Avians Club has no relationship with Robinhood, NVIDIA,
+        SpaceX, Apple or S&amp;P. The stream can be zero: it depends on income arriving, on pools other people provide,
+        and on an issuer we don&rsquo;t control. Your bird comes home either way.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band sec">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px">
+    <div>
+      <h2>Why &ldquo;you choose&rdquo;<br>was the hard part</h2>
+      <p class="lede">Letting people pick is easy. Guaranteeing nobody picks the same thing is not. The moment a mint is
+        chosen rather than rolled, the chain has to keep a register — and refuse, in the same transaction, any
+        combination that already exists. That refusal is the whole product. It&rsquo;s why there&rsquo;s no reveal, no
+        waiting and no chance you and a stranger end up with the same bird in different wallets.</p>
+    </div>
+    <div style="padding-top:12px">
+      <p class="lede">Everything else follows from it. Seventy traits over one locked base. One light, from the upper
+        left, on every bird ever made. A palette called Nightjar, forty-eight colours deep, drawn for birds that are
+        awake when the markets are shut. And a perch that will always take a bird back, so that changing your mind costs
+        you a transaction rather than a search for a buyer.</p>
+      <p style="margin-top:28px"><a href="#" class="small">Read how the perch works <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#43C4BC" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg></a></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>The numbers, all of them</h2>
+  <table class="nums">
+    <tr><td>Birds that will ever exist</td><td>5,555</td></tr>
+    <tr><td>Free birds, one per allowlisted wallet</td><td>2,000</td></tr>
+    <tr><td>Paid birds</td><td>3,555 + any free birds released unclaimed</td></tr>
+    <tr><td>Price of a bird</td><td>100,000 AVIANS — never ETH</td></tr>
+    <tr><td>Can the price change?</td><td>Raised, yes. Never below 100,000 AVIANS</td></tr>
+    <tr><td>The perch buys any bird for</td><td>90,000 AVIANS, instantly, always</td></tr>
+    <tr><td>The perch sells the next bird for</td><td>110,000 AVIANS — or 115,000 for a specific one</td></tr>
+    <tr><td>Perch fees</td><td>50% burned, 50% to the Treasury</td></tr>
+    <tr><td>Brooding tiers (burned)</td><td>5,000 / 15,000 / 25,000 AVIANS for 1x / 2x / 3x weight</td></tr>
+    <tr><td>Reward tokens</td><td>NVDA, SPY, SPCX, AAPL, equal parts</td></tr>
+    <tr><td>AVIANS supply</td><td>1,000,000,000, minted once, no owner</td></tr>
+    <tr><td>In the launch pool</td><td>800,000,000 AVIANS, single-sided</td></tr>
+    <tr><td>Opening window</td><td>5 minutes; buy fee 25% → ~1%; max 50,000,000 AVIANS per transaction</td></tr>
+    <tr><td>Pool fee afterwards</td><td>1% of the ETH side, both directions, forever</td></tr>
+    <tr><td>Liquidity lock</td><td>365 days minimum, extendable, never shortenable</td></tr>
+    <tr><td>Royalty</td><td>5%, to the Treasury</td></tr>
+    <tr><td>Art</td><td>32 × 32, 48 colours, 70 traits, 6 categories, 100% on-chain</td></tr>
+    <tr><td>Possible combinations</td><td>1,866,240</td></tr>
+  </table>
+  <p class="eyebrow" style="margin-top:40px">Where the money goes, in one line each</p>
+  <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:1px;background:#363050;border:1px solid #363050">
+    <div style="background:#06050C;padding:20px"><p class="small" style="margin:0">A paid mint&rsquo;s 100,000 AVIANS → the perch, same transaction, never us.</p></div>
+    <div style="background:#06050C;padding:20px"><p class="small" style="margin:0">Pool fees and royalties → the Treasury → converted to stock tokens for the nest, with the admin capped at 5% of what comes in.</p></div>
+    <div style="background:#06050C;padding:20px"><p class="small" style="margin:0">Brooding tiers → burned, gone from the supply entirely.</p></div>
+  </div>
+</section>
+
+<section class="band sec">
+  <h2>The honest answers</h2>
+  <div style="margin-top:36px">
+    <div class="faq"><h4>Is 90,000 AVIANS a floor price?</h4>
+      <p class="small" style="margin:0">It&rsquo;s a standing offer in <em>tokens</em>, not in dollars or ETH. The perch
+        will always buy your bird for 90,000 AVIANS — that part is a proven property of the contract. What those 90,000
+        AVIANS are worth is whatever the market says, and it can be anything. We will never tell you what a bird will be
+        worth, because we don&rsquo;t know and neither does anyone else.</p></div>
+    <div class="faq"><h4>Are the rewards stocks?</h4>
+      <p class="small" style="margin:0">No. NVDA, SPY, SPCX and AAPL here are <strong class="chalk">tokenized stock
+        products issued and controlled by Robinhood</strong>. They are not stocks, shares, dividends or equity, and
+        holding them isn&rsquo;t ownership in any company. Robinhood can pause them or freeze an address, including ours.
+        We have no relationship with Robinhood, NVIDIA, SpaceX, Apple or S&amp;P — we&rsquo;re a third party building on
+        a public chain.</p></div>
+    <div class="faq"><h4>Has this been audited?</h4>
+      <p class="small" style="margin:0">No paid third-party audit. What it has: hundreds of tests, stateful invariants
+        proven able to fail, adversarial AI review after each build phase with the findings fixed, and a fork suite run
+        against the live chain. That&rsquo;s a real bar and it isn&rsquo;t the same as an audit, so we say
+        &ldquo;tested.&rdquo;</p></div>
+    <div class="faq"><h4>Can the team rug?</h4>
+      <p class="small" style="margin:0">Here is the honest map. Nobody can print AVIANS, pause it, blacklist an address
+        or upgrade it — the token has no owner. Nobody can move the perch&rsquo;s AVIANS or its birds, change
+        90,000/110,000/115,000, lower the mint price, redirect mint proceeds, touch your stake or your accrued rewards,
+        shorten the liquidity lock, or change the opening window and its 1%. Ownership can&rsquo;t even be renounced, so
+        a lost key would stop new configuration but never stop trading, minting, redeeming or unstaking.<br><br>
+        What the owner <em>can</em> do: open and close mints, raise the price, set allowlists, set the royalty — and
+        operate the transfer validator, which includes whitelisting marketplaces, raising the security level, and
+        freezing an individual wallet. That last power is the honest answer to &ldquo;can you stop me selling&rdquo;: yes,
+        and a frozen wallet couldn&rsquo;t sell to the perch either. The shipped configuration keeps freezing off and the
+        level at &ldquo;whitelisted operators, holders always free,&rdquo; and we&rsquo;d rather tell you the power exists
+        than let you find out.</p></div>
+    <div class="faq"><h4>The free mint — what&rsquo;s the catch?</h4>
+      <p class="small" style="margin:0">There isn&rsquo;t one, and it also isn&rsquo;t free money. A free bird is a real
+        Avian: composed the same way, in the same register, with its own wallet, and it can be sold to the perch for the
+        same 90,000 AVIANS as any bird that was paid for. It&rsquo;s 2,000 birds, one per allowlisted wallet. If the door
+        has been open 24 hours and some are unclaimed, the rest can be released to the paid mint.</p></div>
+  </div>
+  <p style="margin-top:28px"><a href="#" class="small">Seven more answers <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#43C4BC" stroke-width="1.5" stroke-linecap="square"><path d="M4 6l4 4 4-4"/></svg></a></p>
+</section>
+
+<section class="sec" style="text-align:center;padding-bottom:80px">
+  <div class="flockband" style="margin-bottom:44px">
+    <span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-07.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-12.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-19.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-23.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-28.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-31.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-34.svg" width="72" height="72" alt=""></span><span class="avian " style="width:72px;height:72px;display:block"><img class="px" src="avian-05.svg" width="72" height="72" alt=""></span>
+  </div>
+  <h2 style="max-width:1000px;margin:0 auto">1,866,240 birds are possible. 5,555 will exist.<br>One of them is a
+    decision you haven&rsquo;t made yet.</h2>
+  <div style="margin-top:36px"><button class="btn">Compose your Avian <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#06050C" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg></button></div>
+  <p class="small" style="margin-top:20px"><a href="#">See the flock</a> <span class="dim">·</span>
+    <a href="#">Read how the perch works</a></p>
+</section>
+
+<footer style="border-top:1px solid #363050;padding:44px 64px 56px">
+  <div class="row" style="gap:16px;align-items:flex-start">
+    <img class="px" src="mark.svg" width="32" height="32" alt="">
+    <div style="max-width:900px">
+      <p style="margin:0"><strong class="chalk">Fine Avians Club</strong> <span class="small">— 5,555 composed pixel birds on
+        Robinhood Chain. Art stored on-chain. AVIANS: 1,000,000,000, minted once, no owner.</span></p>
+      <p class="small" style="margin-top:14px"><a href="#">Compose</a> · <a href="#">The flock</a> ·
+        <a href="#">The Perch</a> · <a href="#">The Nest</a> · <a href="#">Contracts</a> · <a href="#">X</a></p>
+      <p class="tiny dim" style="margin-top:22px;font-style:italic">Fine Avians Club is an independent project with no
+        relationship to Robinhood, NVIDIA, SpaceX, Apple or S&amp;P. NVDA, SPY, SPCX and AAPL are tokenized stock
+        products issued and controlled by their issuer, not by us; they can be paused or frozen by that issuer at any
+        time. Reward streams depend on Treasury income and may be zero. AVIANS is a token with a market price that can go
+        to anything; nothing here is a promise of value, return or income, and nothing here is financial advice. The
+        contracts are tested — hundreds of tests, invariants, adversarial review and fork tests — and have not had a paid
+        third-party audit.</p>
+    </div>
+  </div>
+</footer>
+</x-dc>
+</body>
+</html>

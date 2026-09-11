@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; background: #06050C; color: #C4C0D8;
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    a { color: #43C4BC; text-decoration: none; }
+    a:hover { color: #93E8DC; text-decoration: underline; }
+    img { display: block; }
+    .px { image-rendering: pixelated; }
+
+    /* ---- type ------------------------------------------------------ */
+    .display, h1, h2, h3, h4 {
+      font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+      color: #F2F0FA; margin: 0; font-weight: 700; letter-spacing: -0.02em;
+    }
+    h1 { font-size: 76px; line-height: 0.94; font-weight: 800; letter-spacing: -0.035em; }
+    h2 { font-size: 40px; line-height: 1.06; }
+    h3 { font-size: 24px; line-height: 1.2; }
+    h4 { font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+    .eyebrow {
+      font-family: Inter, sans-serif; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase; color: #7A7498;
+      margin: 0 0 12px;
+    }
+    .lede { font-size: 19px; line-height: 1.55; color: #C4C0D8; margin: 16px 0 0; }
+    p { margin: 12px 0 0; }
+    .small { font-size: 13px; line-height: 1.5; }
+    .tiny { font-size: 11.5px; line-height: 1.45; }
+    .dim { color: #7A7498; }
+    .chalk { color: #F2F0FA; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; letter-spacing: -0.01em; }
+    .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #F2F0FA; }
+
+    /* ---- surfaces --------------------------------------------------- */
+    .panel { background: #241E3A; border: 1px solid #363050; padding: 24px; }
+    .inset { background: #161125; border: 1px solid #363050; padding: 20px; }
+    .band  { background: #161125; border-top: 1px solid #363050; border-bottom: 1px solid #363050; }
+    .rule  { height: 1px; background: #363050; border: 0; margin: 0; }
+    .stack { display: flex; flex-direction: column; }
+    .row   { display: flex; align-items: center; }
+
+    /* ---- controls --------------------------------------------------- */
+    .btn {
+      font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      padding: 14px 24px; border: 1px solid #43C4BC; background: #43C4BC; color: #06050C;
+      display: inline-flex; align-items: center; gap: 10px; min-height: 48px; cursor: pointer;
+    }
+    .btn.ghost { background: transparent; border-color: #4E4870; color: #F2F0FA; }
+    .btn.small { padding: 9px 14px; min-height: 40px; font-size: 13px; }
+    .btn.wide  { width: 100%; justify-content: center; }
+    .btn.off   { background: transparent; border-color: #363050; color: #4E4870; cursor: not-allowed; }
+    .btn.focus { outline: 2px solid #43C4BC; outline-offset: 2px; }
+    .btn.danger{ background: transparent; border-color: #B32A4E; color: #DE5E77; }
+
+    /* ---- status ----------------------------------------------------- */
+    .note { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; }
+    .note svg { flex: none; margin-top: 2px; }
+    .note.ok   { color: #86B94E; }
+    .note.warn { color: #F5AC3E; }
+    .note.bad  { color: #DE5E77; }
+    .note.info { color: #C4C0D8; }
+    .box { border: 1px solid #363050; padding: 16px 18px; }
+    .box.ok   { border-color: #4E7A34; background: rgba(78,122,52,0.10); }
+    .box.warn { border-color: #C05A22; background: rgba(192,90,34,0.10); }
+    .box.bad  { border-color: #B32A4E; background: rgba(179,42,78,0.12); }
+    .tag {
+      font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 7px; border: 1px solid #4E4870; color: #C4C0D8;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .tag.ok  { border-color: #4E7A34; color: #86B94E; }
+    .tag.bad { border-color: #B32A4E; color: #DE5E77; }
+    .tag.hot { border-color: #C05A22; color: #F5AC3E; }
+    .numbox { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+      border:1px solid #43C4BC; color:#43C4BC; font-family:"JetBrains Mono", monospace; font-size:11px;
+      flex:none; line-height:1; }
+    .numbox.big { width:38px; height:38px; font-size:17px; }
+
+    /* ---- header ----------------------------------------------------- */
+    .site {
+      display: flex; align-items: center; gap: 32px; height: 72px; padding: 0 40px;
+      border-bottom: 1px solid #363050; background: #06050C;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .wordmark {
+      font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 20px;
+      letter-spacing: -0.02em; color: #F2F0FA;
+    }
+    .site nav { display: flex; gap: 26px; font-size: 14px; }
+    .site nav a { color: #C4C0D8; }
+    .site nav a.on { color: #F2F0FA; box-shadow: inset 0 -2px 0 #43C4BC; padding-bottom: 3px; }
+    .spacer { flex: 1 1 auto; }
+    .wchip {
+      display: flex; align-items: center; gap: 9px; border: 1px solid #4E4870;
+      padding: 9px 13px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: #F2F0FA;
+    }
+    .dot { width: 7px; height: 7px; background: #86B94E; flex: none; }
+    .dot.bad { background: #DE5E77; }
+
+    /* ---- art -------------------------------------------------------- */
+    .frame { border: 1px solid #363050; background: #241E3A; padding: 0; display: block; }
+    .sw {
+      width: 56px; height: 56px; background: #161125; border: 1px solid #363050;
+      display: block; position: relative; padding: 0;
+    }
+    .sw img { width: 100%; height: 100%; }
+    .sw.on { border-color: #43C4BC; outline: 1px solid #43C4BC; }
+    .sw.gone { opacity: 0.34; }
+    .strip { display: flex; flex-wrap: wrap; gap: 8px; }
+    .avian { border: 1px solid #363050; background: #241E3A; }
+    .avian img { width: 100%; height: auto; }
+
+    /* ---- layout ----------------------------------------------------- */
+    .page { padding: 40px; }
+    .grid { display: grid; gap: 24px; }
+    .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; font-size: 13px; }
+    .kv dt { color: #7A7498; font-family: Inter, sans-serif; }
+    .kv dd { margin: 0; font-family: "JetBrains Mono", monospace; color: #F2F0FA; }
+
+    /* A real phone viewport. The page's own scroll area is clipped at the
+       fold, the way it is on the device — the frame itself clips nothing. */
+    body { width: 390px; height: 844px; position: relative; overflow: hidden; }
+    .mhead { display:flex; align-items:center; gap:10px; height:56px; padding:0 16px; border-bottom:1px solid #363050; }
+    .mbody { padding: 14px 16px 20px; height: 648px; overflow: hidden;
+      -webkit-mask-image: linear-gradient(#06050C 88%, transparent 100%);
+      mask-image: linear-gradient(#06050C 88%, transparent 100%); }
+    .mbar { position: absolute; left:0; right:0; bottom:0; background:#161125;
+      border-top:1px solid #363050; padding:12px 16px; }
+    .picker { padding: 16px 0; border-top: 1px solid #363050; }
+  
+  </style>
+</helmet>
+<div class="mhead">
+  <img class="px" src="mark.svg" width="28" height="28" alt="">
+  <span class="wordmark" style="font-size:16px">Fine Avians Club</span>
+  <span class="spacer"></span>
+  <span class="wchip" style="padding:7px 10px;font-size:11.5px"><span class="dot"></span>0x8F3C…A19D</span>
+</div>
+<div class="doorbar" style="padding:10px 16px;gap:10px">
+  <span class="tag ok" style="font-size:9.5px"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg> OPEN</span>
+  <span class="tiny"><span class="num" style="font-size:12px">3,127</span> paid birds left</span>
+</div>
+
+<div class="mbody">
+  <div class="panel" style="padding:12px">
+    <span class="avian " style="width:334px;height:334px;display:block"><img class="px" src="bird-compose.svg" width="334" height="334" alt=""></span>
+    <div class="note ok small" style="margin-top:12px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#86B94E" stroke-width="1.5" stroke-linecap="square"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>
+      <span>Nobody has this bird. Yours if you want it.</span></div>
+  </div>
+
+  <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+    <span class="tag">Duskline</span><span class="tag">Kingfisher</span><span class="tag">Foxfire</span>
+    <span class="tag">Hooktip</span><span class="tag">Bandolier</span><span class="tag">Corsair</span>
+  </div>
+
+  <div style="margin-top:18px">
+    <div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">1</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Background</span>
+        <span class="dim tiny">12 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Duskline</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-bg-00.svg" alt=""></span><span class="sw on"><img class="px" src="sw-bg-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-02.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-03.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-06.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-07.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-08.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-09.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-10.svg" alt=""></span><span class="sw "><img class="px" src="sw-bg-11.svg" alt=""></span></div>
+    </div>
+<div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">2</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Plumage</span>
+        <span class="dim tiny">12 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Kingfisher</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-pl-00.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-02.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-03.svg" alt=""></span><span class="sw on"><img class="px" src="sw-pl-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-06.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-07.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-08.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-09.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-10.svg" alt=""></span><span class="sw "><img class="px" src="sw-pl-11.svg" alt=""></span></div>
+    </div>
+<div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">3</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Eyes</span>
+        <span class="dim tiny">15 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Foxfire</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-ey-00.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-02.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-03.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-06.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-07.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-08.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-09.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-10.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-11.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-12.svg" alt=""></span><span class="sw "><img class="px" src="sw-ey-13.svg" alt=""></span><span class="sw on"><img class="px" src="sw-ey-14.svg" alt=""></span></div>
+    </div>
+<div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">4</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Beak</span>
+        <span class="dim tiny">9 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Hooktip</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-bk-00.svg" alt=""></span><span class="sw on"><img class="px" src="sw-bk-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-02.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-03.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-06.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-07.svg" alt=""></span><span class="sw "><img class="px" src="sw-bk-08.svg" alt=""></span></div>
+    </div>
+<div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">5</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Neckwear</span>
+        <span class="dim tiny">6 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Bandolier</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-nk-00.svg" alt=""></span><span class="sw "><img class="px" src="sw-nk-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-nk-02.svg" alt=""></span><span class="sw on"><img class="px" src="sw-nk-03.svg" alt=""></span><span class="sw "><img class="px" src="sw-nk-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-nk-05.svg" alt=""></span></div>
+    </div>
+<div class="picker">
+      <div class="row" style="gap:10px;margin-bottom:10px">
+        <span class="numbox">6</span>
+        <span style="font-size:14px;font-weight:600;color:#F2F0FA">Headwear</span>
+        <span class="dim tiny">16 to choose from</span>
+        <span class="spacer"></span>
+        <span class="mono" style="color:#43C4BC">Corsair</span>
+      </div>
+      <div class="strip"><span class="sw "><img class="px" src="sw-hw-00.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-01.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-02.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-03.svg" alt=""></span><span class="sw on"><img class="px" src="sw-hw-04.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-05.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-06.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-07.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-08.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-09.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-10.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-11.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-12.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-13.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-14.svg" alt=""></span><span class="sw "><img class="px" src="sw-hw-15.svg" alt=""></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="mbar">
+  <div class="row" style="margin-bottom:10px">
+    <span class="tiny dim">100,000 AVIANS · to the perch, not to us</span>
+    <span class="spacer"></span><span class="tiny dim">You hold <span class="num" style="font-size:11.5px">412,500</span></span>
+  </div>
+  <button class="btn wide">Mint this Avian — 100,000 AVIANS</button>
+</div>
+</x-dc>
+</body>
+</html>

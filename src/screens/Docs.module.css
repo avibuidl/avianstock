@@ -1,0 +1,72 @@
+.wrap {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--s8);
+  align-items: start;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--s6) var(--s5) var(--s8);
+}
+
+/* The contents list follows you down the page — a reference page is read out
+   of order, not top to bottom. */
+.toc { position: sticky; top: calc(var(--header-h) + var(--s4)); }
+.tocItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid var(--line);
+  color: var(--text-dim);
+  padding: var(--s2) var(--s3);
+  font-size: 13px;
+  cursor: pointer;
+}
+.tocItem:hover { color: var(--text); border-left-color: var(--line-strong); }
+.tocItem[aria-current='true'] { color: var(--accent); border-left-color: var(--accent); }
+
+.sec { padding: var(--s7) 0; border-top: 1px solid var(--line); scroll-margin-top: 96px; }
+.sec:first-of-type { border-top: 0; padding-top: 0; }
+
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s7); }
+
+.money {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: var(--s4);
+}
+.money > div { background: var(--ink); padding: var(--s4); }
+
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.rules > div { background: var(--ink); padding: var(--s4) var(--s5) var(--s5); }
+
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.facts > div { background: var(--ink); padding: var(--s4); }
+
+.steps { display: grid; gap: var(--s2); counter-reset: step; }
+.step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+.step:first-child { border-top: 0; }
+
+@media (max-width: 1080px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: var(--s5); padding: var(--s5) var(--s4) var(--s7); }
+  .toc { position: static; display: flex; flex-wrap: wrap; gap: var(--s1); }
+  .tocItem { width: auto; border-left: 0; border: 1px solid var(--line); }
+  .two { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .money { grid-template-columns: minmax(0, 1fr); }
+  .rules { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+}
