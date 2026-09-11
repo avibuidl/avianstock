@@ -112,7 +112,7 @@ let proofsLoaded = false;
  * MANUAL list has no proof and passes an empty array — the contract checks the
  * manual list first — so a missing entry is not an error.
  */
-async function proofFor(who: Address): Promise<Hex[]> {
+export async function proofFor(who: Address): Promise<Hex[]> {
   if (!proofsLoaded) {
     proofsLoaded = true;
     const path = manifest().allowlistProofs;
@@ -150,7 +150,7 @@ const NAME_BY_SELECTOR: Record<string, ErrorName> = (() => {
   return out;
 })();
 
-function selectorToName(selector: string): ErrorName | null {
+export function selectorToName(selector: string): ErrorName | null {
   if (!selector || /^0x0{8}$/.test(selector)) return null;
   return NAME_BY_SELECTOR[selector.toLowerCase()] ?? 'Unknown';
 }

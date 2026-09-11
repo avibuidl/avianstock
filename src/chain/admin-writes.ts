@@ -17,10 +17,10 @@
 // functions authorises anything. `onlyOwner` on the contract refuses a wallet
 // that is not the owner, and it refuses it whether or not this file exists.
 
-import type { Abi } from 'viem';
+import { parseEventLogs, type Abi } from 'viem';
 import { run } from './writes';
 import { contracts } from './manifest';
-import { aviansAbi } from './abis.generated';
+import { aviansAbi, liquidityVaultAbi } from './abis.generated';
 import {
   theNestAdminAbi,
   avianStockAdminAbi,
@@ -355,10 +355,22 @@ export async function setFloorPrice(
 // ── the vault ─────────────────────────────────────────────────────────────
 
 export async function collectFees(to: Address, on?: OnPhase) {
-  const { simulated, hash } = await run<readonly [bigint, bigint]>({
+  const { simulated, hash, logs } = await run<readonly [bigint, bigint]>({
     where: 'collecting the position’s fees', ...vault(), functionName: 'collectFees', args: [to],
   }, { on });
-  return { amount0: simulated[0], amount1: simulated[1], hash };
+  // What was PAID, from the receipt's own `FeesCollected`, not what the
+  // simulation predicted a block earlier — the pool moved in between, and the
+  // vault measures the amounts as balance deltas at the destination. The
+  // simulation is the fallback if the log is somehow not there.
+  const paid = (parseEventLogs({
+    abi: liquidityVaultAbi as unknown as Abi, logs: logs as never,
+    eventName: 'FeesCollected' as never,
+  }) as unknown as { args: { amount0?: bigint; amount1?: bigint } }[])[0]?.args;
+  return {
+    amount0: paid?.amount0 ?? simulated[0],
+    amount1: paid?.amount1 ?? simulated[1],
+    hash,
+  };
 }
 
 /** The unlock date only ever moves later. There is no way back. */

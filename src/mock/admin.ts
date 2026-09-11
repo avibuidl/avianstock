@@ -11,13 +11,14 @@
 
 import type {
   AdminContract, AdminPairRow, AdminRewardToken, AdminRoute, AdminState, AdminTargetRow,
-  Address, Amount, ForeignToken, Hex, OnPhase, TokenId, TreasuryRow, ValidatorOperation,
+  Address, AllowlistCheck, Amount, ForeignToken, Hex, OnPhase, TokenId, TreasuryRow,
+  ValidatorOperation,
 } from './types';
 import { ContractError } from './errors';
 import { scenario } from './scenario';
 import {
   ADDRESSES, FREE_ALLOCATION, LOCK_SECONDS, MIN_PRICE, PRICE, REWARD_TARGET_BPS,
-  REWARD_TOKENS, YOU, overlay,
+  REWARD_TOKENS, YOU, overlay, world,
 } from './fixtures';
 import { read } from './reads';
 import { requireChain, sleep } from './wallet';
@@ -196,6 +197,11 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
         isLocked: a !== 'lock-expired',
         positionLiquidity: 8_419_002_311_004_772_119n,
         lockSeconds: LOCK_SECONDS,
+        // Real in the sense that matters: collecting sets them to zero, so
+        // the control's "nothing accrued yet" state is reachable.
+        pendingFees: overlay.feesCollected
+          ? { eth: 0n, avians: 0n }
+          : { eth: 41_900_231_100_477_211n, avians: e18(11_402) },
       },
     };
   });
@@ -348,7 +354,31 @@ export const setFloorPrice = (_c: Address | null, _t: Address, _p: Amount, on?: 
   send(on, () => ({}));
 
 export const collectFees = (_to: Address, on?: OnPhase) =>
-  send(on, () => ({ amount0: 41_900_231_100_477_211n, amount1: e18(11_402) }));
+  send(on, () => {
+    overlay.feesCollected = true;
+    return { amount0: 41_900_231_100_477_211n, amount1: e18(11_402) };
+  });
+
+/**
+ * The mock's list is the fixture's: the owner's own address by the manual
+ * door, anything ending in an even hex digit by the root, the rest not listed.
+ * An address ending in 'c' has claimed. Enough to walk every sentence.
+ */
+export async function checkAllowlist(address: Address): Promise<AllowlistCheck> {
+  await sleep(300);
+  const last = address.toLowerCase().slice(-1);
+  const isOwner = address.toLowerCase() === YOU.toLowerCase();
+  const verdict: AllowlistCheck['verdict'] = last === 'c' ? 'claimed'
+    : isOwner ? 'manual'
+      : /[02468ace]/.test(last) ? 'merkle'
+        : 'not-listed';
+  const w = world();
+  const freeMintStatus = !w.collection.freeMintOpen ? 'FreeMintClosed'
+    : verdict === 'claimed' ? 'FreeMintAlreadyClaimed'
+      : verdict === 'not-listed' ? 'NotAllowlisted'
+        : null;
+  return { address, proofLength: verdict === 'merkle' ? 3 : 0, verdict, freeMintStatus };
+}
 
 export async function extendLock(newUnlockAt: number, on?: OnPhase) {
   const now = Math.floor(Date.now() / 1000);

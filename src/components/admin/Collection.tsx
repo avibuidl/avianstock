@@ -15,11 +15,12 @@ import {
 } from './Bits';
 import { avians, formatBps, formatCount, parseAvians } from '../../lib/format';
 import {
-  configureTransferValidator, deleteDefaultRoyalty, encodeValidatorOperation,
+  checkAllowlist, configureTransferValidator, deleteDefaultRoyalty, encodeValidatorOperation,
   lockRenderer, lockTransferValidator, releaseFreeAllocation, setAllowlistRoot,
   setAllowlisted, setDefaultRoyalty, setFreeMintOpen, setMintOpen, setPrice,
   setRenderer, setTransferValidator,
-  type AdminState, type Address, type Amount, type Hex, type ValidatorOperation,
+  type AdminState, type Address, type AllowlistCheck, type Amount, type Hex,
+  type ValidatorOperation,
 } from '../../mock';
 import s from '../../screens/Admin.module.css';
 
@@ -161,6 +162,23 @@ function AllowlistControl({
   const validRoot = /^0x[0-9a-fA-F]{64}$/.test(root.trim());
   const accounts = addressList(list);
 
+  // The membership check. A read, not a write, so it does not go through the
+  // action machinery: its own field, its own button, its own answer.
+  const [probe, setProbe] = useState('');
+  const [probing, setProbing] = useState(false);
+  const [answer, setAnswer] = useState<AllowlistCheck | { error: string } | null>(null);
+  const probeOk = isAddressish(probe.trim());
+  const doCheck = async () => {
+    setProbing(true);
+    setAnswer(null);
+    try {
+      setAnswer(await checkAllowlist(probe.trim() as Address));
+    } catch (e) {
+      setAnswer({ error: (e as Error)?.message ?? 'The read failed.' });
+    }
+    setProbing(false);
+  };
+
   return (
     <>
       <Control
@@ -235,6 +253,61 @@ function AllowlistControl({
             }}
           />
         </div>
+
+        {/*
+          IS THIS ADDRESS ON THE LIST? Four reads off the collection with the
+          proof the deployment's proofs file holds for it, or none: the manual
+          mapping, `isAllowlisted`, `freeClaimed`, and `freeMintStatus` — the
+          last decoded to its error name, because that is exactly what the
+          collector would be told at the door.
+        */}
+        <div className={s.form} style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+          <Field
+            wide
+            label="Is this address on the list?"
+            value={probe}
+            placeholder="0x…"
+            invalid={probe.trim() !== '' && !probeOk}
+            onChange={(v) => { setProbe(v); setAnswer(null); }}
+          />
+          <button
+            type="button"
+            className="btn btn--small"
+            disabled={!probeOk || probing}
+            onClick={doCheck}
+          >
+            {probing ? 'Checking…' : 'Check'}
+          </button>
+        </div>
+        {answer ? (
+          <div style={{ marginTop: 10 }}>
+            {'error' in answer ? (
+              <Problem>{answer.error}</Problem>
+            ) : (
+              <>
+                <p className="small" style={{ margin: 0 }}>
+                  <Addr value={answer.address} />{' — '}
+                  <strong className="strong">
+                    {answer.verdict === 'claimed' ? 'already claimed a free bird'
+                      : answer.verdict === 'manual' ? 'on the list by the manual door'
+                        : answer.verdict === 'merkle' ? 'on the list by the Merkle root'
+                          : 'not on the list'}
+                  </strong>
+                  {answer.verdict === 'merkle' || answer.proofLength > 0
+                    ? <span className="dim"> · proof of {answer.proofLength} from the proofs file</span>
+                    : answer.verdict === 'not-listed'
+                      ? <span className="dim"> · no proof on file, checked with none</span>
+                      : null}
+                </p>
+                <p className="tiny dim" style={{ margin: '6px 0 0' }}>
+                  {answer.freeMintStatus === null
+                    ? 'freeMintStatus: 0 — the free door would admit this address right now.'
+                    : `freeMintStatus: ${answer.freeMintStatus} — what the collector would be told.`}
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
       </Control>
     </>
   );

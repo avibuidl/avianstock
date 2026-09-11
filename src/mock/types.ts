@@ -420,6 +420,27 @@ export type AdminVault = {
   isLocked: boolean;
   positionLiquidity: bigint;
   lockSeconds: number;
+  /**
+   * Accrued by the position and not yet collected, per currency, as
+   * `collectFees` will pay them. Derived from the chain's own fee-growth
+   * accounting, not from events: the difference between the pool's current
+   * fee growth inside the position's range and the value the position last
+   * recorded, times the position's liquidity. Both zero ⇒ nothing to collect.
+   */
+  pendingFees: { eth: Amount; avians: Amount };
+};
+
+/** What the admin's membership check says about one address. */
+export type AllowlistCheck = {
+  address: Address;
+  /** The proof used — from the deployment's proofs file, or empty. */
+  proofLength: number;
+  verdict: 'manual' | 'merkle' | 'not-listed' | 'claimed';
+  /**
+   * `freeMintStatus` decoded, or null when it is zero — exactly what the
+   * collector would be refused with at the free door right now.
+   */
+  freeMintStatus: ErrorName | null;
 };
 
 /**

@@ -221,7 +221,10 @@ const SOURCES = [
       'tokenId', 'unlockAt', 'isLocked', 'positionLiquidity', 'LOCK_DURATION',
       'owner', 'pendingOwner',
     ],
-    events: [],
+    // The receipt of a collection names what was actually paid. An event is
+    // public whoever emits it, so it sits on the collector surface; the admin
+    // surface carries no events at all.
+    events: ['FeesCollected'],
     admin: [
       'collectFees', 'extendLock', 'withdraw',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
@@ -238,6 +241,25 @@ const SOURCES = [
     // ids 1-based and `stop` inclusive. It replaces the Transfer-log scan
     // wherever the manifest names one; see `ownedBy` in chain/birds.ts.
     functions: ['tokensOfOwnerIn', 'ownersOf'],
+    events: [],
+  },
+  {
+    export: 'positionManagerAbi',
+    file: 'IPositionManager.sol/IPositionManager.json',
+    // Uniswap's position NFT. The vault holds one; these read WHICH pool and
+    // WHICH tick range it is in, so the pending fees can be derived. Reads
+    // only — the vault is the only thing that may modify its liquidity.
+    functions: ['getPoolAndPositionInfo', 'positionInfo', 'getPositionLiquidity'],
+    events: [],
+  },
+  {
+    export: 'stateViewAbi',
+    file: 'IStateView.sol/IStateView.json',
+    // Uniswap's own lens over the PoolManager's storage. `getPositionInfo`
+    // gives the position's stored fee-growth-inside values; `getFeeGrowthInside`
+    // gives the current ones. Their difference times the liquidity is what
+    // `collectFees` will pay, per currency — the same arithmetic the pool does.
+    functions: ['getPositionInfo', 'getFeeGrowthInside', 'getSlot0', 'getLiquidity'],
     events: [],
   },
   {

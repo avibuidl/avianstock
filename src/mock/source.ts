@@ -32,7 +32,8 @@ import {
 } from './fixtures';
 import { CHAIN_ID } from './types';
 import type {
-  AdminContract, AdminRoute, AdminState, AdminTargetRow, Address, Amount, Bird, ClaimAllResult,
+  AdminContract, AdminRoute, AdminState, AdminTargetRow, Address, AllowlistCheck, Amount, Bird,
+  ClaimAllResult,
   ClaimOutcome, CollectionState, Connection, Deployment, ErrorName, ForeignToken, Hex,
   LaunchState, NetworkDescription, OnPhase, PerchState, PermitSignature, RewardToken,
   OwnerStatus, RewardSplit, RoostState, SwapQuote, SwapState, Tier, TokenId, TraitIndices,
@@ -302,6 +303,11 @@ export const getAdmin = async (who: Address | null): Promise<AdminState> =>
   (isMock()
     ? (await import('./admin')).getAdmin(who)
     : (await import('../chain/admin')).getAdmin(who));
+
+export const checkAllowlist = async (address: Address): Promise<AllowlistCheck> =>
+  (isMock()
+    ? (await import('./admin')).checkAllowlist(address)
+    : (await import('../chain/admin')).checkAllowlist(address));
 
 export const readForeignToken = async (address: Address): Promise<ForeignToken> =>
   (isMock()

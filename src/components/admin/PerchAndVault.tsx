@@ -11,7 +11,7 @@ import { Note, Tag } from '../Primitives';
 import {
   ActionButton, Addr, Control, Field, isAddressish, seconds, useAdminActions, whole,
 } from './Bits';
-import { formatCount, formatDays } from '../../lib/format';
+import { avians, formatCount, formatDays, formatEth } from '../../lib/format';
 import {
   collectFees, extendLock, setFeeRecipient, withdrawPosition,
   type AdminState, type Address,
@@ -30,6 +30,11 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
   const canSend = isAddressish(destination);
   const newUnlock = whole(until);
   const later = newUnlock !== null && !!v && newUnlock > v.unlockAt;
+  // Derived from the pool's fee-growth accounting in the admin read, so it is
+  // what `collectFees` would pay if sent in this block — not an estimate and
+  // not a sum of events.
+  const pending = v?.pendingFees ?? { eth: 0n, avians: 0n };
+  const nothingAccrued = pending.eth === 0n && pending.avians === 0n;
 
   return (
     <section aria-labelledby="pv-h">
@@ -77,6 +82,10 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
               {v.isLocked
                 ? <> <Tag tone="ok"><Icon name="lock" size={11} /> locked</Tag></>
                 : <> <Tag tone="warn">unlocked</Tag></>}
+              {' · '}
+              {nothingAccrued
+                ? <span className="dim">nothing accrued yet</span>
+                : <>pending {formatEth(pending.eth, 6)} ETH, {avians(pending.avians)}</>}
             </>}
             note={v.isLocked
               ? `Unlocks in ${formatDays(Math.max(0, v.unlockAt - now))}. Minimum was ${formatDays(v.lockSeconds)}.`
@@ -95,10 +104,16 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
                 actions={actions}
                 action={{
                   key: 'collect',
-                  label: 'Collect the fees',
-                  disabled: !canSend,
+                  label: nothingAccrued ? 'Nothing accrued yet' : 'Collect the fees',
+                  disabled: !canSend || nothingAccrued,
                   run: (on) => collectFees(destination as Address, on),
-                  outcome: () => 'Fees collected. The position stays where it is.',
+                  // The receipt's own FeesCollected, not the simulation's guess.
+                  // amount0 is ETH: v4 orders a key by address and the native
+                  // currency is address zero, so it is currency0 in any ETH pool.
+                  outcome: (r) => {
+                    const { amount0, amount1 } = r as { amount0: bigint; amount1: bigint };
+                    return `Collected ${formatEth(amount0, 6)} ETH and ${avians(amount1)}. The position stays where it is.`;
+                  },
                 }}
               />
             </div>

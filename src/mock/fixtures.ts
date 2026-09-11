@@ -182,6 +182,8 @@ type Overlay = {
   deposits: number;
   /** Ids the perch burnt in this session, so their pages can be walked. */
   burnt: TokenId[];
+  /** The vault's fees were collected this session, so nothing is pending. */
+  feesCollected: boolean;
 };
 
 const emptyOverlay = (): Overlay => ({
@@ -191,6 +193,7 @@ const emptyOverlay = (): Overlay => ({
   price: null, royaltyBps: null, conversionMinInterval: null,
   permit2Approved: null, permit2Router: null,
   swappedAvians: 0n, swappedEth: 0n, deposits: 0, burnt: [],
+  feesCollected: false,
 });
 
 export let overlay: Overlay = emptyOverlay();

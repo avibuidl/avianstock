@@ -39,7 +39,7 @@ export {
 // an owner ABI — so the admin screen imports from here like every other screen
 // and reaches into `src/chain` no more than the mint screen does.
 export {
-  getAdmin, getOwnerStatus, readForeignToken, encodeValidatorOperation,
+  getAdmin, getOwnerStatus, readForeignToken, encodeValidatorOperation, checkAllowlist,
   allowanceOf, balanceOfToken,
   setMintOpen, setFreeMintOpen, setAllowlistRoot, setAllowlisted, releaseFreeAllocation,
   setPrice, setDefaultRoyalty, deleteDefaultRoyalty, setRenderer, lockRenderer,

@@ -15,7 +15,7 @@
 import type { Abi } from 'viem';
 import { client, pin, readMany, tryReadMany, type At } from './client';
 import { contracts, manifest } from './manifest';
-import { aviansAbi } from './abis.generated';
+import { avianStockAbi, aviansAbi, positionManagerAbi, stateViewAbi } from './abis.generated';
 import {
   theNestAdminAbi,
   avianStockAdminAbi,
@@ -24,11 +24,11 @@ import {
   transferValidatorAdminAbi,
   treasuryAdminAbi,
 } from './abis.admin.generated';
-import { encodeFunctionData, isAddress } from 'viem';
-import { guard, simulateClaimAll, tokenMeta } from './reads';
+import { encodeAbiParameters, encodeFunctionData, isAddress, keccak256 } from 'viem';
+import { guard, proofFor, selectorToName, simulateClaimAll, tokenMeta } from './reads';
 import type {
   AdminContract, AdminPairRow, AdminRewardToken, AdminRoute, AdminState, AdminTargetRow,
-  Address, Amount, ForeignToken, Hex, RewardToken, TreasuryRow, V3Hop, V4Hop,
+  Address, AllowlistCheck, Amount, ForeignToken, Hex, RewardToken, TreasuryRow, V3Hop, V4Hop,
   ValidatorOperation,
 } from '../mock/types';
 
@@ -341,13 +341,133 @@ async function readVault(address: Address, a: At) {
     { address, abi: liquidityVaultAdminAbi as unknown as Abi, functionName: 'positionLiquidity' },
     { address, abi: liquidityVaultAdminAbi as unknown as Abi, functionName: 'LOCK_DURATION' },
   ], a);
+  const tokenId = num(v[0]);
   return {
-    tokenId: num(v[0]),
+    tokenId,
     unlockAt: num(v[1]),
     isLocked: v[2] as boolean,
     positionLiquidity: v[3] as bigint,
     lockSeconds: num(v[4]),
+    pendingFees: await pendingFeesOf(tokenId, a),
   };
+}
+
+/** A v4 PoolKey, in the order the pool hashes it. */
+const POOL_KEY = [{
+  type: 'tuple',
+  components: [
+    { name: 'currency0', type: 'address' }, { name: 'currency1', type: 'address' },
+    { name: 'fee', type: 'uint24' }, { name: 'tickSpacing', type: 'int24' },
+    { name: 'hooks', type: 'address' },
+  ],
+}] as const;
+
+/** `int24` out of the low 24 bits of a word: sign-extend bit 23. */
+function int24At(word: bigint, shift: bigint): number {
+  const raw = Number((word >> shift) & 0xffffffn);
+  return raw >= 0x800000 ? raw - 0x1000000 : raw;
+}
+
+/**
+ * What `collectFees` would pay right now, per currency — from the chain's
+ * own accounting, not from events.
+ *
+ * The pool keeps, per position, the fee growth inside its tick range as of the
+ * position's last touch. Fees owed since are (current growth inside − last
+ * recorded) × liquidity, in Q128 — the same arithmetic `Position.update` runs
+ * on collect. Four reads:
+ *
+ *   PositionManager.getPoolAndPositionInfo(tokenId)   which pool, which ticks
+ *   StateView.getPositionInfo(poolId, PM, lo, hi, salt) liquidity + last growth
+ *   StateView.getFeeGrowthInside(poolId, lo, hi)        current growth
+ *
+ * The position's owner inside the PoolManager is the PositionManager, and its
+ * salt is the token id — that is how v4-periphery keys every position it
+ * mints. `positionInfo` packs the ticks: lower at bit 8, upper at bit 32,
+ * both int24 (PositionInfoLibrary). The pool id is the keccak of the encoded
+ * key.
+ *
+ * Which is ETH and which is AVIANS is read off the key rather than assumed:
+ * currency0 is the lower address and the native currency is address zero, so
+ * it is always currency0 — but "always" is the kind of word this file avoids.
+ */
+async function pendingFeesOf(tokenId: number, a: At): Promise<{ eth: Amount; avians: Amount }> {
+  const none = { eth: 0n, avians: 0n };
+  if (tokenId === 0) return none;
+  const tp = manifest().thirdParty;
+  if (!tp) return none;
+
+  const [key, info] = await client().readContract({
+    address: tp.PositionManager, abi: positionManagerAbi as unknown as Abi,
+    functionName: 'getPoolAndPositionInfo', args: [BigInt(tokenId)], blockNumber: a.blockNumber,
+  } as never) as readonly [
+    { currency0: Address; currency1: Address; fee: number; tickSpacing: number; hooks: Address },
+    bigint,
+  ];
+  const tickLower = int24At(info, 8n);
+  const tickUpper = int24At(info, 32n);
+  const poolId = keccak256(encodeAbiParameters(POOL_KEY, [key]));
+  const salt = (`0x${BigInt(tokenId).toString(16).padStart(64, '0')}`) as Hex;
+
+  const [position, inside] = await readMany<readonly bigint[]>([
+    {
+      address: tp.StateView, abi: stateViewAbi as unknown as Abi, functionName: 'getPositionInfo',
+      args: [poolId, tp.PositionManager, tickLower, tickUpper, salt],
+    },
+    {
+      address: tp.StateView, abi: stateViewAbi as unknown as Abi, functionName: 'getFeeGrowthInside',
+      args: [poolId, tickLower, tickUpper],
+    },
+  ], a);
+
+  const liquidity = position[0];
+  const Q128 = 1n << 128n;
+  const MASK = (1n << 256n) - 1n;
+  // The pool's subtraction wraps; so does this one.
+  const owed0 = (((inside[0] - position[1]) & MASK) * liquidity) / Q128;
+  const owed1 = (((inside[1] - position[2]) & MASK) * liquidity) / Q128;
+
+  const avians = contracts().Avians.toLowerCase();
+  const c0 = key.currency0.toLowerCase();
+  return c0 === avians
+    ? { avians: owed0, eth: owed1 }
+    : { eth: owed0, avians: owed1 };
+}
+
+/**
+ * The membership check under "Allowlist, by address".
+ *
+ * Four reads, and the verdict is the collector's: the manual mapping says
+ * "manual door"; failing that, `isAllowlisted` with the proof the deployment's
+ * proofs file holds for this address (or none) says "Merkle root"; and
+ * `freeClaimed` overrides both, because a wallet that has claimed is refused
+ * before its listing is even consulted. `freeMintStatus` is returned decoded
+ * alongside — it is exactly what the collector would be told.
+ */
+export async function checkAllowlist(address: Address): Promise<AllowlistCheck> {
+  return guard('checking the allowlist', async () => {
+    const a = await pin();
+    const c = contracts();
+    const proof = await proofFor(address);
+    const stock = (functionName: string, args: readonly unknown[]) =>
+      ({ address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName, args });
+    const [manual, listed, claimed, status] = await readMany<unknown>([
+      stock('allowlisted', [address]),
+      stock('isAllowlisted', [address, proof]),
+      stock('freeClaimed', [address]),
+      stock('freeMintStatus', [address, proof]),
+    ], a);
+    const verdict: AllowlistCheck['verdict'] = claimed ? 'claimed'
+      : manual ? 'manual'
+        : listed ? 'merkle'
+          : 'not-listed';
+    return {
+      address,
+      proofLength: proof.length,
+      verdict,
+      freeMintStatus: selectorToName(status as string),
+    };
+  });
 }
 
 /** Native goes through `eth_getBalance`; everything else through `balanceOf`. */

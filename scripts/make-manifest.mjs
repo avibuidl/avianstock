@@ -171,6 +171,11 @@ const THIRD_PARTY = {
   UniversalRouter: '0x8876789976dEcBfCbBbe364623C63652db8C0904',
   Permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
   V4Quoter: '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94',
+  // The admin panel's pending-fee read: the vault's position lives in the
+  // PositionManager, and StateView is the read path into the PoolManager's
+  // fee-growth storage. Both from HANDOVER section 10.
+  PositionManager: '0x58daec3116aae6D93017bAAea7749052E8a04fA7',
+  StateView: '0xF3334192D15450CdD385c8B70e03f9A6bD9E673b',
 };
 
 const chain = defineChain({

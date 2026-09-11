@@ -60,10 +60,14 @@ export type ThirdPartySet = {
   UniversalRouter: Address;
   Permit2: Address;
   V4Quoter: Address;
+  /** Holds the vault's position. Read for its pool and tick range. */
+  PositionManager: Address;
+  /** Uniswap's view into the PoolManager: fee growth, for the pending fees. */
+  StateView: Address;
 };
 
 export const THIRD_PARTY_NAMES = [
-  'PoolManager', 'UniversalRouter', 'Permit2', 'V4Quoter',
+  'PoolManager', 'UniversalRouter', 'Permit2', 'V4Quoter', 'PositionManager', 'StateView',
 ] as const;
 
 export type Manifest = {

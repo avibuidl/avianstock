@@ -5666,6 +5666,37 @@ export const liquidityVaultAbi = [
     "stateMutability": "view"
   },
   {
+    "type": "event",
+    "name": "FeesCollected",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount0",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount1",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "AlreadyHoldsAPosition",
     "inputs": [
@@ -5914,6 +5945,481 @@ export const avianLensAbi = [
         "name": "ids",
         "type": "uint256[]",
         "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/IPositionManager.sol/IPositionManager.json`. */
+export const positionManagerAbi = [
+  {
+    "type": "function",
+    "name": "getPoolAndPositionInfo",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PoolKey",
+        "components": [
+          {
+            "name": "currency0",
+            "type": "address",
+            "internalType": "Currency"
+          },
+          {
+            "name": "currency1",
+            "type": "address",
+            "internalType": "Currency"
+          },
+          {
+            "name": "fee",
+            "type": "uint24",
+            "internalType": "uint24"
+          },
+          {
+            "name": "tickSpacing",
+            "type": "int24",
+            "internalType": "int24"
+          },
+          {
+            "name": "hooks",
+            "type": "address",
+            "internalType": "contract IHooks"
+          }
+        ]
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "PositionInfo"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPositionLiquidity",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "liquidity",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "positionInfo",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "PositionInfo"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "AlreadySubscribed",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BurnNotificationReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DeadlinePassed",
+    "inputs": [
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "GasLimitTooLow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ModifyLiquidityNotificationReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoCodeSubscriber",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoSelfPermit",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NonceAlreadyUsed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotApproved",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotSubscribed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PoolManagerMustBeLocked",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SignatureDeadlineExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SubscriptionReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/IStateView.sol/IStateView.json`. */
+export const stateViewAbi = [
+  {
+    "type": "function",
+    "name": "getFeeGrowthInside",
+    "inputs": [
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "PoolId"
+      },
+      {
+        "name": "tickLower",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "tickUpper",
+        "type": "int24",
+        "internalType": "int24"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "feeGrowthInside0X128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeGrowthInside1X128",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLiquidity",
+    "inputs": [
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "PoolId"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "liquidity",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPositionInfo",
+    "inputs": [
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "PoolId"
+      },
+      {
+        "name": "positionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "liquidity",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "feeGrowthInside0LastX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeGrowthInside1LastX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPositionInfo",
+    "inputs": [
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "PoolId"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tickLower",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "tickUpper",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "liquidity",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "feeGrowthInside0LastX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeGrowthInside1LastX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSlot0",
+    "inputs": [
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "PoolId"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "sqrtPriceX96",
+        "type": "uint160",
+        "internalType": "uint160"
+      },
+      {
+        "name": "tick",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "protocolFee",
+        "type": "uint24",
+        "internalType": "uint24"
+      },
+      {
+        "name": "lpFee",
+        "type": "uint24",
+        "internalType": "uint24"
       }
     ],
     "stateMutability": "view"
@@ -6486,6 +6992,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NotApproved",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotConverting",
     "inputs": []
   },
@@ -6620,8 +7137,34 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NonceAlreadyUsed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSubscribed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ExcessiveInvalidation",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadySubscribed",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -6967,6 +7510,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "SignatureDeadlineExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotOwnedByPool",
     "inputs": [
       {
@@ -7181,6 +7729,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NoCodeSubscriber",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ZeroValue",
     "inputs": []
   },
@@ -7255,6 +7808,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NoSelfPermit",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotPoolManager",
     "inputs": [
       {
@@ -7287,6 +7845,22 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "SubscriptionReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NoRoute",
     "inputs": [
       {
@@ -7300,6 +7874,11 @@ export const errorAbi = [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": []
   },
   {
     "type": "error",
@@ -7759,6 +8338,22 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "BurnNotificationReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "WrongPool",
     "inputs": [
       {
@@ -7939,6 +8534,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "DeadlinePassed",
+    "inputs": [
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "FreeAllocationTooLarge",
     "inputs": [
       {
@@ -8105,6 +8711,11 @@ export const errorAbi = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "PoolManagerMustBeLocked",
+    "inputs": []
   },
   {
     "type": "error",
@@ -8314,6 +8925,22 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "ModifyLiquidityNotificationReverted",
+    "inputs": [
+      {
+        "name": "subscriber",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotTheStaker",
     "inputs": [
       {
@@ -8332,6 +8959,11 @@ export const errorAbi = [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "GasLimitTooLow",
+    "inputs": []
   },
   {
     "type": "error",
@@ -8545,6 +9177,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x06fb10a9": "NotAllowlisted()",
   "0x084cff68": "FreeAllocationReleaseTooEarly(uint256)",
   "0x0a85dc29": "HookNotImplemented()",
+  "0x0ca968d8": "NotApproved(address)",
   "0x0f47a04d": "NotConverting()",
   "0x0fc4ccd9": "ConversionProducedNothing(address)",
   "0x116bae71": "MintIsNotASale()",
@@ -8559,7 +9192,10 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x1e4fbdf7": "OwnableInvalidOwner(address)",
   "0x1eaf226f": "NotAFunder(address)",
   "0x1f8ecfbc": "SlippageBpsTooHigh(uint16,uint16)",
+  "0x1fb09b80": "NonceAlreadyUsed()",
+  "0x237e6c28": "NotSubscribed()",
   "0x24d35a26": "ExcessiveInvalidation()",
+  "0x25fbd8be": "AlreadySubscribed(uint256,address)",
   "0x27171b09": "PoolManagerMismatch(address,address)",
   "0x2921c7ef": "TraitMarketNotAContract(address)",
   "0x2a5cb1c3": "CreatorTokenTransferValidator__ReceiverAccountIsFrozen()",
@@ -8594,6 +9230,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x54cd9435": "TotalSupplyQueryFailed()",
   "0x589ed34b": "MintClosed()",
   "0x589f4f38": "TransferToOwnAccount(uint256,address)",
+  "0x5a9165ff": "SignatureDeadlineExpired()",
   "0x5ace9841": "NotOwnedByPool(uint256)",
   "0x5b08ba18": "ERC721InvalidOperator(address)",
   "0x5b67df31": "NoSurplusToRestream(address,uint256,uint256)",
@@ -8612,6 +9249,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x73c6ac6e": "ERC721InvalidSender(address)",
   "0x79260369": "InvalidRewardToken(address)",
   "0x7939f424": "TransferFromFailed()",
+  "0x7c402b21": "NoCodeSubscriber()",
   "0x7c946ed7": "ZeroValue()",
   "0x7dcfb5c6": "ZeroSplitPart(address,uint16,uint256)",
   "0x7e1abd67": "KeeperDropBpsTooHigh(uint16,uint16)",
@@ -8619,10 +9257,13 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x7f2a13b4": "NotTheCollection(address)",
   "0x7f7c3ee1": "TransferValidatorIsMintSink()",
   "0x7f954ba1": "CreatorTokenTransferValidator__CallerMustHaveElevatedPermissionsForSpecifiedNFT()",
+  "0x80e05c00": "NoSelfPermit()",
   "0x81489ec0": "NotPoolManager(address)",
   "0x81645f75": "NotTheInitializer(address,address)",
   "0x818c5023": "StreamOnlyErc20()",
+  "0x81ea5e9e": "SubscriptionReverted(address,bytes)",
   "0x81fff07f": "NoRoute(address,address)",
+  "0x82b42900": "Unauthorized()",
   "0x8301ab38": "AllowanceUnderflow()",
   "0x8395f495": "BadCategory(uint8)",
   "0x859db513": "NotAV3Pool(address,address,address)",
@@ -8661,6 +9302,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xab143c06": "Reentrancy()",
   "0xab8b67c6": "LengthMismatch(uint256,uint256)",
   "0xabf0f034": "NoPosition()",
+  "0xace94481": "BurnNotificationReverted(address,bytes)",
   "0xb0a5e923": "WrongPool(address,address,uint24,int24,address)",
   "0xb12d13eb": "ETHTransferFailed()",
   "0xb26960e4": "RendererRendersNothing()",
@@ -8675,6 +9317,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xbca1a956": "InvalidTier(uint8)",
   "0xbd2dee28": "FloorPriceTooFresh(address,address,uint256,uint256)",
   "0xbd4f29e3": "InsufficientPayment(uint256)",
+  "0xbfb22adf": "DeadlinePassed(uint256)",
   "0xbfd53514": "FreeAllocationTooLarge(uint16,uint16)",
   "0xc15a8157": "HopGoesNowhere(uint256,address)",
   "0xc2c77a0e": "WalletCapReached()",
@@ -8688,6 +9331,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xce361e57": "AlreadyHeld(uint256)",
   "0xd2f28957": "FreeAllocationExhausted()",
   "0xd495f8c2": "NotOwnedByVault(uint256)",
+  "0xd4b05fe0": "PoolManagerMustBeLocked()",
   "0xd6e7da92": "PriceBelowFloor(uint256,uint256)",
   "0xd73e63af": "CreatorTokenTransferValidator__TokenIsSoulbound()",
   "0xd81b2f2e": "AllowanceExpired(uint256)",
@@ -8706,7 +9350,9 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xe7b5a518": "V3NotConfigured()",
   "0xe7db0ee4": "PartialFill(int256,int256)",
   "0xe846175e": "TooManyTargets(uint256,uint256)",
+  "0xe94f10e2": "ModifyLiquidityNotificationReverted(address,bytes)",
   "0xea179c1c": "NotTheStaker(uint256,address,address)",
+  "0xed43c3a6": "GasLimitTooLow()",
   "0xee8e351e": "DuplicateTarget(address)",
   "0xef28f901": "CreatorTokenTransferValidator__CallerMustBeWhitelisted()",
   "0xf45eadba": "FreeMintUnbacked(uint256,uint256)",
@@ -8736,6 +9382,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x06fb10a9": "AvianStock.sol/AvianStock.json",
   "0x084cff68": "AvianStock.sol/AvianStock.json",
   "0x0a85dc29": "AviansHook.sol/AviansHook.json",
+  "0x0ca968d8": "IPositionManager.sol/IPositionManager.json",
   "0x0f47a04d": "Treasury.sol/Treasury.json",
   "0x0fc4ccd9": "Treasury.sol/Treasury.json",
   "0x116bae71": "ThePerch.sol/ThePerch.json",
@@ -8750,7 +9397,10 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x1e4fbdf7": "AvianStock.sol/AvianStock.json",
   "0x1eaf226f": "TheNest.sol/TheNest.json",
   "0x1f8ecfbc": "Treasury.sol/Treasury.json",
+  "0x1fb09b80": "IPositionManager.sol/IPositionManager.json",
+  "0x237e6c28": "IPositionManager.sol/IPositionManager.json",
   "0x24d35a26": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
+  "0x25fbd8be": "IPositionManager.sol/IPositionManager.json",
   "0x27171b09": "LiquidityVault.sol/LiquidityVault.json",
   "0x2921c7ef": "AvianStock.sol/AvianStock.json",
   "0x2a5cb1c3": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
@@ -8785,6 +9435,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x54cd9435": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x589ed34b": "AvianStock.sol/AvianStock.json",
   "0x589f4f38": "AvianStock.sol/AvianStock.json",
+  "0x5a9165ff": "IPositionManager.sol/IPositionManager.json",
   "0x5ace9841": "ThePerch.sol/ThePerch.json",
   "0x5b08ba18": "AvianStock.sol/AvianStock.json",
   "0x5b67df31": "TheNest.sol/TheNest.json",
@@ -8803,6 +9454,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x73c6ac6e": "AvianStock.sol/AvianStock.json",
   "0x79260369": "TheNest.sol/TheNest.json",
   "0x7939f424": "SafeTransferLib.sol/SafeTransferLib.json",
+  "0x7c402b21": "IPositionManager.sol/IPositionManager.json",
   "0x7c946ed7": "AvianStock.sol/AvianStock.json",
   "0x7dcfb5c6": "Treasury.sol/Treasury.json",
   "0x7e1abd67": "Treasury.sol/Treasury.json",
@@ -8810,10 +9462,13 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x7f2a13b4": "ThePerch.sol/ThePerch.json",
   "0x7f7c3ee1": "AvianStock.sol/AvianStock.json",
   "0x7f954ba1": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
+  "0x80e05c00": "IPositionManager.sol/IPositionManager.json",
   "0x81489ec0": "AviansHook.sol/AviansHook.json",
   "0x81645f75": "AviansHook.sol/AviansHook.json",
   "0x818c5023": "Treasury.sol/Treasury.json",
+  "0x81ea5e9e": "IPositionManager.sol/IPositionManager.json",
   "0x81fff07f": "Treasury.sol/Treasury.json",
+  "0x82b42900": "IPositionManager.sol/IPositionManager.json",
   "0x8301ab38": "Avians.sol/Avians.json",
   "0x8395f495": "TraitRegistry.sol/TraitRegistry.json",
   "0x859db513": "Treasury.sol/Treasury.json",
@@ -8852,6 +9507,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xab143c06": "ThePerch.sol/ThePerch.json",
   "0xab8b67c6": "TheNest.sol/TheNest.json",
   "0xabf0f034": "LiquidityVault.sol/LiquidityVault.json",
+  "0xace94481": "IPositionManager.sol/IPositionManager.json",
   "0xb0a5e923": "AviansHook.sol/AviansHook.json",
   "0xb12d13eb": "SafeTransferLib.sol/SafeTransferLib.json",
   "0xb26960e4": "AvianStock.sol/AvianStock.json",
@@ -8866,6 +9522,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xbca1a956": "TheNest.sol/TheNest.json",
   "0xbd2dee28": "Treasury.sol/Treasury.json",
   "0xbd4f29e3": "AvianStock.sol/AvianStock.json",
+  "0xbfb22adf": "IPositionManager.sol/IPositionManager.json",
   "0xbfd53514": "AvianStock.sol/AvianStock.json",
   "0xc15a8157": "Treasury.sol/Treasury.json",
   "0xc2c77a0e": "AvianStock.sol/AvianStock.json",
@@ -8879,6 +9536,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xce361e57": "ThePerch.sol/ThePerch.json",
   "0xd2f28957": "AvianStock.sol/AvianStock.json",
   "0xd495f8c2": "LiquidityVault.sol/LiquidityVault.json",
+  "0xd4b05fe0": "IPositionManager.sol/IPositionManager.json",
   "0xd6e7da92": "AvianStock.sol/AvianStock.json",
   "0xd73e63af": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0xd81b2f2e": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
@@ -8897,7 +9555,9 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xe7b5a518": "Treasury.sol/Treasury.json",
   "0xe7db0ee4": "AviansHook.sol/AviansHook.json",
   "0xe846175e": "Treasury.sol/Treasury.json",
+  "0xe94f10e2": "IPositionManager.sol/IPositionManager.json",
   "0xea179c1c": "TheNest.sol/TheNest.json",
+  "0xed43c3a6": "IPositionManager.sol/IPositionManager.json",
   "0xee8e351e": "Treasury.sol/Treasury.json",
   "0xef28f901": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0xf45eadba": "AvianStock.sol/AvianStock.json",
@@ -8929,6 +9589,8 @@ export const GENERATED_FROM = [
   "TraitRegistry.sol/TraitRegistry.json",
   "LiquidityVault.sol/LiquidityVault.json",
   "AvianLens.sol/AvianLens.json",
+  "IPositionManager.sol/IPositionManager.json",
+  "IStateView.sol/IStateView.json",
   "IV4Quoter.sol/IV4Quoter.json",
   "IUniversalRouter.sol/IUniversalRouter.json",
   "IAllowanceTransfer.sol/IAllowanceTransfer.json",
