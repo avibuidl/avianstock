@@ -18,7 +18,7 @@ import { ContractError } from './errors';
 import { scenario } from './scenario';
 import {
   ADDRESSES, FREE_ALLOCATION, LOCK_SECONDS, MIN_PRICE, PRICE, REWARD_TARGET_BPS,
-  REWARD_TOKENS, YOU, overlay, world,
+  REWARD_TOKENS, STOCK_REWARD_TOKENS, YOU, overlay, world,
 } from './fixtures';
 import { read } from './reads';
 import { requireChain, sleep } from './wallet';
@@ -94,11 +94,11 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
       };
     });
 
-    const targets: AdminTargetRow[] = REWARD_TOKENS.map((t, i) => ({
+    const targets: AdminTargetRow[] = STOCK_REWARD_TOKENS.map((t, i) => ({
       token: t.address, weightBps: REWARD_TARGET_BPS[i],
     }));
 
-    const pairs: AdminPairRow[] = REWARD_TOKENS.map((t, i) => ({
+    const pairs: AdminPairRow[] = STOCK_REWARD_TOKENS.map((t, i) => ({
       currency: null,
       currencySymbol: 'ETH',
       target: t.address,
@@ -156,10 +156,16 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
         requiredBacking: e18(71_600_000),
         ethHeld: 0n,
       },
-      perch: { feeRecipient: ADDRESSES.Treasury },
+      perch: { feeRecipient: MOCK_ROOST },
+      roost: {
+        roost: MOCK_ROOST, costSink: MOCK_ROOST,
+        adminClaimable: e18(30_900), adminClaimed: e18(240_000),
+        admin: a === 'not-the-owner' ? ADDRESSES.Treasury : YOU,
+      },
       nest: {
         rewards,
-        snapshotCount: a === 'reward-list-full' ? 8 : 5,
+        listedCount: a === 'reward-list-full' ? 8 : 4,
+        totalBrooding: 1_204,
         maxRewardTokens: 8,
         minDuration: 3_600,
         maxDuration: 365 * 86_400,
@@ -335,7 +341,14 @@ export async function restream(token: Address, _d: number, on?: OnPhase) {
 }
 
 export const setFunder = (_f: Address, _a: boolean, on?: OnPhase) => send(on, () => ({}));
-export const rescueUnstaked = (_id: TokenId, _to: Address, on?: OnPhase) => send(on, () => ({}));
+export const rescueBird = (_id: TokenId, _to: Address, on?: OnPhase) => send(on, () => ({}));
+
+/** The Roost's tenth, to the owner. Mirrors the mock manifest's `roost`. */
+const MOCK_ROOST = '0x5aB1c00000000000000000000000000000000057' as Address;
+
+export async function claimRoostAdmin(_to: Address, on?: OnPhase) {
+  return send(on, () => ({ amount: e18(30_900) }));
+}
 
 export async function claimAdmin(currency: Address | null, _to: Address, on?: OnPhase) {
   return send(on, () => ({

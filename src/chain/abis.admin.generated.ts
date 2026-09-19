@@ -1573,26 +1573,16 @@ export const theNestAdminAbi = [
   },
   {
     "type": "function",
-    "name": "claimAll",
+    "name": "costSink",
     "inputs": [],
     "outputs": [
       {
-        "name": "tokens",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "paid",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      },
-      {
-        "name": "skipped",
-        "type": "bool[]",
-        "internalType": "bool[]"
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1692,7 +1682,7 @@ export const theNestAdminAbi = [
   },
   {
     "type": "function",
-    "name": "rescueUnstaked",
+    "name": "rescueBird",
     "inputs": [
       {
         "name": "id",
@@ -1803,6 +1793,19 @@ export const theNestAdminAbi = [
   },
   {
     "type": "function",
+    "name": "rewardTokenCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "setFunder",
     "inputs": [
       {
@@ -1821,19 +1824,13 @@ export const theNestAdminAbi = [
   },
   {
     "type": "function",
-    "name": "stakerOf",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "totalBrooding",
+    "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1885,6 +1882,22 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "AlreadyBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "AlreadyListed",
     "inputs": [
       {
@@ -1896,26 +1909,10 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
-    "name": "AlreadyStaked",
+    "name": "BroodExpired",
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "BadStakeData",
-    "inputs": [
-      {
-        "name": "length",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1960,6 +1957,17 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidCostSink",
+    "inputs": [
+      {
+        "name": "sink",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidRewardToken",
     "inputs": [
       {
@@ -1995,11 +2003,6 @@ export const theNestAdminAbi = [
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "MintIsNotAStake",
-    "inputs": []
   },
   {
     "type": "error",
@@ -2073,48 +2076,32 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotHeldHere",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotListed",
     "inputs": [
       {
         "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotOwnedByStaking",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotStaked",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotStranded",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
         "type": "address",
         "internalType": "address"
       }
@@ -2133,7 +2120,7 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
-    "name": "NotTheStaker",
+    "name": "NotTheOwner",
     "inputs": [
       {
         "name": "id",
@@ -2141,7 +2128,7 @@ export const theNestAdminAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "staker",
+        "name": "holder",
         "type": "address",
         "internalType": "address"
       },
@@ -2154,7 +2141,7 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
-    "name": "NothingStaked",
+    "name": "NothingBrooding",
     "inputs": []
   },
   {
@@ -2186,22 +2173,6 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
-    "name": "PushMustComeFromTheHolder",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "from",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "Reentrancy",
     "inputs": []
   },
@@ -2228,7 +2199,7 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
-    "name": "RewardRateZero",
+    "name": "RewardRateOutOfRange",
     "inputs": [
       {
         "name": "amount",
@@ -2239,6 +2210,43 @@ export const theNestAdminAbi = [
         "name": "duration",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SameDelivery",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TierNotHigher",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "current",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "given",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ]
   },
@@ -2287,6 +2295,253 @@ export const theNestAdminAbi = [
   {
     "type": "error",
     "name": "ZeroProbe",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/**
+ * THE OWNER SURFACE of contracts/out/TheRoost.sol/TheRoost.json.
+ *
+ * Only src/chain/admin.ts and src/chain/admin-writes.ts may import this,
+ * and scripts/check-hygiene.mjs fails the build when anything else does.
+ *
+ * That is a property of the bundle, not a permission. onlyOwner on the
+ * contract is what refuses everyone else, whatever this file contains.
+ * The split keeps the rest of the application unable to express an owner
+ * call at all, which is a different and much smaller claim.
+ */
+export const theRoostAdminAbi = [
+  {
+    "type": "function",
+    "name": "AVIANS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract Avians"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "NEST",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract TheNest"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "STAKING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract AviansStaking"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "admin",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "adminClaimable",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "adminClaimed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimAdmin",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "CannotRescue",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotAContract",
+    "inputs": [
+      {
+        "name": "a",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheAdmin",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingDeliverable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingHeld",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToClaim",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToDistribute",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Reentrancy",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TooSoon",
+    "inputs": [
+      {
+        "name": "nextAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WiringMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
     "inputs": []
   },
   {

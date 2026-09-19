@@ -42,7 +42,7 @@
 // Run: npm run abis
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toFunctionSelector } from 'viem';
 
@@ -74,7 +74,12 @@ const SOURCES = [
       // `totalSupply` is `totalMinted - burned` since the Perch started
       // burning, so anything comparing the two needs both.
       'totalMinted', 'burned', 'totalSupply', 'MAX_SUPPLY', 'WALLET_LIMIT', 'mintedBy',
-      'mintOpen', 'price', 'MIN_PRICE', 'AVIANS', 'MINT_SINK', 'registry',
+      'mintOpen', 'price', 'MIN_PRICE', 'AVIANS', 'MINT_SINK', 'registry', 'NEST',
+      // Who holds what (2026-09-11). These were a separate lens for one day;
+      // they are the collection's own views now, one SLOAD per id. Ids
+      // 1-based, `stop` inclusive and free past `totalMinted`. Pages of at
+      // most 2,000, each its own eth_call — see `readEach` in chain/client.ts.
+      'tokensOfOwnerIn', 'ownersOf',
       'comboTaken', 'tokenCombo', 'traitsOf',
       // the bird's own wallet
       'accountOf', 'createAccount', 'ERC6551_REGISTRY', 'ACCOUNT_IMPLEMENTATION',
@@ -93,7 +98,10 @@ const SOURCES = [
       // the writes
       'mint', 'mintWithPermit', 'mintMany', 'mintManyWithPermit', 'mintFree',
     ],
-    events: ['Transfer', 'ApprovalForAll', 'Minted', 'FreeMinted', 'Burned'],
+    // NestHookFailed should never appear: the transfer hook into the Nest ran
+    // out of its stipend or reverted, so a brood that should have expired did
+    // not. A receipt that carries it is shown as a warning, not filed away.
+    events: ['Transfer', 'ApprovalForAll', 'Minted', 'FreeMinted', 'Burned', 'NestHookFailed'],
     admin: [
       // the two doors, the list, the price
       'setMintOpen', 'setFreeMintOpen', 'setAllowlistRoot', 'setAllowlisted',
@@ -119,16 +127,22 @@ const SOURCES = [
     file: 'ThePerch.sol/ThePerch.json',
     functions: [
       'nft', 'avians', 'BASE', 'SELL_FEE_BPS', 'BUY_FEE_BPS', 'PICK_FEE_BPS',
-      'BURN_SHARE_BPS', 'feeRecipient',
+      // `feeRecipient` is the Roost since 2026-09-18: every fee, whole.
+      // (`BURN_SHARE_BPS` is gone with the burn.)
+      'feeRecipient',
       'poolSize', 'lowestId', 'isHeld', 'heldWord', 'backingRequired',
       'quoteSell', 'quoteBuyNext', 'quoteBuy',
       'sell', 'buyNext', 'buy',
       'owner', 'pendingOwner',
-      // One bird in every hundred deposited is burnt. `deposits` counts paid
-      // sales only, and `depositsUntilNextBurn` is the sell card's countdown.
-      'BURN_EVERY', 'deposits', 'depositsUntilNextBurn',
+      // One bird in every hundred deposited is burnt — while more than
+      // BURN_FLOOR birds are alive. Below the floor `burnsActive` is false,
+      // the countdown reads 0 (meaning "no burns", never "next sale burns"),
+      // and a hundredth is withheld: BurnWithheld in place of BirdBurned.
+      'BURN_EVERY', 'BURN_FLOOR', 'burnsActive', 'deposits', 'depositsUntilNextBurn',
     ],
-    events: ['Sold', 'Bought', 'BirdBurned'],
+    // `FeeTaken` and `Registered` ride on every sale and buy; a receipt that
+    // names the burnt and the Treasury's halves is one a collector can check.
+    events: ['Sold', 'Bought', 'BirdBurned', 'BurnWithheld', 'FeeTaken', 'Registered'],
     admin: [
       'setFeeRecipient', 'rescueERC20',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
@@ -138,31 +152,84 @@ const SOURCES = [
   {
     export: 'theNestAbi',
     file: 'TheNest.sol/TheNest.json',
+    // BROODING, NOT STAKING (2026-09-11). Nothing is sent anywhere: a bird
+    // broods in its holder's wallet, the tier cost is burned, and rewards are
+    // delivered wherever `deliveryOf` says — the bird's own wallet by default,
+    // or the activator's by choice. The only approval is AVIANS to the Nest.
+    // There is no bird approval and never a reason to ask for one.
     functions: [
       'COLLECTION', 'AVIANS',
       'TIER_1_COST', 'TIER_2_COST', 'TIER_3_COST', 'tierCost', 'MAX_TIER',
-      'totalWeight', 'weightOf', 'stakeOf', 'stakerOf',
-      'stakedIdsOf', 'stakedCountOf',
+      // the brood, per bird
+      'broodOf', 'isBrooding', 'weightOf', 'deliveryOf', 'earned', 'pending',
+      'claimable', 'totalWeight',
+      // the streams
       'listedRewardTokens', 'rewardTokenCount', 'isRewardToken',
       'wasEverRewardToken', 'MAX_REWARD_TOKENS',
-      'earned', 'rewardPerToken', 'rewardData', 'escrowedOf',
-      'lastTimeRewardApplicable',
-      'totalStaked', 'totalBurned', 'totalPaid', 'claimedBy', 'totalFunded',
-      'stake', 'unstake', 'claim', 'claimAll',
+      'rewardPerToken', 'rewardPerTokenAt', 'rewardData', 'escrowedOf',
+      'lastTimeRewardApplicable', 'checkpointCount', 'checkpointAt',
+      // lifetime counters, for a stats panel with no indexer
+      // `totalForwarded` was `totalBurned` until 2026-09-18: tier costs go on
+      // to the Roost (`costSink`) now, and nothing is burnt at a brood.
+      'totalBrooding', 'totalForwarded', 'totalPaid', 'totalReturned', 'totalFunded', 'costSink',
+      // the writes — every one a holder's own
+      'brood', 'broodTo', 'upgrade', 'redirect', 'settle', 'claim', 'donate',
       'owner', 'pendingOwner',
     ],
-    events: ['Staked', 'Unstaked', 'RewardPaid', 'RewardSkipped'],
+    events: [
+      'Brooded', 'Upgraded', 'Redirected', 'Expired', 'Settled', 'ExpirySettled',
+      'BroodClosed', 'RewardReturned', 'RewardHeld', 'RewardPaid', 'BirdRescued',
+      // A stream starting — from a conversion, or a donation, both of which a
+      // collector can trigger. The Treasury card's receipt names the stream.
+      'RewardAdded', 'RewardDonated',
+    ],
     admin: [
-      'addRewardToken', 'retireRewardToken', 'restream', 'setFunder', 'rescueUnstaked',
+      // `rescueBird`: a bird someone transferred INTO the Nest by mistake.
+      // There is no other reason for a bird to be there.
+      'addRewardToken', 'retireRewardToken', 'restream', 'setFunder', 'rescueBird',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
       'listedRewardTokens', 'isRewardToken', 'wasEverRewardToken', 'isFunder',
-      'rewardData', 'escrowedOf', 'totalWeight', 'stakerOf',
-      'MAX_REWARD_TOKENS', 'MIN_DURATION', 'MAX_DURATION',
-      // `claimAll` returns `_snapshotTokens`, which has no getter of its own.
-      // Simulated, it is the only honest way to count what the 8-token cap
-      // actually counts. See `snapshotCount` in src/chain/admin.ts.
-      'claimAll',
+      // `rewardTokenCount` is what the panel shows against MAX_REWARD_TOKENS.
+      // It was on the collector list only, and the panel's multicall threw
+      // "function not found on ABI" — the whole owner screen read as failed.
+      // Found on the launch dry run.
+      'rewardData', 'escrowedOf', 'totalWeight', 'totalBrooding', 'rewardTokenCount',
+      'MAX_REWARD_TOKENS', 'MIN_DURATION', 'MAX_DURATION', 'costSink',
     ],
+  },
+  {
+    export: 'theRoostAbi',
+    file: 'TheRoost.sol/TheRoost.json',
+    // THE ROOST (2026-09-18). Where every AVIANS fee lands — the whole of every
+    // Perch fee and every brooding tier cost — split 40% to AVIANS stakers,
+    // 30% to brooding birds through the Nest, 20% burnt, 10% the admin's.
+    // Anyone may turn it once a day; the site offers the turn when it is due.
+    functions: [
+      'cumulativeIn', 'unallocated', 'allocated',
+      'stakingHeld', 'nestHeld', 'stakingReady', 'nestReady',
+      'toStaking', 'toNest', 'burned', 'adminClaimed', 'adminClaimable',
+      'nextDistributionAt', 'lastDistribution', 'MIN_INTERVAL',
+      'STAKING_BPS', 'NEST_BPS', 'BURN_BPS', 'ADMIN_BPS', 'LEG_STAKING', 'LEG_NEST',
+      'NEST', 'STAKING', 'AVIANS', 'admin',
+      'distribute', 'deliverHeld',
+    ],
+    events: ['Allocated', 'Delivered', 'Held', 'Burned', 'AdminClaimed'],
+    // The admin's tenth. `rescueERC20` is owner tooling and stays off both.
+    admin: ['claimAdmin', 'admin', 'adminClaimable', 'adminClaimed', 'NEST', 'STAKING', 'AVIANS'],
+  },
+  {
+    export: 'aviansStakingAbi',
+    file: 'AviansStaking.sol/AviansStaking.json',
+    // AVIANS STAKING (2026-09-18). Stake AVIANS, earn AVIANS, by amount,
+    // streamed over a week from each of the Roost's deliveries. No lock, no
+    // cooldown, no fee, no owner — so no admin surface at all.
+    functions: [
+      'stakedOf', 'earned', 'totalStaked',
+      'rewardRate', 'periodFinish', 'remainingReward', 'undelivered', 'escrowed',
+      'totalNotified', 'totalPaid', 'accounted', 'STREAM', 'ROOST', 'AVIANS',
+      'stake', 'withdraw', 'claim', 'exit',
+    ],
+    events: ['Staked', 'Withdrawn', 'RewardPaid', 'RewardAdded'],
   },
   {
     export: 'treasuryAbi',
@@ -181,8 +248,15 @@ const SOURCES = [
       // no owner-only function in a collector ABI at all. `owner` and
       // `pendingOwner` stay: they are public views, and the header reads them.
       'owner', 'pendingOwner',
+      // The price ticker (2026-09-13). Where the stock tokens trade: the v3
+      // factory and WETH (immutables) and the route the owner set for each
+      // reward token, whose one hop names the pool. Reads, all three.
+      'V3_FACTORY', 'WETH', 'v3RouteOf',
     ],
-    events: [],
+    // Every event is public whoever emitted it; the admin surface carries none.
+    // `Converted` and `Streamed` are what `convertAndStream` says it did;
+    // `AdminClaimed` is what the owner's withdrawal says.
+    events: ['Converted', 'Streamed', 'AdminClaimed'],
     admin: [
       'claimAdmin',
       'setConversionConfig', 'setTargets', 'setRoute', 'setV3Route',
@@ -233,14 +307,26 @@ const SOURCES = [
     ],
   },
   {
-    export: 'avianLensAbi',
-    file: 'AvianLens.sol/AvianLens.json',
-    // Our own lens: stateless, reads the collection through `ownerOf` like
-    // anyone else, and never reverts — a burnt or unminted id is the zero
-    // address. Two views, both taking the collection as their first argument,
-    // ids 1-based and `stop` inclusive. It replaces the Transfer-log scan
-    // wherever the manifest names one; see `ownedBy` in chain/birds.ts.
-    functions: ['tokensOfOwnerIn', 'ownersOf'],
+    export: 'sweeperAbi',
+    file: 'Sweeper.sol/Sweeper.json',
+    // THE SWEEPER (2026-09-12). Stateless, ownerless, no admin surface: every
+    // function on it is a holder's (or anyone's, for `prepare`), so it has a
+    // collector export and nothing else. Its `NotTheOwner` shares the Nest's
+    // signature and selector; its `Reentrancy` is Solady's, like the Perch's.
+    functions: ['prepare', 'sweep', 'status', 'sweepable', 'COLLECTION'],
+    events: ['Swept', 'SweepSkipped', 'SatchelDeployed'],
+  },
+  {
+    export: 'accountV3Abi',
+    file: 'IERC6551Account.sol/IERC6551Account.json',
+    // The bird's own wallet — Tokenbound's AccountV3, which is not ours and is
+    // not in `contracts/src`. This is the slice the tests drive against the
+    // real code on 4663 (`contracts/test/mocks/IERC6551Account.sol`, proved by
+    // `Sweeper.t.sol`), compiled like everything else here rather than typed
+    // from memory. The site sends exactly one call to it: `setPermissions`,
+    // the holder's grant to the Sweeper. Its `NotAuthorized()` is the refusal
+    // a stranger gets.
+    functions: ['setPermissions', 'permissions', 'owner'],
     events: [],
   },
   {
@@ -260,6 +346,23 @@ const SOURCES = [
     // gives the current ones. Their difference times the liquidity is what
     // `collectFees` will pay, per currency — the same arithmetic the pool does.
     functions: ['getPositionInfo', 'getFeeGrowthInside', 'getSlot0', 'getLiquidity'],
+    events: [],
+  },
+  {
+    export: 'uniswapV3FactoryAbi',
+    file: 'IUniswapV3.sol/IUniswapV3Factory.json',
+    // The stock tokens trade on Uniswap v3 against WETH. The Treasury's own
+    // interface slice (contracts/src/interfaces), compiled with the rest. The
+    // ticker asks it one question: which pool, for a token, WETH and a fee.
+    functions: ['getPool'],
+    events: [],
+  },
+  {
+    export: 'uniswapV3PoolAbi',
+    file: 'IUniswapV3.sol/IUniswapV3Pool.json',
+    // A pool's price is `slot0().sqrtPriceX96`; `token0` says which way round
+    // it is; `liquidity` says whether there is anything behind it.
+    functions: ['slot0', 'liquidity', 'token0', 'token1', 'fee'],
     events: [],
   },
   {
@@ -316,6 +419,56 @@ const ERROR_SOURCES = [
   'ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json',
   'CustomRevert.sol/CustomRevert.json',
 ];
+
+/**
+ * Errors declared in a Solidity SOURCE that `forge build` never compiles,
+ * because nothing of ours imports it. The V4Quoter answers a quote by
+ * reverting, and when the swap it simulates reverts instead — the hook's
+ * `BuyTooLarge` in the opening window, say — it wraps that revert in
+ * `UnexpectedRevertBytes(bytes)` from its own `QuoterRevert` library. That
+ * library is in `lib/v4-periphery` and in no artifact, so the declaration is
+ * read out of the file, the way the action bytes are — never typed here.
+ */
+const SOURCE_ERRORS = [
+  {
+    file: resolve(root, '..', 'contracts', 'lib', 'v4-periphery', 'src', 'libraries', 'QuoterRevert.sol'),
+    names: ['UnexpectedRevertBytes'],
+  },
+];
+
+/**
+ * Errors of a contract we call but whose source is neither vendored nor in
+ * `lib/`. The UniversalRouter refuses an `execute` past its deadline with
+ * `TransactionDeadlinePassed()` — declared in Uniswap's universal-router
+ * repository (`contracts/interfaces/IUniversalRouter.sol`), which is not a
+ * dependency here on purpose (see `src/interfaces/IUniversalRouter.sol`).
+ * The SIGNATURE is recorded, with its provenance, and the selector is
+ * computed from it at build time like every other; no hex is typed anywhere.
+ * Seen on the launch dry run as an undecoded 0x5bf6f916.
+ */
+const THIRD_PARTY_ERRORS = [
+  { signature: 'TransactionDeadlinePassed()', from: 'universal-router/contracts/interfaces/IUniversalRouter.sol (upstream, not vendored)' },
+];
+
+function fromSignature({ signature }) {
+  const m = signature.match(/^(\w+)\((.*)\)$/);
+  if (!m) throw new Error(`bad signature ${signature}`);
+  const inputs = m[2] === '' ? [] : m[2].split(',').map((type) => ({ name: '', type: type.trim(), internalType: type.trim() }));
+  return { type: 'error', name: m[1], inputs };
+}
+
+function readSolidityErrors(file, names) {
+  const text = readFileSync(file, 'utf8');
+  return names.map((name) => {
+    const m = text.match(new RegExp(`error\\s+${name}\\s*\\(([^)]*)\\)`));
+    if (!m) throw new Error(`${file}: no error ${name}`);
+    const inputs = m[1].trim() === '' ? [] : m[1].split(',').map((p) => {
+      const [type, argName] = p.trim().split(/\s+/);
+      return { name: argName ?? '', type, internalType: type };
+    });
+    return { type: 'error', name, inputs };
+  });
+}
 
 const sig = (e) => `${e.name}(${e.inputs.map((i) => i.type).join(',')})`;
 
@@ -402,8 +555,9 @@ const READ_ONLY_ON_BOTH = [
   'freeMintOpenedAt', 'freeMinted', 'FREE_ALLOCATION', 'requiredBacking',
   'royaltyInfo', 'AVIANS', 'MINT_SINK', 'feeRecipient', 'avians', 'nft',
   'listedRewardTokens', 'isRewardToken', 'wasEverRewardToken', 'rewardData',
-  'escrowedOf', 'totalWeight', 'stakerOf', 'MAX_REWARD_TOKENS', 'claimAll',
-  'conversionConfig', 'targets', 'targetCount', 'routeVenue', 'claimable',
+  'escrowedOf', 'totalWeight', 'totalBrooding', 'rewardTokenCount', 'MAX_REWARD_TOKENS',
+  'conversionConfig', 'targets', 'targetCount', 'routeVenue', 'v3RouteOf', 'claimable', 'costSink',
+  'admin', 'adminClaimable', 'adminClaimed', 'NEST',
   'cumulativeIn', 'convertible', 'adminShareBps', 'adminClaimed',
   'ADMIN_SHARE_BPS', 'MIN_INTERVAL_FLOOR', 'STAKING', 'NATIVE',
   'tokenId', 'unlockAt', 'isLocked', 'positionLiquidity', 'LOCK_DURATION',
@@ -462,6 +616,8 @@ for (const src of SOURCES) {
 }
 
 for (const file of ERROR_SOURCES) collectErrors(load(file), file);
+for (const s of SOURCE_ERRORS) collectErrors(readSolidityErrors(s.file, s.names), `${relative(root, s.file).split('\\').join('/')} (source)`);
+for (const e of THIRD_PARTY_ERRORS) collectErrors([fromSignature(e)], e.from);
 
 /**
  * The four that are raised THROUGH our contracts but declared elsewhere —

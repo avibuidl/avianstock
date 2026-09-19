@@ -1,45 +1,57 @@
-/* Bricolage Grotesque for the wordmark and headings, Inter for body,
-   JetBrains Mono for addresses and amounts. Self-hosted; see
-   public/fonts/LICENSES.md. The mono face is also the tell that a number is
-   exact rather than approximate. */
+/* One family for words, one for figures. Geist at 600 for every heading,
+   Geist at 400 for every paragraph, Geist Mono at 500 for every amount and at
+   400 for every address. Self-hosted; see public/fonts/LICENSES.md. The mono
+   face is also the tell that a number is exact rather than approximate.
+
+   Three weights and no more: 400, 500, 600. The display size does the
+   emphasis; nothing on the site is set at 700. */
 
 h1, h2, h3, h4, h5, .display {
-  font-family: 'Bricolage Grotesque', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-strong);
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
-h1 { font-size: clamp(40px, 6.4vw, 76px); line-height: 0.94; font-weight: 800; letter-spacing: -0.035em; }
-h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.06; }
-h3 { font-size: clamp(20px, 2.2vw, 24px); line-height: 1.2; }
-h4 { font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+h1 { font-size: clamp(44px, 5.4vw, 68px); line-height: 0.98; letter-spacing: -0.045em; }
+h2 { font-size: clamp(28px, 3.2vw, 36px); line-height: 1.08; letter-spacing: -0.03em; }
+h3 { font-size: 21px; line-height: 1.2; letter-spacing: -0.02em; }
+h4 { font-size: 16px; line-height: 1.3; letter-spacing: -0.012em; }
 h5 { font-size: 15px; line-height: 1.3; letter-spacing: -0.01em; }
+
+strong, b { font-weight: 600; }
 
 p { margin: var(--s3) 0 0; text-wrap: pretty; }
 p:first-child { margin-top: 0; }
 
-.eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin: 0 0 var(--s3);
-}
-
-.lede { font-size: clamp(16px, 1.5vw, 19px); line-height: 1.55; margin-top: var(--s4); }
-.small { font-size: 13px; line-height: 1.5; }
-.tiny { font-size: 11.5px; line-height: 1.45; }
+/* A lede fills its line before it breaks: the body's `pretty` wrapping may
+   pull a word down to even out a short last line, which reads on a two-line
+   lede as the first line stopping short. */
+.lede { font-size: clamp(16px, 1.4vw, 18px); line-height: 1.5; letter-spacing: -0.008em; margin-top: var(--s4); text-wrap: wrap; }
+.small { font-size: 13.5px; line-height: 1.5; }
+.tiny { font-size: 12px; line-height: 1.45; }
 .dim { color: var(--text-dim); }
-.strong { color: var(--text-strong); }
+.strong { color: var(--text-strong); font-weight: 600; }
 .italic { font-style: italic; }
 
-.mono, .num {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+/* A caption under a figure, never a label above a heading: the count's unit
+   of meaning ("Minted", "Price"), in the mono face, small and tracked a
+   little so it reads as a label and not as a word in the sentence beside it. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  line-height: 1.3;
 }
-.num { color: var(--text-strong); }
+
+.mono, .num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.num { color: var(--text-strong); font-weight: 500; }

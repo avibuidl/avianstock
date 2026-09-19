@@ -23,6 +23,7 @@ import { Collection } from '../components/admin/Collection';
 import { Nest } from '../components/admin/Nest';
 import { Ownership } from '../components/admin/Ownership';
 import { PerchAndVault } from '../components/admin/PerchAndVault';
+import { RoostPanel } from '../components/admin/RoostPanel';
 import { Sweeps } from '../components/admin/Sweeps';
 import { TreasuryPanel } from '../components/admin/TreasuryPanel';
 import { shortAddress } from '../lib/format';
@@ -36,6 +37,7 @@ const SECTIONS = [
   { id: 'collection', label: 'The collection' },
   { id: 'nest', label: 'The nest' },
   { id: 'perch', label: 'The perch and the lock' },
+  { id: 'roost', label: 'The Roost' },
 ] as const;
 
 export function Admin({ onConnect }: { onConnect: () => void }) {
@@ -48,14 +50,56 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
   // rendered from that read rather than from anything remembered here.
   useEffect(() => { setAt('ownership'); }, [connection.status]);
 
+  // Mark the section being read, not the one last clicked. Before this the
+  // list moved only on a click and stood still while the page scrolled.
+  //
+  // The reading line is the band from 96px down to 40% of the window, as on
+  // Docs; the section that covers most of it is the one being read. Measured
+  // on scroll rather than observed, because the sections mount only after the
+  // owner read lands (and five of the seven only for the owner, not a pending
+  // one), and because the Roost's panel at the foot of the page is shorter
+  // than the band: at the bottom of the page the last section wins outright.
+  const sectionsMounted = connection.status === 'connected' && !!admin.data
+    && (admin.data.isOwner || admin.data.isPendingOwner);
+  const isOwner = admin.data?.isOwner ?? false;
+  useEffect(() => {
+    if (!sectionsMounted) return;
+    const ids = isOwner ? SECTIONS.map((sec) => sec.id) : [SECTIONS[0].id];
+    let raf = 0;
+    const pick = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) { setAt(ids[ids.length - 1]); return; }
+      const top = 96;
+      const bottom = window.innerHeight * 0.4;
+      let best: string | null = null;
+      let most = 0;
+      for (const id of ids) {
+        const r = document.getElementById(id)?.getBoundingClientRect();
+        if (!r) continue;
+        const overlap = Math.min(r.bottom, bottom) - Math.max(r.top, top);
+        if (overlap > most) { most = overlap; best = id; }
+      }
+      if (best) setAt(best);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(pick); };
+    pick();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [sectionsMounted, isOwner]);
+
   if (connection.status !== 'connected') {
     return (
       <div className="page" style={{ maxWidth: 720 }}>
-        <p className="eyebrow">Owner</p>
         <h2>Connect the owner&rsquo;s wallet.</h2>
         <p className="lede">
           This page makes owner calls to the five contracts. Connecting tells the page which address
-          to read against — it proves nothing and authorises nothing, and the contracts refuse
+          to read against: it proves nothing and authorises nothing, and the contracts refuse
           anyone who is not the owner regardless.
         </p>
         <button type="button" className="btn" style={{ marginTop: 20 }} onClick={onConnect}>
@@ -105,7 +149,7 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
             className={`${s.tocItem}${at === sec.id ? ` ${s.tocItemOn}` : ''}`}
             onClick={() => {
               setAt(sec.id);
-              document.getElementById(sec.id)?.scrollIntoView({ block: 'start' });
+              document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
           >
             {sec.label}
@@ -114,18 +158,17 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
       </nav>
 
       <div>
-        <p className="eyebrow">Owner</p>
         <h2>The controls, and what each one costs.</h2>
         <p className="lede" style={{ maxWidth: 760 }}>
           Every function on this page is <span className="mono">onlyOwner</span> on its contract, and
           that is what refuses everyone else. This page exists so the calls do not have to be
-          hand-built — it is not a lock, and it is not protecting anything.
+          hand-built: it is not a lock, and it is not protecting anything.
         </p>
 
         <div className="row row--wrap" style={{ gap: 10, marginTop: 16 }}>
           <Tag tone={a.isOwner ? 'accent' : 'warn'}>
             <Icon name="wallet" size={11} />{' '}
-            {a.isOwner ? 'Owner' : 'Pending owner'} · {shortAddress(a.you ?? '')}
+            {a.isOwner ? 'Owner' : 'Pending owner'}, {shortAddress(a.you ?? '')}
           </Tag>
           {!a.ownersAgree ? <Tag tone="bad">The five disagree</Tag> : null}
         </div>
@@ -142,17 +185,18 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
           </div>
         ) : null}
 
-        <div style={{ marginTop: 28 }} id="ownership">
+        <div className={s.sec} style={{ marginTop: 28 }} id="ownership">
           <Ownership admin={a} />
         </div>
 
         {a.isOwner ? (
           <>
-            <div style={{ marginTop: 40 }} id="sweeps"><Sweeps admin={a} /></div>
-            <div style={{ marginTop: 40 }} id="treasury"><TreasuryPanel admin={a} /></div>
-            <div style={{ marginTop: 40 }} id="collection"><Collection admin={a} /></div>
-            <div style={{ marginTop: 40 }} id="nest"><Nest admin={a} /></div>
-            <div style={{ marginTop: 40 }} id="perch"><PerchAndVault admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="sweeps"><Sweeps admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="treasury"><TreasuryPanel admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="collection"><Collection admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="nest"><Nest admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="perch"><PerchAndVault admin={a} /></div>
+            <div className={s.sec} style={{ marginTop: 40 }} id="roost"><RoostPanel admin={a} /></div>
           </>
         ) : null}
 
@@ -176,7 +220,6 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
 function Refusal({ you, expected }: { you: string | null; expected: string | null }) {
   return (
     <div className="page" style={{ maxWidth: 720 }}>
-      <p className="eyebrow">Owner</p>
       <h2>This wallet is not the owner.</h2>
       <p className="lede">
         Nothing is hidden from you here that the chain does not already publish. The contracts

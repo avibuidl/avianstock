@@ -84,15 +84,19 @@ export type CollectionState = {
 
 export type Approvals = {
   aviansToCollection: Amount;
-  aviansToStaking: Amount;
+  aviansToNest: Amount;
   /**
    * BUYING from the perch is a `transferFrom` of AVIANS, so it needs an
    * allowance exactly as the mint does — a separate one, to a different
    * contract. Selling does not: that moves birds, which is `birdsToPerch`.
    */
   aviansToPerch: Amount;
+  /**
+   * The ONE bird approval, and it is to the perch: the batch sell pulls with
+   * `transferFrom`. There is no bird approval to the Nest (2026-09-11) — a
+   * bird broods where it is, and the Nest moves nothing.
+   */
   birdsToPerch: boolean;
-  birdsToRoost: boolean;
 };
 
 export type WalletState = {
@@ -113,7 +117,6 @@ export type WalletState = {
 export type BirdLocation =
   | { where: 'wallet'; owner: Address }
   | { where: 'perch' }
-  | { where: 'roost'; staker: Address; tier: Tier; since: UnixSeconds }
   | { where: 'satchel'; hostId: TokenId }
   /**
    * Burnt by the Perch as the hundredth deposit. Not an error state and not a
@@ -129,12 +132,47 @@ export type SatchelHolding =
   | { kind: 'avian'; id: TokenId }
   | { kind: 'nft'; collection: string; id: string };
 
+/** Where a brood's rewards are delivered on every settle. */
+export type Delivery = {
+  /** The satchel, or the activator's wallet. */
+  to: Address;
+  toWallet: boolean;
+};
+
+/**
+ * A bird's brood, as `broodOf` + `isBrooding` + `deliveryOf` describe it.
+ *
+ * BROODING IS NOT CUSTODIAL (2026-09-11): the bird stays in its holder's
+ * wallet, so this is a fact ABOUT a bird rather than a place it is. `live` is
+ * the contract's own `isBrooding`, which also covers the documented fallback —
+ * a bird no longer with its activator that the hook somehow missed is expired
+ * in the contract's eyes whether or not `expiredAt` was stamped — so every
+ * decision reads `live`, never the stamp.
+ */
+export type BroodSummary = {
+  activator: Address;
+  tier: Tier;
+  activatedAt: UnixSeconds;
+  /** The second the bird changed hands, or 0. A stamp, not the verdict. */
+  expiredAt: UnixSeconds;
+  live: boolean;
+  delivery: Delivery;
+};
+
 export type Bird = {
   id: TokenId;
   traits: TraitIndices;
   combo: Combo;
   location: BirdLocation;
   satchel: { address: Address; deployed: boolean; holds: SatchelHolding[] };
+  /** Null for no brood. Read from the Nest in the same block as the rest. */
+  brood: BroodSummary | null;
+  /**
+   * The brood's per-token lines — unsettled, settled, pending. Filled by the
+   * single-bird read (`getBird`) for the bird page; the gallery and My Birds
+   * leave it out (My Birds gets them from `getBrood` instead).
+   */
+  broodLines?: BroodTokenLine[];
 };
 
 // ──────────────────────────────────────────────────────────────── the perch
@@ -153,6 +191,14 @@ export type PerchState = {
   operatorWhitelisted: boolean;
   /** `BURN_EVERY`: one bird in this many deposits is burnt. 100. */
   burnEvery: number;
+  /**
+   * `BURN_FLOOR`: the burn stops at this many living birds (2,222 on the
+   * real deployment). While `burnsActive` is false, `depositsUntilNextBurn`
+   * reads 0 — "no burns until the flock passes the floor", NEVER "the next
+   * sale burns" — and a hundredth arriving is withheld, not burnt.
+   */
+  burnFloor: number;
+  burnsActive: boolean;
   /** Paid deposits so far — pull and push, resales included, never a register. */
   deposits: number;
   /**
@@ -188,33 +234,186 @@ export type RewardSplit = {
   parts: RewardSplitPart[];
 };
 
-export type RewardStream = {
-  token: RewardToken;
-  earned: Amount;
-  rate: Amount;
-  periodFinish: UnixSeconds;
-  claimedByYou: Amount;
-  totalPaid: Amount;
-  /** false ⇒ `claim` throws TransferFailed. The accrual is safe either way. */
-  transferable: boolean;
+/**
+ * ONE STOCK TOKEN'S PRICE, IN ETH, off its Uniswap v3 pool against WETH.
+ *
+ * A mid-price — the pool's own `sqrtPriceX96` turned into ETH per whole token,
+ * no fee, no size — which is why it is a figure to watch and not a quote to
+ * act on. Never USD: nothing the site is allowed to reach knows what ETH is
+ * worth in dollars, and a made-up figure would be worse than none.
+ */
+export type TokenPrice = {
+  address: Address;
+  symbol: string;
+  decimals: number;
+  /** ETH per one whole token, as 18-decimal base units. */
+  ethPerToken: Amount;
+  /** The pool it was read from, and its fee tier — for the log, not the screen. */
+  pool: Address;
+  fee: number;
 };
 
-export type RoostState = {
+/**
+ * The ticker's one read: every listed reward token that had a pool with
+ * something in it at that block. A token whose pool is missing, empty, or
+ * would not answer is simply not in the list — never in it as zero.
+ */
+export type PriceBoard = {
+  blockNumber: bigint;
+  /** The block's own clock, so "N seconds ago" is the chain's word. */
+  timestamp: UnixSeconds;
+  prices: TokenPrice[];
+};
+
+/** One listed reward token's stream, as the Nest stores it. Per token, not per wallet. */
+export type RewardStream = {
+  token: RewardToken;
+  rate: Amount;
+  periodFinish: UnixSeconds;
+  escrowed: Amount;
+  totalPaid: Amount;
+  totalReturned: Amount;
+};
+
+/** One reward token's line on one brooding bird. */
+export type BroodTokenLine = {
+  token: RewardToken;
+  /** `earned(id, t)`: accrued and not yet delivered. Costs no gas to show. */
+  unsettled: Amount;
+  /**
+   * `balanceOf(delivery.to)`: what has been delivered and sits there. The
+   * satchel's balance for a satchel brood; the holder's own wallet balance
+   * for a wallet brood — which is everything that wallet holds in the token,
+   * not only what brooding put there. Read this block, never remembered.
+   */
+  settled: Amount;
+  /** `pending(id, t)`: where a settle would send `unsettled` right now. */
+  pending: { toDestination: Amount; toActivator: Amount; returned: Amount };
+};
+
+/** A held bird with whatever brood it carries, and its reward lines. */
+export type BroodEntry = {
+  bird: Bird;
+  brood: BroodSummary | null;
+  /** Empty when nothing is listed, or the bird has no brood. */
+  lines: BroodTokenLine[];
+};
+
+/** One thing a settle would move, from `pending` — the receipt in advance. */
+export type SettleMove = {
+  id: TokenId;
+  token: RewardToken;
+  amount: Amount;
+  /** A brooding bird's accrual to its destination; an expired brood's split. */
+  kind: 'to-satchel' | 'to-wallet' | 'to-activator' | 'returned';
+  to: Address;
+};
+
+export type SettlePreview = {
+  /** The ids that have a brood at all; the rest of the list is skipped. */
+  ids: TokenId[];
+  moves: SettleMove[];
+};
+
+/** What the Nest said, read off a receipt. The same reader serves every write. */
+export type NestEvents = {
+  brooded: { id: TokenId; tier: Tier; paid: Amount; toWallet: boolean }[];
+  upgraded: { id: TokenId; fromTier: Tier; toTier: Tier; paid: Amount }[];
+  redirected: { id: TokenId; toWallet: boolean }[];
+  /** The hook fired: a brooding bird changed hands and its brood ended. */
+  expired: { id: TokenId; activator: Address; at: number }[];
+  /** A brooding bird's accrual, delivered to its destination. */
+  settled: { id: TokenId; token: Address; to: Address; amount: Amount }[];
+  /** An expired brood's split: to the activator's wallet, and back to the stream. */
+  expirySettled: { id: TokenId; activator: Address; token: Address; toActivator: Amount; returned: Amount }[];
+  /** A post-expiry share going back. `folded` ⇒ into the running stream; else released as surplus. */
+  returned: { token: Address; amount: Amount; folded: boolean }[];
+  /**
+   * A delivery the token refused. TWO SHAPES: `id === 0` is an activator's
+   * pre-sale share, now in `claimable` — "held for you; claim it". `id !== 0`
+   * is a brooding bird's delivery (to its satchel, or to its holder's wallet)
+   * — still owed to the bird, delivered on a later settle. Nothing is lost
+   * either way.
+   */
+  held: { id: TokenId; beneficiary: Address; token: Address; amount: Amount }[];
+  /** A `claim`, or an expired brood's share paid straight to the activator. */
+  paid: { user: Address; token: Address; amount: Amount }[];
+  /** The collection's hook into the Nest failed. Should never appear. */
+  hookFailed: TokenId[];
+};
+
+export type BroodState = {
   tierCost: Record<Tier, Amount>;  // 5,000 / 15,000 / 25,000
   totalWeight: bigint;
-  yourWeight: bigint;
-  totalStaked: number;
-  totalBurned: Amount;
-  staked: Bird[];
-  listed: RewardToken[];           // [] ⇒ nothing is streaming yet
+  /** Broods on the books, expired-unsettled included. */
+  totalBrooding: number;
+  /** AVIANS paid on to the Roost by tier purchases and upgrades, ever (`totalForwarded`). */
+  totalForwarded: Amount;
+  listed: RewardToken[];           // [] ⇒ nothing streams, and that is not a bug
   streams: RewardStream[];
+  /** The block's own clock at the read; the screen carries it forward. */
+  chainNow: UnixSeconds;
+  /** Every bird the connected wallet holds, brooding or not. */
+  yours: BroodEntry[];
   /**
-   * Tokens that were listed once and are not any more. They do not stream, but
-   * a wallet can still be owed in one — which is why `claimAll` can pay out
-   * more tokens than `listedRewardTokens()` returns.
+   * `claimable(you, t)` — an expired brood's pre-sale share that your wallet
+   * refused when it was settled. Nonzero entries only. Collected with
+   * `claim(t)`.
    */
-  retired: RewardStream[];
-  operatorWhitelisted: boolean;
+  claimable: { token: RewardToken; amount: Amount }[];
+};
+
+// ────────────────────────────────────────────────────────────── the sweeper
+//
+// HANDOVER section 5, "Collecting from many birds at once". A satchel obeys
+// only the bird's owner, so nothing can move its stock out for them. The
+// Sweeper is the one exception a holder can choose to make, satchel by
+// satchel, and from then on one call moves every listed reward token out of
+// every granted satchel into their own wallet. The grant is keyed by the
+// bird's CURRENT owner, so it dies with a sale.
+
+/**
+ * One held bird's standing with the Sweeper: `status(id)`, and what
+ * `sweepable` read of its satchel. `amounts` is index-aligned with
+ * `SweepState.tokens` and is read whether or not the bird is granted — a
+ * satchel with stock in it and no grant is exactly the bird the panel is for.
+ */
+export type SweepBird = {
+  id: TokenId;
+  satchel: Address;
+  deployed: boolean;
+  /** The CURRENT holder's grant. False whenever the satchel is not deployed. */
+  granted: boolean;
+  amounts: Amount[];
+};
+
+export type SweepState = {
+  /** The listed reward tokens, then any the holder added by address. */
+  tokens: RewardToken[];
+  /** Every bird the wallet holds, in id order. */
+  birds: SweepBird[];
+  /**
+   * Whether the panel is worth drawing at all: a granted bird, or a satchel
+   * holding something in a LISTED token. A holder whose broods all deliver
+   * to the wallet has neither and should see no wall of setup.
+   */
+  relevant: boolean;
+};
+
+/** A sweep's receipt, read off `Swept` and `SweepSkipped`. */
+export type SweepResult = {
+  swept: { id: TokenId; token: Address; to: Address; amount: Amount }[];
+  /**
+   * `token` null: the whole bird was passed over — its satchel is not
+   * deployed or has not granted. Otherwise that token would not move for
+   * that bird (paused, or the wallet is on its blocklist); `reason` is the
+   * revert data, empty when there was none. Never a failure: the stock is
+   * still in the bird.
+   */
+  skipped: { id: TokenId; token: Address | null; reason: Hex }[];
+  /** Per token, what reached the wallet: the `Swept` rows summed. */
+  totals: { token: Address; amount: Amount }[];
+  hash: Hex;
 };
 
 // ────────────────────────────────────────────────────────────── first light
@@ -334,6 +533,22 @@ export type AdminCollection = {
 
 export type AdminPerch = { feeRecipient: Address };
 
+/**
+ * THE ROOST, on the owner's panel (2026-09-18). The two addresses that must
+ * both be the Roost — the Perch's fee recipient and the Nest's cost sink — and
+ * the admin's tenth, claimable by the Nest's owner.
+ */
+export type AdminRoost = {
+  roost: Address;
+  /** `nest.costSink()`. Bound at construction; owner-settable only to a Roost for this Nest. */
+  costSink: Address;
+  /** The admin's 10%, allocated and unclaimed. */
+  adminClaimable: Amount;
+  adminClaimed: Amount;
+  /** `roost.admin()`: the Nest's owner, read live. */
+  admin: Address;
+};
+
 /** One reward token, as the owner has to see it: listed, escrowed, spare. */
 export type AdminRewardToken = {
   token: RewardToken;
@@ -356,11 +571,14 @@ export type AdminNest = {
    * `claimAll`, whose first return value IS that array. Null when the
    * simulation could not be made, and never a zero.
    */
-  snapshotCount: number | null;
+  /** `rewardTokenCount()`. The cap counts ever-listed, which nothing returns. */
+  listedCount: number;
   maxRewardTokens: number;
   minDuration: number;
   maxDuration: number;
   totalWeight: bigint;
+  /** Broods on the books, expired-unsettled included. */
+  totalBrooding: number;
 };
 
 export type AdminTargetRow = { token: Address; weightBps: number };
@@ -461,6 +679,7 @@ export type AdminState = {
   perch: AdminPerch;
   nest: AdminNest;
   treasury: AdminTreasury;
+  roost: AdminRoost;
   /** Null when this deployment has no pool yet, which a manifest may say. */
   vault: AdminVault | null;
 };
@@ -527,6 +746,13 @@ export type ValidatorOperation =
  * launch window and has to be re-read, not remembered.
  */
 export type SwapState = {
+  /**
+   * The chain's clock at the read — the block the rest of this was pinned
+   * to. The window, the fee and the countdown are all functions of the
+   * CHAIN's time, and a machine whose clock is off (or a chain that runs
+   * ahead of it, as a fork does) would otherwise show the wrong second.
+   */
+  chainNow: UnixSeconds;
   launchAt: UnixSeconds;
   isLaunched: boolean;
   windowSeconds: number;
@@ -602,36 +828,6 @@ export type PermitSignature = {
 };
 
 /**
- * `claimAll()` exactly as the contract returns it: three parallel arrays in
- * listing order. The array can be LONGER than `listedRewardTokens()`, because
- * a retired token the wallet still has a balance in is paid too — so nothing
- * may index one against the other.
- */
-export type ClaimAllResult = {
-  tokens: Address[];
-  paid: Amount[];
-  skipped: boolean[];
-};
-
-/**
- * One row of the above, zipped and read. Two of the three cases look alike in
- * the raw arrays and mean entirely different things, so which one it is is
- * decided once, in `readClaimAll`, and never again at a call site:
- *
- *   paid > 0                      → 'paid'
- *   paid === 0, skipped === false → 'nothing-owed'  nothing was owed. Not a failure.
- *   skipped === true              → 'skipped'       the token refused. The accrual is safe.
- */
-export type ClaimOutcome = {
-  token: Address;
-  symbol: string;
-  decimals: number;
-  paid: Amount;
-  skipped: boolean;
-  kind: 'paid' | 'nothing-owed' | 'skipped';
-};
-
-/**
  * The receipt for a sale, read off the logs rather than predicted.
  *
  * `burnt` is empty on almost every sale. When it is not, the birds in it were
@@ -641,6 +837,16 @@ export type ClaimOutcome = {
 export type SellResult = {
   paid: Amount;
   burnt: TokenId[];
+  /**
+   * Hundredth deposits that arrived at or below the burn floor and were kept
+   * (`BurnWithheld`): the bird stays in the pool and the seller is paid the
+   * same. Reported beside `burnt` as "kept", never as an error.
+   */
+  withheld: TokenId[];
+  /** The broods this sale ended (`Expired`, from the collection's hook). */
+  expired: TokenId[];
+  /** The hook failed for these ids — a brood that should have expired did not. Never expected. */
+  hookFailed: TokenId[];
 };
 
 export type TransferSafety =
@@ -662,26 +868,31 @@ export type ErrorName =
   | 'NothingToConvert' | 'NothingClaimable' | 'TargetNotListed' | 'ZeroSplitPart'
   | 'NoFloorPrice' | 'FloorPriceStale' | 'FloorPriceTooFresh' | 'FloorPriceDropTooLarge' | 'SlippageTooHigh'
   | 'MinOutIsZero' | 'NoRoute' | 'ConversionProducedNothing' | 'OwnableUnauthorizedAccount'
-  // the roost
-  | 'LengthMismatch' | 'InvalidTier' | 'AlreadyStaked' | 'NotStaked' | 'NotTheStaker'
-  | 'NeverListed' | 'NotListed' | 'NoLiveStream' | 'DonationIsZero' | 'NothingStaked'
-  | 'NotAFunder' | 'PushMustComeFromTheHolder' | 'BadStakeData' | 'MintIsNotAStake'
-  | 'NotOwnedByStaking'
+  // the nest (brooding, 2026-09-11). NotTheCollection is the perch's too.
+  | 'LengthMismatch' | 'InvalidTier' | 'NotTheOwner' | 'AlreadyBrooding' | 'NotBrooding'
+  | 'BroodExpired' | 'TierNotHigher' | 'SameDelivery' | 'NotHeldHere'
+  | 'NeverListed' | 'NotListed' | 'NoLiveStream' | 'DonationIsZero' | 'NothingBrooding'
+  | 'NotAFunder'
   // shared, Solady
   | 'TransferFailed' | 'TransferFromFailed'
   // the token
   | 'InsufficientBalance' | 'InsufficientAllowance' | 'InvalidPermit' | 'PermitExpired'
   // moving a bird
   | 'TransferToOwnAccount' | 'CallerMustBeWhitelisted'
+  /** AccountV3's: `setPermissions` on a satchel by someone who is not the bird's holder. */
+  | 'NotAuthorized'
   | 'ERC721InsufficientApproval' | 'ERC721IncorrectOwner' | 'ERC721NonexistentToken'
   // the pool
   | 'NotLaunched' | 'BuyTooLarge' | 'PartialFill' | 'NothingTraded'
   | 'OnlyThePerch' | 'NotHeldByThePerch'
   | 'WrongPool' | 'NotThePoolManager' | 'ExecutionFailed' | 'V4TooLittleReceived'
-  | 'DeadlinePassed' | 'NoPool'
+  | 'TransactionDeadlinePassed' | 'NoPool'
+  // the Roost and AVIANS staking (2026-09-18)
+  | 'TooSoon' | 'NothingToDistribute' | 'NotTheAdmin' | 'NothingToClaim' | 'NothingHeld' | 'NothingDeliverable'
+  | 'ZeroAmount' | 'InsufficientStake' | 'NotTheRoost' | 'NothingStaked' | 'InvalidCostSink'
   // the owner surface — the refusals only the admin panel can provoke
   | 'ZeroAddress' | 'ZeroValue' | 'NotAContract' | 'NothingToRescue' | 'RescueFailed'
-  | 'CannotRescue' | 'NotStranded'
+  | 'CannotRescue'
   | 'RendererLocked' | 'RendererMismatch' | 'RendererNotAContract' | 'RendererRendersNothing'
   | 'TransferValidatorLocked' | 'TransferValidatorMismatch' | 'TransferValidatorNotAContract'
   | 'TransferValidatorIsAvians' | 'TransferValidatorIsMintSink' | 'TransferValidatorIsThisContract'
@@ -690,7 +901,7 @@ export type ErrorName =
   | 'FreeMintNeverOpened' | 'OwnableInvalidOwner' | 'OwnershipRenounceDisabled'
   | 'InvalidFeeRecipient'
   | 'AlreadyListed' | 'InvalidRewardToken' | 'TooManyRewardTokens' | 'ZeroProbe'
-  | 'TransferAmountMismatch' | 'NoSurplusToRestream' | 'DurationOutOfRange' | 'RewardRateZero'
+  | 'TransferAmountMismatch' | 'NoSurplusToRestream' | 'DurationOutOfRange' | 'RewardRateOutOfRange'
   | 'IntervalTooShort' | 'MaxPerCallTooHigh' | 'SlippageBpsTooHigh' | 'PriceAgeOutOfRange'
   | 'StreamDurationOutOfRange' | 'KeeperDropBpsTooHigh' | 'NotThePriceKeeper'
   | 'TooManyTargets' | 'DuplicateTarget' | 'WeightsMustSumToBps'
@@ -701,3 +912,88 @@ export type ErrorName =
   // Broadcast, receipt unseen. The one outcome that is neither a success nor a
   // refusal, and the only one where the drawer must not say nothing was taken.
   | 'ReceiptUnseen' | 'Unknown';
+
+// ──────────────────────────────────────────── the Roost and AVIANS staking
+//
+// THE ROOST (2026-09-18). Where every AVIANS fee lands — the whole of every
+// Perch fee and every brooding tier cost — and is split by a rule nobody can
+// change: 40% streamed to AVIANS stakers, 30% streamed to brooding birds
+// through the Nest, 20% burnt, 10% the admin's. Anyone may turn it, at most
+// once a day. HANDOVER section 9, "the Roost".
+
+export type RoostLeg = {
+  /** Allocated to this leg and not yet deliverable (nobody staked / nothing brooding). */
+  held: Amount;
+  /** `stakingReady()` / `nestReady()`: would the leg move right now, and if not, why not — verbatim. */
+  ready: boolean;
+  reason: string;
+};
+
+export type RoostState = {
+  /** Every unit of AVIANS that ever arrived. */
+  cumulativeIn: Amount;
+  /** Arrived and not yet split: what the next distribute allocates. */
+  unallocated: Amount;
+  /** The four outflows, ever. */
+  toStaking: Amount;
+  toNest: Amount;
+  burned: Amount;
+  adminClaimed: Amount;
+  /** The admin's tenth, allocated and unclaimed. */
+  adminClaimable: Amount;
+  staking: RoostLeg;
+  nest: RoostLeg;
+  /** When anyone may call `distribute()` again. 0 before the first turn. */
+  nextDistributionAt: UnixSeconds;
+  /** The block's own clock, so "too soon" is judged on the chain's time. */
+  chainNow: UnixSeconds;
+  /** 4000 / 3000 / 2000 / 1000, read rather than assumed. */
+  splitBps: { staking: number; nest: number; burn: number; admin: number };
+  /** The Nest's owner, read live. */
+  admin: Address;
+};
+
+/** What `distribute` did: the split, each leg's fate, and the burn. */
+export type DistributeResult = {
+  allocated: { inflow: Amount; toStaking: Amount; toNest: Amount; toBurn: Amount; toAdmin: Amount } | null;
+  delivered: { leg: 'staking' | 'nest'; amount: Amount }[];
+  held: { leg: 'staking' | 'nest'; amount: Amount; reason: string }[];
+  burned: Amount;
+};
+
+/**
+ * What `deliverHeld` did (2026-09-19): a held leg sent on the moment its
+ * destination could take it. Splits nothing; the day's clock is untouched.
+ */
+export type DeliverResult = {
+  delivered: { leg: 'staking' | 'nest'; amount: Amount }[];
+  held: { leg: 'staking' | 'nest'; amount: Amount; reason: string }[];
+};
+
+/**
+ * AVIANS STAKING. Stake AVIANS, earn AVIANS, by amount, streamed over a week
+ * from each of the Roost's deliveries. No lock, no cooldown, no fee, no owner.
+ */
+export type StakingState = {
+  /** The connected wallet's, or zero when none is connected. */
+  staked: Amount;
+  earned: Amount;
+  aviansBalance: Amount;
+  /** AVIANS approved to the staking contract, for `stake`. */
+  allowance: Amount;
+  totalStaked: Amount;
+  /** The contract's `rewardRate`: base units per second, scaled by 1e18 — raw, like the Nest's. Zero when no stream is running. */
+  rewardRate: Amount;
+  periodFinish: UnixSeconds;
+  /** Still to stream from the current delivery. */
+  remainingReward: Amount;
+  /**
+   * Delivered and not yet credited to anyone: the running remainder plus any
+   * seconds nobody was staked for. Streamed again with the next delivery —
+   * never lost, and not a bonus for staking first.
+   */
+  undelivered: Amount;
+  /** Seconds each delivery streams over. 604,800. */
+  streamSeconds: number;
+  chainNow: UnixSeconds;
+};

@@ -158,7 +158,7 @@ function Conversion({
 
   const problems: string[] = [];
   if (form.minInterval < b.minIntervalFloor) {
-    problems.push(`The interval cannot be under ${seconds(b.minIntervalFloor)} — the contract's own floor.`);
+    problems.push(`The interval cannot be under ${seconds(b.minIntervalFloor)}: the contract's own floor.`);
   }
   if (form.maxPerCallBps === 0 || form.maxPerCallBps > b.maxPerCallBpsCap) {
     problems.push(`Per call must be between 1 and ${b.maxPerCallBpsCap} bps.`);
@@ -193,13 +193,13 @@ function Conversion({
     <Control
       title="Conversion"
       now={c.enabled ? 'on' : 'off'}
-      note="All six go in one call, so the form sends what is on screen — including the fields you did not touch."
+      note="All six go in one call, so the form sends what is on screen: including the fields you did not touch."
     >
       <div className={s.form}>
         <Toggle label="Enabled" checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
-        {numberField('Interval, seconds', 'minInterval', `now ${seconds(c.minInterval)} · floor ${seconds(b.minIntervalFloor)}`)}
-        {numberField('Per call, bps', 'maxPerCallBps', `now ${formatBps(c.maxPerCallBps)} · cap ${b.maxPerCallBpsCap} bps`)}
-        {numberField('Slippage, bps', 'slippageBps', `now ${formatBps(c.slippageBps)} · cap ${b.slippageBpsCap} bps`)}
+        {numberField('Interval, seconds', 'minInterval', `now ${seconds(c.minInterval)}, floor ${seconds(b.minIntervalFloor)}`)}
+        {numberField('Per call, bps', 'maxPerCallBps', `now ${formatBps(c.maxPerCallBps)}, cap ${b.maxPerCallBpsCap} bps`)}
+        {numberField('Slippage, bps', 'slippageBps', `now ${formatBps(c.slippageBps)}, cap ${b.slippageBpsCap} bps`)}
         {numberField('Stream, seconds', 'streamDuration', `now ${seconds(c.streamDuration)}`)}
         {numberField('Price age, seconds', 'maxPriceAge', `now ${seconds(c.maxPriceAge)}`)}
       </div>
@@ -248,7 +248,7 @@ function Targets({
   return (
     <Control
       title="Conversion targets"
-      now={`${admin.treasury.targets.length} · ${admin.treasury.targets.map((t) => symbolOf(admin, t.token)).join(', ') || 'none'}`}
+      now={`${admin.treasury.targets.length}, ${admin.treasury.targets.map((t) => symbolOf(admin, t.token)).join(', ') || 'none'}`}
       note="What the income is split into, and in what proportion. The weights are checked here so the contract's refusal is a shape nobody has to see."
     >
       {rows.map((r, i) => (
@@ -307,7 +307,7 @@ function symbolOf(admin: AdminState, token: Address): string {
   const found = admin.treasury.rows.find(
     (r) => r.currency && r.currency.toLowerCase() === token.toLowerCase(),
   );
-  return found?.symbol ?? '—';
+  return found?.symbol ?? 'unknown';
 }
 
 // ── routes ────────────────────────────────────────────────────────────────
@@ -352,7 +352,7 @@ function Routes({
   return (
     <Control
       title="Routes"
-      now={`${pair.currencySymbol} → ${pair.targetSymbol}: ${VENUE[pair.venue] ?? pair.venue}`}
+      now={`${pair.currencySymbol} to ${pair.targetSymbol}: ${VENUE[pair.venue] ?? pair.venue}`}
       note={<>A v3 route takes precedence over a v4 one, which neither setter tells you. What is in effect is above, and both are shown below.</>}
     >
       <div className={s.form}>
@@ -365,7 +365,7 @@ function Routes({
           >
             {pairs.map((p, i) => (
               <option key={`${p.currencySymbol}:${p.target}`} value={i}>
-                {p.currencySymbol} → {p.targetSymbol} · {VENUE[p.venue] ?? p.venue}
+                {p.currencySymbol} to {p.targetSymbol}, {VENUE[p.venue] ?? p.venue}
               </option>
             ))}
           </select>
@@ -378,12 +378,12 @@ function Routes({
         <>
           <ReadOnlyBlock label="v4 route now">
             {route.v4.length === 0 ? 'none' : route.v4.map((h, i) => (
-              <div key={i}>{`→ ${h.currencyOut} · fee ${h.fee} · spacing ${h.tickSpacing} · hooks ${h.hooks}`}</div>
+              <div key={i}>{`to ${h.currencyOut}, fee ${h.fee}, spacing ${h.tickSpacing}, hooks ${h.hooks}`}</div>
             ))}
           </ReadOnlyBlock>
           <ReadOnlyBlock label="v3 route now">
             {route.v3.length === 0 ? 'none' : route.v3.map((h, i) => (
-              <div key={i}>{`→ pool ${h.pool} · out ${h.tokenOut}`}</div>
+              <div key={i}>{`to pool ${h.pool}, out ${h.tokenOut}`}</div>
             ))}
           </ReadOnlyBlock>
         </>
@@ -394,7 +394,7 @@ function Routes({
           wide
           label="New v4 route"
           value={v4}
-          placeholder="currencyOut, fee, tickSpacing, hooks — one hop per line"
+          placeholder="currencyOut, fee, tickSpacing, hooks: one hop per line"
           invalid={v4.trim() !== '' && v4Hops === null}
           hint={`At most ${admin.treasury.bounds.maxHops} hops, ending at ${pair.targetSymbol}.`}
           onChange={setV4}
@@ -416,7 +416,7 @@ function Routes({
           wide
           label="New v3 route"
           value={v3}
-          placeholder="pool, tokenOut — one hop per line"
+          placeholder="pool, tokenOut: one hop per line"
           invalid={v3.trim() !== '' && v3Hops === null}
           hint="A v3 route, once set, is the one that runs."
           onChange={setV3}
@@ -499,8 +499,8 @@ function Floors({
           <select className="select" value={at} onChange={(e) => setAt(whole(e.target.value) ?? 0)}>
             {pairs.map((p, i) => (
               <option key={`${p.currencySymbol}:${p.target}`} value={i}>
-                {p.currencySymbol} → {p.targetSymbol}
-                {p.floorPriceE18 === 0n ? ' · no floor' : ''}
+                {p.currencySymbol} to {p.targetSymbol}
+                {p.floorPriceE18 === 0n ? ', no floor' : ''}
               </option>
             ))}
           </select>
@@ -529,7 +529,7 @@ function Floors({
         <div style={{ marginTop: 12 }}>
           <Note tone="warn">
             You are the price keeper, not the owner. A keeper may not drop a standing floor below{' '}
-            <span className="mono">{formatEth(keeperFloor)}</span> — {formatBps(admin.treasury.maxKeeperDropBps)}{' '}
+            <span className="mono">{formatEth(keeperFloor)}</span>: {formatBps(admin.treasury.maxKeeperDropBps)}{' '}
             under what is there now.
           </Note>
         </div>
@@ -591,7 +591,7 @@ function KeeperForm({
         <div style={{ marginTop: 12 }}>
           <Box tone="warn">
             <p className="small" style={{ margin: 0 }}>
-              No keeper is set, so only the owner can refresh a floor price — and a floor older
+              No keeper is set, so only the owner can refresh a floor price: and a floor older
               than {seconds(admin.treasury.conversion.maxPriceAge)} stops conversions.
             </p>
           </Box>

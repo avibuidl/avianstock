@@ -34,7 +34,7 @@ export function CycleRefusal({
         <div className="row">
           <Tag tone="bad">Refused</Tag>
           <span className="spacer" />
-          <span className="tiny dim">CHECKED BEFORE ANYTHING WAS SIGNED</span>
+          <span className="tiny dim">Nothing was signed.</span>
         </div>
 
         <h3 id="refuse-h" style={{ marginTop: 16, fontSize: 30 }}>
@@ -49,13 +49,13 @@ export function CycleRefusal({
 
         <p className="small" style={{ marginTop: 12, maxWidth: 660 }}>
           {safety.reason === 'own-account' ? (
-            <>It would be stuck there forever, so the chain refuses it too. Nothing was taken.</>
+            <>It would be stuck there forever. The chain refuses this one too. Nothing was taken.</>
           ) : safety.reason === 'collection-address' ? (
-            <>That is the collection&rsquo;s own address — a standard ERC-721 dead end. Nothing was taken.</>
+            <>That is the collection&rsquo;s own address, a standard ERC-721 dead end. Nothing was taken.</>
           ) : safety.reason === 'depth-cap' ? (
             <>
-              We follow ownership upward to a depth of 32 and this chain does not end inside that.
-              We refuse rather than guess. Nothing was taken.
+              We follow ownership upward 32 steps and this chain does not end inside that. We
+              refuse rather than guess. Nothing was taken.
             </>
           ) : (
             <>
@@ -78,22 +78,18 @@ export function CycleRefusal({
           <Box tone="bad">
             <Note tone="bad">
               <span className="small">
-                The chain refuses only the simplest version of this — a bird sent into its{' '}
-                <em>own</em> satchel. Anything deeper it cannot see inside a transfer, so we refuse
-                it here. This is a documented limit of the contracts, and closing it is this
-                site&rsquo;s job.
+                The chain refuses only the simplest case, a bird sent into its own satchel.
+                Anything deeper it cannot see inside a transfer, so this site refuses it instead.
               </span>
             </Note>
           </Box>
         </div>
 
         <div className="row row--wrap" style={{ gap: 12, marginTop: 22 }}>
-          <button type="button" className="btn" onClick={onClose}>Choose another destination</button>
+          <button type="button" className="btn" onClick={onClose}>Choose another address</button>
           <button type="button" className="btn btn--ghost" onClick={onLookInside}>
             <Icon name="search" size={14} /> Look inside the satchel
           </button>
-          <span className="spacer" />
-          <span className="tiny dim">There is no way to send it anyway.</span>
         </div>
       </div>
     </div>
@@ -104,12 +100,12 @@ function CycleDiagram({ from, to }: { from: number; to: number }) {
   const box = (x: number, y: number, title: string, sub: string, tone: string) => (
     <g key={title}>
       <rect x={x} y={y} width={200} height={66} fill="var(--panel-inset)" stroke={tone} strokeWidth={1} />
-      <text x={x + 14} y={y + 27} fill="var(--chalk)" fontSize={14} fontWeight={600} fontFamily="Inter, sans-serif">{title}</text>
-      <text x={x + 14} y={y + 47} fill="var(--ash)" fontSize={11} fontFamily="JetBrains Mono, monospace">{sub}</text>
+      <text x={x + 14} y={y + 27} fill="var(--chalk)" fontSize={14} fontWeight={600} fontFamily="Geist, sans-serif">{title}</text>
+      <text x={x + 14} y={y + 47} fill="var(--ash)" fontSize={11} fontFamily="Geist Mono, monospace">{sub}</text>
     </g>
   );
   const label = (x: number, y: number, t: string, anchor: 'middle' | 'start' | 'end' = 'middle') => (
-    <text x={x} y={y} fill="var(--ash)" fontSize={11} textAnchor={anchor} fontFamily="Inter, sans-serif">{t}</text>
+    <text x={x} y={y} fill="var(--ash)" fontSize={11} textAnchor={anchor} fontFamily="Geist, sans-serif">{t}</text>
   );
   const arrow = (x1: number, y1: number, x2: number, y2: number) => (
     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--crimson-light)" strokeWidth={1.5} markerEnd="url(#ah)" />

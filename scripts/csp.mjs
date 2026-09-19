@@ -31,6 +31,9 @@ export function originsFrom(deploymentsDir) {
   if (!existsSync(deploymentsDir)) return origins;
   for (const file of readdirSync(deploymentsDir)) {
     if (!file.endsWith('.json') || file === 'index.json') continue;
+    // A local-* manifest is per-machine (a fork on this machine) and never
+    // ships — its origin must not reach a shipped policy either.
+    if (/^local-/.test(file)) continue;
     let manifest;
     try {
       manifest = JSON.parse(readFileSync(join(deploymentsDir, file), 'utf8'));

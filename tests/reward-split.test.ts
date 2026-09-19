@@ -29,8 +29,8 @@ const split = (listed: RewardToken[], parts: [RewardToken, number][]): RewardSpl
   parts: parts.map(([t, weightBps]) => ({ address: t.address, weightBps })),
 });
 
-test('a read that has not landed is an em-dash, not a guess', () => {
-  assert.equal(rewardSplitLine(undefined), '—');
+test('a read that has not landed says so, and does not guess', () => {
+  assert.equal(rewardSplitLine(undefined), 'not read yet');
 });
 
 test('the ordinary case names each token and its share', () => {
@@ -56,14 +56,14 @@ test('a fractional weight keeps its decimal — 3333 bps is not 33%', () => {
 });
 
 test('nothing listed says so — it does not render an empty list', () => {
-  assert.equal(rewardSplitLine(split([], [])), 'None listed yet — nothing streams');
+  assert.equal(rewardSplitLine(split([], [])), 'None listed yet; nothing streams');
 });
 
 test('listed with no targets is the NoTargets state, and is named', () => {
   // `convertAndStream` reverts `NoTargets()` here. The tokens are real; the
   // split is not set, so nothing can convert into them yet.
   const line = rewardSplitLine(split([NVDA, SPY], []));
-  assert.equal(line, 'NVDA, SPY — listed, but no split is set, so nothing converts yet');
+  assert.equal(line, 'NVDA, SPY: listed, but no split is set, so nothing converts yet');
 });
 
 test('a listed token with no share is marked, not silently dropped', () => {
@@ -79,7 +79,7 @@ test('a target retired out of the listing is reported — every conversion rever
   const line = rewardSplitLine(split([NVDA, SPY], [[NVDA, 5000], [SPCX, 5000]]));
   assert.equal(
     line,
-    'NVDA 50%, SPY (no share) — and 1 target is no longer listed, so conversions revert',
+    'NVDA 50%, SPY (no share); 1 target is no longer listed, so conversions revert',
   );
 });
 
@@ -87,7 +87,7 @@ test('two orphaned targets are plural', () => {
   const line = rewardSplitLine(split([NVDA], [[SPY, 5000], [SPCX, 5000]]));
   assert.equal(
     line,
-    'NVDA (no share) — and 2 targets are no longer listed, so conversions revert',
+    'NVDA (no share); 2 targets are no longer listed, so conversions revert',
   );
 });
 

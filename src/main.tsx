@@ -11,12 +11,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { BootFailure } from './components/Boot';
 import {
-  ManifestError, chosenId, loadIndex, loadManifest, rememberChoice, setActiveManifest,
+  ManifestError, chooseId, loadIndex, loadManifest, rememberChoice, setActiveManifest,
   type DeploymentIndex, type Problem,
 } from './chain/manifest';
 import { runStartupChecks } from './chain/startup';
 import { initWallet, onChainOrAccountChange } from './chain/provider';
 import { invalidateAll } from './chain/reads';
+import { invalidatePrices } from './chain/prices';
 import { resetClient } from './chain/client';
 
 import './styles/tokens.css';
@@ -103,7 +104,7 @@ async function boot() {
 
   try {
     index = await loadIndex();
-    id = chosenId(index);
+    id = await chooseId(index);
     const manifest = await loadManifest(index, id);
     setActiveManifest(manifest);
     rememberChoice(manifest.id);
@@ -118,7 +119,8 @@ async function boot() {
       installDevWallet({
         rpcUrl: manifest.network.rpcUrls[0],
         chainId: manifest.network.chainId,
-        account: Number(q.get('devwallet')) || 1,
+        // `?devwallet=0` is account 0, not "unset": a plain `|| 1` read it as 1.
+        account: /^[0-4]$/.test(q.get('devwallet') ?? '') ? Number(q.get('devwallet')) : 1,
         pretendChainId: q.has('wrongchain') ? Number(q.get('wrongchain')) || 1 : undefined,
         pretendUnknownChain: q.has('unknownchain'),
         // ?as=0x… — read a real wallet's pages without its key. Dev only.
@@ -138,7 +140,7 @@ async function boot() {
       }
       // Nothing survives a chain change or an account change: every balance,
       // allowance and address on the page was read from the other one.
-      onChainOrAccountChange(() => { invalidateAll(); resetClient(); });
+      onChainOrAccountChange(() => { invalidateAll(); invalidatePrices(); resetClient(); });
       await initWallet();
     }
   } catch (e) {

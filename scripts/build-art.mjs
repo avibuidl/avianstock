@@ -32,10 +32,18 @@ function loreByName() {
   if (!fs.existsSync(LORE)) return out;
   const text = fs.readFileSync(LORE, 'utf8');
   // Entries look like: **Nocturne** — A flat night field ... (up to the blank line)
-  const re = /^\*\*([^*]+)\*\*\s+[—-]\s+([\s\S]*?)(?=\n\n|\n\*\*|$)/gm;
+  //
+  // The entry runs to the next blank line or the next entry, and the third
+  // alternative is END OF INPUT, not `$`: under the `m` flag `$` matches every
+  // line end, so the lazy body stopped at the first one and every trait's lore
+  // was cut off after its first line ("… breast lifted one. Three").
+  const re = /^\*\*([^*]+)\*\*\s+[—-]\s+([\s\S]*?)(?=\n\n|\n\*\*|(?![\s\S]))/gm;
   for (const m of text.matchAll(re)) {
     const name = m[1].trim();
-    const body = m[2].replace(/\s+/g, ' ').trim();
+    // The lore file's mid-sentence dashes become colons on the site: every one
+    // of them introduces the clause that explains the one before it, and the
+    // site sets no dash anywhere.
+    const body = m[2].replace(/\s+/g, ' ').replace(/\s[—–]\s/g, ': ').trim();
     if (name && body && !out[name]) out[name] = body;
   }
   return out;

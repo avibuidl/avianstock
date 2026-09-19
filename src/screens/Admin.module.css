@@ -27,6 +27,8 @@
 }
 .tocItem:hover { color: var(--text-strong); }
 .tocItemOn { border-left-color: var(--accent); color: var(--accent); }
+/* A section scrolled to from the list stops clear of the phone header. */
+.sec { scroll-margin-top: calc(var(--header-h) + var(--s4)); }
 
 @media (max-width: 900px) {
   .wrap { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
@@ -65,7 +67,7 @@
 }
 .controlTitle { font-size: 15px; font-weight: 600; color: var(--text-strong); margin: 0; }
 .now {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--accent);
   overflow-wrap: anywhere;
@@ -139,7 +141,7 @@
 
 /* Calldata, shown before it is signed and never editable. */
 .calldata {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.6;
   color: var(--text);

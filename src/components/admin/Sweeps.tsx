@@ -139,7 +139,7 @@ export function Sweeps({ admin }: { admin: AdminState }) {
       <div style={{ marginTop: 16 }}>
         <Box title="What the perch refuses, and why">
           <p className="tiny dim" style={{ margin: 0 }}>
-            AVIANS and the collection itself are refused by ADDRESS, not by balance — they are the
+            AVIANS and the collection itself are refused by ADDRESS, not by balance: they are the
             pool, and sweeping either would take the backing out from under every bird in it. That
             refusal is in the contract and this panel only reports it.
           </p>
@@ -189,7 +189,7 @@ function TokenReport({
 
   const amount = (v: Amount): string => {
     if (token.decimals === null) return `${v.toString()} base units (decimals could not be read)`;
-    if (token.decimals !== 18) return `${formatReward(v, token.decimals)} · ${v.toString()} base units`;
+    if (token.decimals !== 18) return `${formatReward(v, token.decimals)}, ${v.toString()} base units`;
     return formatReward(v, 18);
   };
 
@@ -254,7 +254,7 @@ function TokenReport({
                     />
                   ) : (
                     <Reason>
-                      Withdraw it from the Treasury section — it goes through{' '}
+                      Withdraw it from the Treasury section: it goes through{' '}
                       <span className="mono">claimAdmin</span>, not a sweep.
                     </Reason>
                   )}

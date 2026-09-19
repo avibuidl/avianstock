@@ -27,13 +27,13 @@ export function Flock() {
     <div className="page page--wide">
       <div className="row row--wrap" style={{ gap: 20, alignItems: 'flex-end' }}>
         <div>
-          <p className="eyebrow">The flock</p>
-          <h2>
-            {total === 0 ? 'Nothing has been minted yet.'
+          <h2>The flock</h2>
+          <p className="lede" style={{ marginTop: 8 }}>
+            {total === 0 ? 'Every bird minted so far. None yet.'
               : c
-                ? `${formatCount(total)} minted. ${formatCount(c.maxSupply - total)} remaining. ${formatCount(c.burned)} burnt`
-                : `${formatCount(total)} minted.`}
-          </h2>
+                ? `${formatCount(total)} minted, ${formatCount(c.burned)} burnt, ${formatCount(c.maxSupply - total)} still to mint.`
+                : `${formatCount(total)} minted so far.`}
+          </p>
         </div>
         <span className="spacer" />
         <p className="small dim" style={{ maxWidth: 380, textAlign: 'right', margin: 0 }}>
@@ -42,7 +42,7 @@ export function Flock() {
       </div>
 
       <div className="filters">
-        <span className="tiny dim" style={{ letterSpacing: '0.14em' }}>FILTER</span>
+        <span className="label">Filter</span>
         {CATEGORIES.map((cat) => (
           <label
             key={cat.key}
@@ -79,18 +79,17 @@ export function Flock() {
             // there is no on-chain way to walk it — this page is one traitsOf
             // per id and a real deployment wants an indexer behind it.
             <ErrorState
-              title="That read failed."
-              detail="This gallery is read one bird at a time, so a slow answer stops the page rather than a row of it. Nothing is wrong with your birds — they are exactly where they were."
+              title="The flock could not be read."
+              detail="This gallery is read one bird at a time, so one slow answer stops the page. Nothing is wrong with your birds. Try again in a moment."
               onRetry={minted.reload}
             />
           ) : total === 0 ? (
-            <EmptyState title="The flock is empty.">
-              Before the first mint there is nothing to show. When the doors open, every bird
-              composed appears here — with whatever the flock turns out to have chosen.
+            <EmptyState title="Nothing has been minted yet.">
+              Every bird composed appears here once the mint opens.
             </EmptyState>
           ) : birds.length === 0 ? (
             <EmptyState title="Nothing on this page matches that filter.">
-              Try another page, or clear the filter.
+              Try the next page, or clear the filter.
             </EmptyState>
           ) : (
             <>
@@ -104,8 +103,9 @@ export function Flock() {
                           #{formatCount(b.id)}
                         </span>
                         <span className="spacer" />
+                        {/* A brooding bird is in a wallet; the badge is about the bird, not a place. */}
                         {b.location.where === 'perch' ? <Tag>Perch</Tag>
-                          : b.location.where === 'roost' ? <Tag tone="ok">Nest</Tag> : null}
+                          : b.brood?.live ? <Tag tone="ok">Brooding, tier {b.brood.tier}</Tag> : null}
                       </div>
                     </div>
                   </a>
@@ -120,7 +120,7 @@ export function Flock() {
                   Newer
                 </button>
                 <span className="small dim">
-                  {formatCount(page * PAGE + 1)}–{formatCount(Math.min((page + 1) * PAGE, total))} of {formatCount(total)}
+                  {formatCount(page * PAGE + 1)} to {formatCount(Math.min((page + 1) * PAGE, total))} of {formatCount(total)}
                 </span>
                 <button
                   type="button" className="btn btn--ghost btn--small"

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -32,6 +32,12 @@ function csp(): Plugin {
       };
     },
     closeBundle() {
+      // Vite copies public/ wholesale. A per-machine local-* manifest (and its
+      // proofs) is gitignored and must not go to the host; drop it from dist/.
+      for (const dir of [resolve(__dirname, 'dist', 'deployments'), resolve(__dirname, 'dist', 'deployments', 'proofs')]) {
+        if (!existsSync(dir)) continue;
+        for (const f of readdirSync(dir)) if (/^local-.*\.json$/.test(f)) rmSync(resolve(dir, f));
+      }
       const policy = buildCsp(DEPLOYMENTS) as string;
       writeFileSync(
         resolve(__dirname, 'dist', '_headers'),

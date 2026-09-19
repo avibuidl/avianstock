@@ -74,3 +74,12 @@ test('bps are a count, not money', () => {
   assert.equal(formatBps(1396), '14.0%');
   assert.equal(formatBps(1350), '13.5%');
 });
+
+test('a non-zero reward never reads as zero: the places widen to the first four significant digits', () => {
+  // 20,213,377,359,580 wei of an 18-decimal token — the first hour of a launch-day stream.
+  assert.equal(formatReward(20_213_377_359_580n, 18), '0.00002021');
+  assert.equal(formatReward(1n, 18), '0.000000000000000001');
+  assert.equal(formatReward(0n, 18), '0.0000');
+  // Anything that shows at four places is untouched.
+  assert.equal(formatReward(123_400_000_000_000_000n, 18), '0.1234');
+});

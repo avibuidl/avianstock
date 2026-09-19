@@ -11,12 +11,12 @@
 // wrong chain is a real loss.
 
 import type {
-  Address, Amount, ClaimAllResult, Hex, OnPhase, PermitSignature, Tier, TokenId, TraitIndices,
+  Address, Amount, Hex, NestEvents, OnPhase, PermitSignature, SweepResult, Tier, TokenId, TraitIndices,
 } from './types';
-import { ContractError } from './errors';
+import { ContractError, SELECTORS } from './errors';
 import { scenario, takeForcedError } from './scenario';
 import {
-  MAX_SUPPLY, PRICE, TIER_COST, overlay, world,
+  MAX_SUPPLY, PRICE, TIER_COST, YOU, overlay, rewardTokenMeta, satchelAddressOf, world,
 } from './fixtures';
 import { checkTransferSafety, comboTaken } from './reads';
 import { isValid } from '../art/traits';
@@ -70,16 +70,13 @@ export function approveAviansForPerch(amount: Amount, on?: OnPhase) {
   return send(on, () => { overlay.approvals.aviansToPerch = amount; return {}; });
 }
 
-export function approveAviansForRoost(amount: Amount, on?: OnPhase) {
-  return send(on, () => { overlay.approvals.aviansToStaking = amount; return {}; });
+/** The only approval brooding needs: AVIANS to the Nest, for the tier costs. */
+export function approveAviansForNest(amount: Amount, on?: OnPhase) {
+  return send(on, () => { overlay.approvals.aviansToNest = amount; return {}; });
 }
 
 export function setPerchApproval(enabled: boolean, on?: OnPhase) {
   return send(on, () => { overlay.approvals.birdsToPerch = enabled; return {}; });
-}
-
-export function setRoostApproval(enabled: boolean, on?: OnPhase) {
-  return send(on, () => { overlay.approvals.birdsToRoost = enabled; return {}; });
 }
 
 /**
@@ -228,19 +225,26 @@ export async function sellToPerch(
     // of 250 burns two, and why the bird that burns is the one at that position
     // in the list rather than the first or the last.
     const burnt: TokenId[] = [];
+    const withheld: TokenId[] = [];
+    const ev = noEvents();
     ids.forEach((id, i) => {
+      // A sale changes hands: the collection's hook ends any brood on the way in.
+      expireBroodOf(id, ev);
       overlay.soldToPerch.push(id);
       overlay.deposits += 1;
       // `w.perch.deposits` is the count before this sale; this bird is the
-      // (i+1)th of it. Burns when that lands on a multiple of BURN_EVERY.
+      // (i+1)th of it. A hundredth burns when the burn is active, and is
+      // withheld — kept in the pool, paid the same — at or below the floor.
       if ((w.perch.deposits + i + 1) % w.perch.burnEvery === 0) {
-        burnt.push(id);
-        overlay.burnt.push(id);
+        if (w.perch.burnsActive) { burnt.push(id); overlay.burnt.push(id); } else withheld.push(id);
       }
     });
     overlay.spent -= w.perch.sell * BigInt(ids.length);
     // Paid in full for every bird, including the burnt one. That is the point.
-    return { paid: w.perch.sell * BigInt(ids.length), burnt };
+    return {
+      paid: w.perch.sell * BigInt(ids.length), burnt, withheld,
+      expired: ev.expired.map((e) => e.id), hookFailed: [],
+    };
   });
 }
 
@@ -278,101 +282,184 @@ export async function buyNamed(ids: TokenId[], on?: OnPhase) {
   });
 }
 
-// ── the roost — HANDOVER section 5 ────────────────────────────────────────
+// ── the nest — HANDOVER section 5 ────────────────────────────────────────
+//
+// BROODING IS NOT CUSTODIAL. Nothing here moves a bird; the mock's writes
+// change the brood record, burn AVIANS, and move accrual to a destination —
+// so every state the screen can show is reachable by doing the thing, not
+// only by flipping the switcher.
 
-export async function stake(
-  entries: { id: TokenId; tier: Tier }[],
-  o: { route?: 'batch' | 'push' } = {},
+/** Empty receipt events, the shape the chain's `nestEvents` returns. */
+function noEvents(): NestEvents {
+  return {
+    brooded: [], upgraded: [], redirected: [], expired: [], settled: [],
+    expirySettled: [], returned: [], held: [], paid: [], hookFailed: [],
+  };
+}
+
+/** Stamp expiry on a live brood, as the collection's hook does on a transfer. */
+export function expireBroodOf(id: TokenId, ev?: NestEvents) {
+  const w = world();
+  const b = w.broods.get(id);
+  if (!b || b.expiredAt !== 0) return;
+  const stamped = { ...b, expiredAt: Math.floor(Date.now() / 1000) };
+  overlay.broods.set(id, stamped);
+  ev?.expired.push({ id, activator: b.activator, at: stamped.expiredAt });
+}
+
+/**
+ * Deliver one bird's accrual, every token, to wherever it goes. A paused token
+ * refuses: for a brooding bird the amount stays owed (`RewardHeld` with the
+ * id); for an expired brood's activator share it waits in `claimable`
+ * (`RewardHeld` with id 0). Returns the events for the receipt.
+ */
+function settleOne(id: TokenId, ev: NestEvents) {
+  const w = world();
+  const b = w.broods.get(id);
+  if (!b) return;
+  const credit = (to: Address, symbol: string, amount: Amount) => {
+    const k = to.toLowerCase();
+    const m = overlay.delivered.get(k) ?? new Map<string, Amount>();
+    m.set(symbol, (m.get(symbol) ?? 0n) + amount);
+    overlay.delivered.set(k, m);
+  };
+  const paidDown = (symbol: string, amount: Amount) => {
+    const m = overlay.settledUpTo.get(id) ?? new Map<string, Amount>();
+    m.set(symbol, (m.get(symbol) ?? 0n) + amount);
+    overlay.settledUpTo.set(id, m);
+  };
+  for (const token of w.listed) {
+    const p = w.pendingOf(id, token.symbol);
+    const paused = w.pausedSymbols.includes(token.symbol);
+    if (b.expiredAt === 0) {
+      if (p.toDestination === 0n) continue;
+      const to = b.toWallet ? b.activator : satchelAddressOf(id);
+      if (paused) {
+        ev.held.push({ id, beneficiary: to, token: token.address, amount: p.toDestination });
+        continue;   // still owed to the bird; a later settle retries
+      }
+      credit(to, token.symbol, p.toDestination);
+      paidDown(token.symbol, p.toDestination);
+      ev.settled.push({ id, token: token.address, to, amount: p.toDestination });
+    } else {
+      if (p.toActivator > 0n) {
+        if (paused) {
+          // Held for the activator; `claim` collects it.
+          overlay.claimed.delete(token.symbol);
+          ev.held.push({ id: 0, beneficiary: b.activator, token: token.address, amount: p.toActivator });
+        } else {
+          credit(b.activator, token.symbol, p.toActivator);
+          ev.paid.push({ user: b.activator, token: token.address, amount: p.toActivator });
+        }
+      }
+      if (p.returned > 0n) ev.returned.push({ token: token.address, amount: p.returned, folded: true });
+      if (p.toActivator > 0n || p.returned > 0n) {
+        ev.expirySettled.push({ id, activator: b.activator, token: token.address, toActivator: p.toActivator, returned: p.returned });
+      }
+      paidDown(token.symbol, p.toActivator + p.returned);
+    }
+  }
+  if (b.expiredAt !== 0) {
+    // The record is cleared; the bird can be brooded afresh by its holder.
+    overlay.broods.set(id, null);
+  }
+}
+
+export async function brood(
+  entries: { id: TokenId; tier: Tier; toWallet: boolean }[],
   on?: OnPhase,
 ) {
   requireChain();
   if (entries.length === 0) throw new ContractError('EmptyList');
   for (const e of entries) if (![1, 2, 3].includes(e.tier)) throw new ContractError('InvalidTier');
   const w = world();
-  for (const e of entries) if (w.staked.has(e.id)) throw new ContractError('AlreadyStaked', { id: e.id });
-
+  for (const e of entries) {
+    if (!w.yourBirds.some((b) => b.id === e.id)) throw new ContractError('NotTheOwner', { tokenId: e.id });
+    const b = w.broods.get(e.id);
+    if (b && b.expiredAt === 0) throw new ContractError('AlreadyBrooding', { tokenId: e.id });
+  }
   const burn = entries.reduce((a, e) => a + TIER_COST[e.tier], 0n);
-  // The push route skips the BIRD approval, not the AVIANS one: the tier cost
-  // is pulled from the holder and burned either way.
-  if (w.wallet.approvals.aviansToStaking < burn || w.wallet.avians < burn) {
+  if (w.wallet.avians < burn || w.wallet.approvals.aviansToNest < burn) {
     throw new ContractError('TransferFromFailed', { price: burn });
   }
-  const route = o.route ?? (entries.length === 1 ? 'push' : 'batch');
-  if (route === 'batch' && !w.roost.operatorWhitelisted) throw new ContractError('CallerMustBeWhitelisted');
-
   return send(on, () => {
-    for (const e of entries) { overlay.staked.set(e.id, e.tier); overlay.unstaked.delete(e.id); }
+    const ev = noEvents();
+    const now = Math.floor(Date.now() / 1000);
+    for (const e of entries) {
+      // An expired brood on the bird is settled first, as the contract does.
+      if (w.broods.get(e.id)?.expiredAt) settleOne(e.id, ev);
+      overlay.broods.set(e.id, { activator: YOU, tier: e.tier, activatedAt: now, expiredAt: 0, toWallet: e.toWallet });
+      overlay.settledUpTo.set(e.id, new Map());
+      ev.brooded.push({ id: e.id, tier: e.tier, paid: TIER_COST[e.tier], toWallet: e.toWallet });
+    }
     overlay.spent += burn;
-    const a = overlay.approvals.aviansToStaking ?? w.wallet.approvals.aviansToStaking;
-    overlay.approvals.aviansToStaking = a > burn ? a - burn : 0n;
-    return { burned: burn };
+    const a = overlay.approvals.aviansToNest ?? w.wallet.approvals.aviansToNest;
+    overlay.approvals.aviansToNest = a > burn ? a - burn : 0n;
+    return { paid: burn, events: ev };
   });
 }
 
-export async function unstake(ids: TokenId[], on?: OnPhase) {
+export async function upgrade(id: TokenId, newTier: Tier, on?: OnPhase) {
   requireChain();
-  if (ids.length === 0) throw new ContractError('EmptyList');
   const w = world();
-  for (const id of ids) {
-    if (!w.staked.has(id)) throw new ContractError('NotStaked', { id });
+  const b = w.broods.get(id);
+  if (!b) throw new ContractError('NotBrooding', { tokenId: id });
+  if (b.expiredAt !== 0) throw new ContractError('BroodExpired', { tokenId: id });
+  if (b.activator !== YOU) throw new ContractError('NotTheOwner', { tokenId: id });
+  if (newTier <= b.tier) throw new ContractError('TierNotHigher', { tokenId: id });
+  const burn = TIER_COST[newTier] - TIER_COST[b.tier];
+  if (w.wallet.avians < burn || w.wallet.approvals.aviansToNest < burn) {
+    throw new ContractError('TransferFromFailed', { price: burn });
   }
   return send(on, () => {
-    for (const id of ids) { overlay.unstaked.add(id); overlay.staked.delete(id); }
-    return {};
+    const ev = noEvents();
+    settleOne(id, ev);   // at the old weight, up to this second
+    overlay.broods.set(id, { ...b, tier: newTier });
+    overlay.spent += burn;
+    ev.upgraded.push({ id, fromTier: b.tier, toTier: newTier, paid: burn });
+    return { paid: burn, events: ev };
   });
 }
 
-/**
- * One named token, and it REVERTS with TransferFailed (0x90b8ec18) if that
- * token will not move — which is the right answer when the collector asked
- * for that token specifically. `claimAll` is the better default; this is the
- * escape hatch for someone who wants only NVDA.
- */
+export async function redirect(id: TokenId, toWallet: boolean, on?: OnPhase) {
+  requireChain();
+  const w = world();
+  const b = w.broods.get(id);
+  if (!b) throw new ContractError('NotBrooding', { tokenId: id });
+  if (b.expiredAt !== 0) throw new ContractError('BroodExpired', { tokenId: id });
+  if (b.activator !== YOU) throw new ContractError('NotTheOwner', { tokenId: id });
+  if (b.toWallet === toWallet) throw new ContractError('SameDelivery', { tokenId: id });
+  return send(on, () => {
+    const ev = noEvents();
+    settleOne(id, ev);   // to the OLD destination
+    overlay.broods.set(id, { ...b, toWallet });
+    ev.redirected.push({ id, toWallet });
+    return { events: ev };
+  });
+}
+
+export async function settle(ids: TokenId[], on?: OnPhase) {
+  requireChain();
+  if (ids.length === 0) throw new ContractError('EmptyList');
+  return send(on, () => {
+    const ev = noEvents();
+    for (const id of ids) settleOne(id, ev);
+    return { events: ev };
+  });
+}
+
 export async function claim(token: Address, on?: OnPhase) {
   requireChain();
   const w = world();
-  const stream = [...w.roost.streams, ...w.roost.retired]
-    .find((s) => s.token.address === token);
-  if (!stream) throw new ContractError('NeverListed', { token });
-  if (!stream.transferable) throw new ContractError('TransferFailed', { symbol: stream.token.symbol });
-
+  const t = w.listed.find((x) => x.address.toLowerCase() === token.toLowerCase());
+  if (!t) throw new ContractError('NeverListed');
+  const amount = w.claimable.get(t.symbol) ?? 0n;
+  if (amount > 0n && w.pausedSymbols.includes(t.symbol)) throw new ContractError('TransferFailed');
   return send(on, () => {
-    overlay.claimed.add(stream.token.symbol);
-    return { amount: stream.earned };
-  });
-}
-
-/**
- * Every reward token the wallet has accrued in, in ONE transaction — the
- * listed ones and any retired one it still has a balance in.
- *
- * It does not revert for a token that refuses to move. That token is SKIPPED:
- * its accrual is left exactly where it was, every other token is still paid,
- * and the call succeeds. So the outcome has to be read off the return value,
- * never off "the transaction confirmed".
- *
- * Three parallel arrays in listing order. `readClaimAll` in reads.ts is the
- * one place they are zipped and interpreted; nothing else should index them.
- */
-export async function claimAll(on?: OnPhase): Promise<ClaimAllResult & { hash: Hex }> {
-  requireChain();
-  const w = world();
-  const rows = [...w.roost.streams, ...w.roost.retired];
-
-  return send(on, () => {
-    const tokens: Address[] = [];
-    const paid: Amount[] = [];
-    const skipped: boolean[] = [];
-    for (const s of rows) {
-      // Skipped only when something was OWED and the token itself refused it.
-      // A token owing nothing is not skipped — it is simply a zero.
-      const refused = s.earned > 0n && !s.transferable;
-      tokens.push(s.token.address);
-      paid.push(refused ? 0n : s.earned);
-      skipped.push(refused);
-      if (!refused && s.earned > 0n) overlay.claimed.add(s.token.symbol);
-    }
-    return { tokens, paid, skipped };
+    const ev = noEvents();
+    overlay.claimed.add(t.symbol);
+    if (amount > 0n) ev.paid.push({ user: YOU, token, amount });
+    return { amount, events: ev };
   });
 }
 
@@ -385,7 +472,91 @@ export async function transferBird(id: TokenId, to: Address, on?: OnPhase) {
     if (safety.reason === 'own-account') throw new ContractError('TransferToOwnAccount', { id });
     throw new ContractError('SatchelCycle', { id, path: safety.path });
   }
-  return send(on, () => { overlay.transferredAway.add(id); return {}; });
+  return send(on, () => {
+    const ev = noEvents();
+    expireBroodOf(id, ev);
+    overlay.transferredAway.add(id);
+    return { expired: ev.expired.map((e) => e.id), hookFailed: [] };
+  });
+}
+
+// ── the sweeper — HANDOVER section 5 ─────────────────────────────────────
+//
+// The grant lives on the satchel and dies with the bird's sale; the sweep
+// moves each granted satchel's reward balances into your wallet and reports
+// what it passed over. A paused token is skipped for that bird, never a
+// failure — the stock stays in the bird.
+
+export async function prepareSatchels(ids: TokenId[], on?: OnPhase) {
+  requireChain();
+  if (ids.length === 0) throw new ContractError('EmptyList');
+  const w = world();
+  for (const id of ids) {
+    if (id < 1 || id > w.collection.totalMinted || overlay.burnt.includes(id)) {
+      throw new ContractError('ERC721NonexistentToken', { id });
+    }
+  }
+  return send(on, () => {
+    const deployed = ids.filter((id) => !w.satchelDeployed(id));
+    for (const id of deployed) overlay.satchelsDeployed.add(id);
+    return { deployed };
+  });
+}
+
+export async function grantSweeper(id: TokenId, enabled: boolean, on?: OnPhase) {
+  requireChain();
+  const w = world();
+  if (!w.satchelDeployed(id)) {
+    throw new Error(`granting on Avian #${id}: its satchel is not deployed, so there is nothing to send the grant to. This is a site bug.`);
+  }
+  if (!w.yourBirds.some((b) => b.id === id)) throw new ContractError('NotAuthorized', { tokenId: id, id });
+  return send(on, () => {
+    overlay.sweeperGrants.set(id, enabled);
+    return { satchel: satchelAddressOf(id), granted: enabled };
+  });
+}
+
+export async function sweep(ids: TokenId[], tokens: Address[], on?: OnPhase): Promise<SweepResult> {
+  requireChain();
+  if (ids.length === 0 || tokens.length === 0) throw new ContractError('EmptyList');
+  const w = world();
+  for (const id of ids) {
+    if (!w.yourBirds.some((b) => b.id === id)) throw new ContractError('NotTheOwner', { tokenId: id, id });
+  }
+  return send(on, () => {
+    const swept: SweepResult['swept'] = [];
+    const skipped: SweepResult['skipped'] = [];
+    for (const id of ids) {
+      if (!w.satchelDeployed(id) || !w.sweeperGranted(id)) {
+        skipped.push({ id, token: null, reason: '0x' });
+        continue;
+      }
+      const satchel = satchelAddressOf(id).toLowerCase();
+      for (const token of tokens) {
+        const meta = rewardTokenMeta(token);
+        const amount = w.satchelBalanceOf(id, meta.symbol);
+        if (amount === 0n) continue;
+        if (w.pausedSymbols.includes(meta.symbol)) {
+          skipped.push({ id, token, reason: SELECTORS.TransferFailed! });
+          continue;
+        }
+        const out = overlay.sweptFrom.get(satchel) ?? new Map<string, Amount>();
+        out.set(meta.symbol, (out.get(meta.symbol) ?? 0n) + amount);
+        overlay.sweptFrom.set(satchel, out);
+        const mine = overlay.delivered.get(YOU.toLowerCase()) ?? new Map<string, Amount>();
+        mine.set(meta.symbol, (mine.get(meta.symbol) ?? 0n) + amount);
+        overlay.delivered.set(YOU.toLowerCase(), mine);
+        swept.push({ id, token, to: YOU, amount });
+      }
+    }
+    const totals = new Map<string, { token: Address; amount: Amount }>();
+    for (const s of swept) {
+      const t = totals.get(s.token.toLowerCase()) ?? { token: s.token, amount: 0n };
+      t.amount += s.amount;
+      totals.set(s.token.toLowerCase(), t);
+    }
+    return { swept, skipped, totals: [...totals.values()] };
+  });
 }
 
 // ── the treasury ──────────────────────────────────────────────────────────
@@ -402,7 +573,7 @@ export async function convertAndStream(currency: Address | null, on?: OnPhase) {
     const now = Math.floor(Date.now() / 1000);
     throw new ContractError('CoolingDown', { nextAllowedAt: now + 82_800, currentTime: now });
   }
-  if (t === 'nothing-staked') throw new ContractError('NothingStaked');
+  if (t === 'nothing-staked') throw new ContractError('NothingBrooding');
   if (t === 'no-rewards') throw new ContractError('NoRewardTokens');
   if (t === 'no-targets') throw new ContractError('NoTargets');
   if (currency !== null) throw new ContractError('NothingToConvert', { token: currency });

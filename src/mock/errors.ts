@@ -54,22 +54,22 @@ export const SELECTORS: Record<ErrorName, Hex | null> = {
   NoRoute: '0x81fff07f',
   ConversionProducedNothing: '0x0fc4ccd9',
   OwnableUnauthorizedAccount: '0x118cdaa7',
-  // the roost
+  // the nest — brooding, 2026-09-11 (HANDOVER section 7, twenty rows)
   LengthMismatch: '0xab8b67c6',
   InvalidTier: '0xbca1a956',
-  AlreadyStaked: '0x9a077ff1',
-  NotStaked: '0x7148839c',
-  NotTheStaker: '0xea179c1c',
+  NotTheOwner: '0x04987a21',
+  AlreadyBrooding: '0xa19c72a6',
+  NotBrooding: '0x77a5d833',
+  BroodExpired: '0x5a8371a8',
+  TierNotHigher: '0x9bc44343',
+  SameDelivery: '0xddb79825',
   NeverListed: '0x60ed58fa',
   NotListed: '0x5d35c429',
   NoLiveStream: '0xdf098a09',
   DonationIsZero: '0x8fa1a1fe',
-  NothingStaked: '0x9fe7bfd9',
+  NothingBrooding: '0x59d25160',
   NotAFunder: '0x1eaf226f',
-  PushMustComeFromTheHolder: '0xd8db2dcb',
-  BadStakeData: '0xf8e2cc5e',
-  MintIsNotAStake: '0x977fa84a',
-  NotOwnedByStaking: '0x4ddaafc4',
+  NotHeldHere: '0xe4ba6974',
   // shared, Solady
   TransferFailed: '0x90b8ec18',
   TransferFromFailed: '0x7939f424',
@@ -81,6 +81,8 @@ export const SELECTORS: Record<ErrorName, Hex | null> = {
   // moving a bird
   TransferToOwnAccount: '0x589f4f38',
   CallerMustBeWhitelisted: '0xef28f901',
+  // the satchel itself (Tokenbound AccountV3): a grant by a stranger
+  NotAuthorized: '0xea8e4eb5',
   ERC721InsufficientApproval: '0x177e802f',
   ERC721IncorrectOwner: '0x64283d7b',
   ERC721NonexistentToken: '0x7e273289',
@@ -100,9 +102,25 @@ export const SELECTORS: Record<ErrorName, Hex | null> = {
   NotThePoolManager: null,
   ExecutionFailed: null,
   V4TooLittleReceived: null,
-  DeadlinePassed: null,
+  // The router's own, from Uniswap's upstream interface (build-abis.mjs
+  // records the signature; the selector is computed, never typed).
+  TransactionDeadlinePassed: '0x5bf6f916',
   // Ours, not the chain's: this deployment has no pool to trade in.
   NoPool: null,
+  // The Roost and AVIANS staking (2026-09-18). HANDOVER section 7's table;
+  // the selectors are checked against the compiled ABIs by tests/selectors.
+  TooSoon: '0xe86f59ea',
+  NothingToDistribute: '0x01663f24',
+  // deliverHeld (2026-09-19): nothing waits, or what waits still cannot move.
+  NothingHeld: '0x7a17debd',
+  NothingDeliverable: '0x1e1b399d',
+  NotTheAdmin: '0x79164ff3',
+  NothingToClaim: '0x969bf728',
+  ZeroAmount: '0x1f2a2005',
+  InsufficientStake: '0x936d426d',
+  NotTheRoost: '0x65ff83ed',
+  NothingStaked: '0x9fe7bfd9',
+  InvalidCostSink: '0x3194d7ff',
   // the owner surface — every refusal the admin panel can provoke. Typed here
   // like the rest of the table, and checked against the compiled ABIs by
   // tests/selectors.test.ts, which fails if a contract ever moves one.
@@ -112,7 +130,6 @@ export const SELECTORS: Record<ErrorName, Hex | null> = {
   NothingToRescue: '0x00f6b210',
   RescueFailed: '0xb8eaf7a1',
   CannotRescue: '0x8daa1b2c',
-  NotStranded: '0x48f11ed9',
   RendererLocked: '0x4a7b75a1',
   RendererMismatch: '0xfc7b572c',
   RendererNotAContract: '0x2dc086ac',
@@ -140,7 +157,7 @@ export const SELECTORS: Record<ErrorName, Hex | null> = {
   TransferAmountMismatch: '0x541b1c9e',
   NoSurplusToRestream: '0x5b67df31',
   DurationOutOfRange: '0x874ce05e',
-  RewardRateZero: '0x8f05a83c',
+  RewardRateOutOfRange: '0xa19500b1',
   IntervalTooShort: '0xa172870c',
   MaxPerCallTooHigh: '0x0404bf2f',
   SlippageBpsTooHigh: '0x1f8ecfbc',
@@ -184,6 +201,10 @@ export type ErrorArgs = Partial<{
   nextAllowedAt: number; currentTime: number;
   /** `NothingToConvert(currency, balance, claimable)`. */
   balance: Amount; reserved: Amount;
+  /** `TooSoon(nextAt)` — when the Roost may turn again. */
+  at: number;
+  /** `InsufficientStake(account, staked, wanted)`. */
+  staked: Amount; wanted: Amount;
 }>;
 
 export class ContractError extends Error {
@@ -247,7 +268,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     // ── mint ────────────────────────────────────────────────────────────
     case 'MintClosed':
       return { title: 'The paid mint is closed right now.', fatal: true,
-        sentence: 'Birds already minted are still trading, and the perch is still buying at 90,000 AVIANS — that part never closes.' };
+        sentence: 'Birds already minted still trade, and the perch still buys any bird for 90,000 AVIANS. That part never closes.' };
 
     case 'InsufficientPayment': {
       const short = ctx.balance !== undefined && ctx.balance < price;
@@ -277,8 +298,8 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'ComboTaken':
       return { title: 'That one just went.', fatal: false,
         sentence: a.tokenId
-          ? `Avian #${formatCount(a.tokenId)} has this exact combination. Nothing was taken — the transaction reverted before any AVIANS moved.`
-          : 'Somebody composed this exact combination first. Nothing was taken.',
+          ? `Avian #${formatCount(a.tokenId)} has this exact combination. The transaction reverted before any AVIANS moved.`
+          : 'Somebody composed this exact combination first.',
         fix: { label: 'Show me the nearest available', kind: 'recompose' } };
 
     case 'EmptyBatch':
@@ -293,27 +314,27 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     // ── the free door ───────────────────────────────────────────────────
     case 'FreeMintClosed':
       return { title: 'The free mint is not open.', fatal: true,
-        sentence: 'The flocklist door opens when the owner opens it, and we will not post a date we might have to move.',
+        sentence: 'It opens when the owner opens it. We will not post a date we might have to move.',
         fix: { label: 'Compose a paid one instead', kind: 'paid-mint' } };
 
     case 'FreeMintAlreadyClaimed':
-      return { title: "You've already claimed yours.", fatal: true,
-        sentence: 'One per wallet on the list. You can compose as many more as you like at 100,000 AVIANS each.',
+      return { title: 'You have already claimed your free bird.', fatal: true,
+        sentence: 'One per allowlisted wallet. You can mint more at 100,000 AVIANS each.',
         fix: { label: 'Compose a paid one', kind: 'paid-mint' } };
 
     case 'NotAllowlisted':
-      return { title: "This wallet isn't on the flocklist.", fatal: true,
-        sentence: 'That door is 2,000 birds, one per listed wallet — but the paid mint is a separate door, and your bird is composed exactly the same way.',
-        fix: { label: 'Compose your Avian — 100,000 AVIANS', kind: 'paid-mint' } };
+      return { title: 'This wallet is not on the allowlist.', fatal: true,
+        sentence: 'The free mint is 2,000 birds, one per allowlisted wallet. The paid mint is open to anyone, and the bird is composed the same way.',
+        fix: { label: 'Mint a paid one instead', kind: 'paid-mint' } };
 
     case 'FreeAllocationExhausted':
-      return { title: 'All 2,000 flocklist birds are claimed.', fatal: true,
-        sentence: 'The paid mint is the door now.',
+      return { title: 'All 2,000 free birds are claimed.', fatal: true,
+        sentence: 'The paid mint is open.',
         fix: { label: 'Compose a paid one', kind: 'paid-mint' } };
 
     case 'FreeMintUnbacked':
       return { title: 'The free birds are not backed on this deployment.', fatal: true,
-        sentence: 'The collection does not hold the 100,000 AVIANS that stands behind this bird. That is a deployment fault, not something you did — the operator has been told.' };
+        sentence: 'The collection does not hold the 100,000 AVIANS that stands behind this bird. That is a deployment fault, not something you did. The operator has been told.' };
 
     // ── the perch ───────────────────────────────────────────────────────
     case 'InsufficientPool':
@@ -330,29 +351,54 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'NotOwnedByPool':
     case 'MintIsNotASale':
     case 'NotTheCollection':
-    case 'MintIsNotAStake':
-    case 'NotOwnedByStaking':
     case 'PoolCorrupt':
     case 'Reentrancy':
     case 'LengthMismatch':
     case 'InvalidTier':
-    case 'BadStakeData':
     case 'NeverListed':
       return { title: 'Something on our side is wrong.', fatal: true,
         sentence: 'Nothing was taken. This has been logged, and it is our bug to fix rather than yours to work around.' };
 
-    // ── the roost ───────────────────────────────────────────────────────
-    case 'AlreadyStaked':
-      return { title: 'That bird is already roosting.', fatal: false,
-        sentence: 'Refresh and it will show where it actually is.', fix: { label: 'Refresh', kind: 'refresh' } };
+    // ── the nest ────────────────────────────────────────────────────────
+    // HANDOVER section 7's "say" column, in these words.
+    case 'NotHeldHere':
+      return { title: 'The nest does not hold that bird.', fatal: true,
+        sentence: 'Only a bird that was transferred into the nest by mistake can be sent back. Brooding moves nothing, so a brooding bird is with its holder, not here.' };
 
-    case 'NotStaked':
-      return { title: 'That bird is not roosting.', fatal: false,
-        sentence: 'Refresh and it will show where it actually is.', fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'NotTheOwner':
+      return { title: 'That bird is not in this wallet.', fatal: false,
+        sentence: 'Brooding, upgrading and sweeping are the holder\u2019s to do, and nothing was moved. Refresh and the list will show where it actually is.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
 
-    case 'NotTheStaker':
-      return { title: 'That stake is not yours.', fatal: true,
-        sentence: 'Only the wallet that sent a bird to the roost can bring it home.' };
+    // ── the satchel — AccountV3's own refusal ──────────────────────────
+    case 'NotAuthorized':
+      return { title: 'Only the bird\u2019s holder can grant.', fatal: false,
+        sentence: 'The satchel obeys the wallet that holds its bird, and that is not the wallet that signed. Refresh and it will show where the bird actually is.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+
+    case 'AlreadyBrooding':
+      return { title: 'Already brooding.', fatal: false,
+        sentence: 'That bird is brooding for its holder. Upgrade its tier instead, if you want more weight.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+
+    case 'NotBrooding':
+      return { title: 'That bird is not brooding.', fatal: false,
+        sentence: 'Brood it first; there is nothing to upgrade or redirect yet.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+
+    case 'BroodExpired':
+      return { title: 'This brooding ended when the bird moved.', fatal: false,
+        sentence: 'Settle it, then brood afresh. What it earned before it moved goes to the wallet that brooded it.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+
+    case 'TierNotHigher':
+      return { title: 'Choose a higher tier.', fatal: true,
+        sentence: 'An upgrade only ever goes up. The tier it is at already is not an upgrade.' };
+
+    case 'SameDelivery':
+      return { title: 'It already goes there.', fatal: false,
+        sentence: 'The rewards for this bird are already delivered to that destination. Nothing was changed.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
 
     case 'NotListed':
       return { title: 'That reward is not active.', fatal: true, sentence: 'It is not one of the tokens currently streaming.' };
@@ -360,23 +406,19 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'NoLiveStream':
       return { title: 'There is no active stream to top up.', fatal: true, sentence: 'Nothing is streaming in that token right now.' };
 
-    case 'NothingStaked':
-      return { title: 'A stream cannot start while nobody has roosted.', fatal: true, sentence: 'Not something a collector can hit.' };
+    case 'NothingBrooding':
+      return { title: 'A stream cannot start while nobody is brooding.', fatal: true, sentence: 'Only reachable by an operator.' };
 
     case 'NotAFunder':
     case 'DonationIsZero':
       return { title: 'That is not a collector action.', fatal: true, sentence: 'Sponsors top up a stream with donate.' };
-
-    case 'PushMustComeFromTheHolder':
-      return { title: 'A bird has to be sent in by the person holding it.', fatal: false,
-        sentence: 'We will use the batch route instead, which handles this.', fix: { label: 'Try again', kind: 'retry' } };
 
     // ── the treasury ────────────────────────────────────────────────────
     // Conversion is permissionless, so these sentences are written for a
     // visitor who pressed the button, not for an operator reading a log.
     case 'ConversionDisabled':
       return { title: 'The flywheel is not switched on yet.', fatal: true,
-        sentence: 'Conversion is off at deployment and the owner turns it on once the pool and the streams are running. Income is still arriving in the meantime — none of it is lost.' };
+        sentence: 'Conversion is off at deployment and the owner turns it on once the pool and the streams are running. Income still arrives in the meantime; none of it is lost.' };
 
     case 'CoolingDown': {
       const when = a.nextAllowedAt;
@@ -436,7 +478,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     // ── shared, Solady ──────────────────────────────────────────────────
     case 'TransferFailed':
       return { title: `${ctx.rewardSymbol ?? 'This reward token'} is not transferable right now.`, fatal: false,
-        sentence: 'Your rewards are safe and can be claimed later — and your bird can still come home. The issuer can pause these at any time, and this is what that looks like.' };
+        sentence: 'Your rewards are safe and can be claimed later. Nothing about a reward token can touch the bird. The issuer can pause these at any time, and this is what that looks like.' };
 
     case 'TransferFromFailed':
       return { title: 'One approval first.', fatal: false,
@@ -447,7 +489,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'CallerMustBeWhitelisted':
       return { title: 'That route is not approved on this deployment.', fatal: false,
-        sentence: 'We will send the bird in directly instead — same price, same result, one transaction. The operator has been told.',
+        sentence: 'The bird is sent in directly instead: same price, same result, one transaction. The operator has been told.',
         fix: { label: 'Try the direct route', kind: 'retry' } };
 
     // ── the token ───────────────────────────────────────────────────────
@@ -503,7 +545,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'PartialFill':
       return { title: 'The pool could not fill that amount at your price limit.', fatal: false,
-        sentence: 'A swap either fills completely or reverts — there are no partial fills. Widen the limit or reduce the size.' };
+        sentence: 'A swap either fills completely or reverts; there are no partial fills. Widen the limit or reduce the size.' };
 
     case 'NothingTraded':
       return { title: 'Amount too small.', fatal: false, sentence: 'That swap would have moved nothing.' };
@@ -521,9 +563,9 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
         sentence: 'The pool would have paid less than the minimum you accepted, so nothing was traded. Quote it again, or raise the slippage you will accept.',
         fix: { label: 'Quote it again', kind: 'retry' } };
 
-    case 'DeadlinePassed':
+    case 'TransactionDeadlinePassed':
       return { title: 'That took too long.', fatal: false,
-        sentence: 'The transaction sat unsigned past its deadline and the router refused it. Nothing was traded.',
+        sentence: 'The transaction sat unsigned past its ten-minute deadline and the router refused it. Nothing was traded.',
         fix: { label: 'Try again', kind: 'retry' } };
 
     case 'ExecutionFailed':
@@ -541,6 +583,48 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'NoPool':
       return { title: 'There is no pool on this deployment yet.', fatal: true,
         sentence: 'AVIANS cannot be traded here until the pool is launched. Nothing about minting, brooding or the perch depends on it.' };
+
+    // ── the Roost and AVIANS staking ──────────────────────────────────
+    case 'TooSoon': {
+      const when = a.at;
+      return { title: 'The Roost turns at most once a day.', fatal: false,
+        sentence: when
+          ? `It turned less than a day ago. Anyone may turn it again at ${new Date(when * 1000).toLocaleString()}.`
+          : 'It turned less than a day ago.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+    }
+    case 'NothingHeld':
+      return { title: 'Nothing is waiting at the Roost.', fatal: false,
+        sentence: 'Both held buckets are empty. The button is only offered while one holds something; refresh and it will go.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'NothingDeliverable':
+      return { title: 'What is waiting still cannot move.', fatal: false,
+        sentence: 'A held share goes on the moment its stream can take it: stakers need somebody staked, brooding birds need a bird brooding. Nothing has moved.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'NothingToDistribute':
+      return { title: 'Nothing to distribute yet.', fatal: false,
+        sentence: 'Nothing new has arrived at the Roost, and nothing it is holding could be delivered right now.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'NotTheAdmin':
+      return { title: 'Only the admin can take that.', fatal: true,
+        sentence: 'The Roost’s tenth belongs to the Nest’s owner, read live. This wallet is not it.' };
+    case 'NothingToClaim':
+      return { title: 'The admin’s bucket is empty.', fatal: false,
+        sentence: 'Nothing has been allocated to the admin since the last claim.', fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'ZeroAmount':
+      return { title: 'That amount is zero.', fatal: false,
+        sentence: 'Nothing was sent. Type an amount above zero.' };
+    case 'InsufficientStake':
+      return { title: 'That is more than you have staked.', fatal: false,
+        sentence: a.staked !== undefined ? `You have ${avians(a.staked)} staked. Nothing was moved.` : 'Nothing was moved.',
+        fix: { label: 'Refresh', kind: 'refresh' } };
+    case 'NotTheRoost':
+    case 'NothingStaked':
+      return { title: 'A delivery only the Roost can make.', fatal: true,
+        sentence: 'The staking contract takes AVIANS from the Roost alone, and only while somebody is staked. The Roost holds the leg and retries at the next turn.' };
+    case 'InvalidCostSink':
+      return { title: 'That is not this Nest’s Roost.', fatal: true,
+        sentence: 'The Nest’s cost sink can only be a Roost bound to this Nest and this AVIANS. Owner tooling; nothing on the site sets it.' };
 
     // ── the owner surface ───────────────────────────────────────────────
     //
@@ -570,7 +654,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'NothingToRescue':
       return { title: 'There is nothing to sweep.', fatal: false,
-        sentence: 'The balance is zero — or, for AVIANS, all of it is the backing the free mint requires and none of it may leave.' };
+        sentence: 'The balance is zero, or, for AVIANS, all of it is the backing the free mint requires and none of it may leave.' };
 
     case 'RescueFailed':
       return { title: 'The transfer out failed.', fatal: false,
@@ -580,9 +664,6 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
       return { title: 'The perch will not release that one.', fatal: true,
         sentence: 'AVIANS and the collection itself are refused by address, because they are the pool. Everything else can be swept.' };
 
-    case 'NotStranded':
-      return { title: 'That bird is staked, not stranded.', fatal: true,
-        sentence: 'It has a staker, so it belongs to them. Only a bird the contract holds with no stake recorded against it can be rescued.' };
 
     case 'RendererLocked':
       return { title: 'The renderer is locked.', fatal: true,
@@ -611,7 +692,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'TransferValidatorIsMintSink':
     case 'TransferValidatorIsThisContract':
       return { title: 'That address cannot be the validator.', fatal: false,
-        sentence: 'The collection refuses AVIANS, the perch and itself here — pointing enforcement at any of the three would be a way to make them move tokens.' };
+        sentence: 'The collection refuses AVIANS, the perch and itself here: pointing enforcement at any of the three would be a way to make them move tokens.' };
 
     case 'NoTransferValidator':
       return { title: 'No validator is set.', fatal: true,
@@ -620,7 +701,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
     case 'ConfigureDataTooShort':
     case 'SelectorNotAllowed':
       return { title: 'The collection will not forward that call.', fatal: true,
-        sentence: 'It forwards thirteen validator configuration selectors and nothing else. This is a fault on our side — the panel composed something the collection refuses — and it has been logged.' };
+        sentence: 'It forwards thirteen validator configuration selectors and nothing else. This is a fault on our side (the panel composed something the collection refuses) and it has been logged.' };
 
     case 'PriceBelowFloor':
       return { title: 'That price is below the floor.', fatal: false,
@@ -648,11 +729,11 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'InvalidRewardToken':
       return { title: 'That token cannot be a reward.', fatal: true,
-        sentence: 'AVIANS, the collection and the nest itself are refused by address — a reward token has to be something the contract does not already hold for another reason.' };
+        sentence: 'AVIANS, the collection and the nest itself are refused by address: a reward token has to be something the contract does not already hold for another reason.' };
 
     case 'TooManyRewardTokens':
       return { title: 'The reward list is full.', fatal: true,
-        sentence: 'The cap is on the list every staker pays gas for on every stake and unstake, which is why it exists. Re-listing a token that was once on it is free; a new one is not.' };
+        sentence: 'The cap is on the list every settle walks, token by token, which is why it exists. Re-listing a token that was once on it is free; a new one is not.' };
 
     case 'ZeroProbe':
       return { title: 'The probe cannot be zero.', fatal: false,
@@ -660,20 +741,20 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'TransferAmountMismatch':
       return { title: 'That token did not move what it said it moved.', fatal: true,
-        sentence: 'The probe sent an amount in and the balance changed by something else — a fee-on-transfer or rebasing token. The nest refuses it, because its accounting assumes what goes in comes out.' };
+        sentence: 'The probe sent an amount in and the balance changed by something else: a fee-on-transfer or rebasing token. The nest refuses it, because its accounting assumes what goes in comes out.' };
 
     case 'NoSurplusToRestream':
       return { title: 'There is nothing spare to restream.', fatal: true,
-        sentence: 'Everything the nest holds in this token is already promised to stakers. Only the surplus above what is escrowed can be re-scheduled.' };
+        sentence: 'Everything the nest holds in this token is already promised to brooding birds. Only the surplus above what is escrowed can be re-scheduled.' };
 
     case 'DurationOutOfRange':
     case 'StreamDurationOutOfRange':
       return { title: 'That duration is outside the allowed range.', fatal: false,
         sentence: 'The bounds are read off the contract and shown beside the field.' };
 
-    case 'RewardRateZero':
-      return { title: 'That would stream nothing.', fatal: false,
-        sentence: 'The amount divided by the duration rounds to zero per second. A shorter duration, or a larger amount.' };
+    case 'RewardRateOutOfRange':
+      return { title: 'That rate cannot be streamed.', fatal: false,
+        sentence: 'The amount divided by the duration rounds to zero per second, or overflows the rate the nest can store. A different amount or duration.' };
 
     case 'IntervalTooShort':
       return { title: 'That interval is below the floor.', fatal: false,
@@ -703,7 +784,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 
     case 'WeightsMustSumToBps':
       return { title: 'The weights do not add up to 100%.', fatal: false,
-        sentence: 'This is a fault on our side — the panel should not have offered to send it — and it has been logged.' };
+        sentence: 'This is a fault on our side (the panel should not have offered to send it) and it has been logged.' };
 
     case 'RouteTooLong':
     case 'HopGoesNowhere':
@@ -749,7 +830,7 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
       // No fix button. There is nothing to retry that would be safe, and the
       // hash is already on screen — sending it again is how you buy twice.
       return { title: 'Sent. We could not see it confirm.', fatal: false, sent: true,
-        sentence: 'It went to the network and the receipt did not come back in time. It may have landed, and it may still — check before you send it again.' };
+        sentence: 'It went to the network and the receipt did not come back in time. It may have landed, and it may still. Check before you send it again.' };
 
     case 'ReadFailed':
       return { title: 'That read failed.', fatal: false,
@@ -757,8 +838,8 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
         fix: { label: 'Try again', kind: 'retry' } };
 
     default:
-      return { title: 'That didn’t go through and nothing was taken.', fatal: false,
-        sentence: 'Nothing about your bird is reserved either — if someone else composes it first, it’s theirs.',
+      return { title: 'That did not go through. Nothing was taken.', fatal: false,
+        sentence: 'Nothing about your bird is reserved either: if someone else mints it first, it is theirs.',
         fix: { label: 'Try again', kind: 'retry' } };
   }
 }
@@ -775,6 +856,6 @@ export function explain(e: unknown, ctx: ExplainContext = {}): Explanation {
 export function errorDetail(e: unknown): string | null {
   if (!(e instanceof ContractError)) return null;
   const extra = (e as ContractError & { detail?: string }).detail;
-  const head = e.selector ? `${e.errorName} · ${e.selector}` : e.errorName;
-  return extra ? `${head} · ${extra}` : head;
+  const head = e.selector ? `${e.errorName} ${e.selector}` : e.errorName;
+  return extra ? `${head}: ${extra}` : head;
 }

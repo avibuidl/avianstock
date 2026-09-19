@@ -1,48 +1,57 @@
 // The perch — the part of this world that never closes.
 //
-// Three panels: sell a bird, buy the next one, buy the one you choose. Plus
-// what the perch must hold against what it does hold.
+// Two panels: buy the next bird, buy the one you choose — plus what the perch
+// must hold against what it does hold. Selling to it happens from My Birds
+// (components/SellSheet.tsx), where the birds are.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import {
-  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, Tag,
+  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, Tag, Unread,
 } from '../components/Primitives';
 import { ApprovalSheet } from '../components/ApprovalSheet';
 import { WriteGate } from '../components/Wallet';
-import { useTx } from '../components/Tx';
-import { avians, avianNumber, formatCount } from '../lib/format';
+import { useTx, type FixHandlers } from '../components/Tx';
+import { avians, avianNumber, formatBps, formatCount } from '../lib/format';
 import { traitNames } from '../art/traits';
 import { href } from '../router';
 import {
-  approveAviansForPerch, buyNamed, buyNext, nextBirds, routeFor, sellToPerch,
-  setPerchApproval, traitsForId, usePerch, useWallet, useYourBirds,
-  type Amount, type FixKind, type TokenId,
+  approveAviansForPerch, buyNamed, buyNext, nextBirds,
+  traitsForId, usePerch, useRoost, useWallet, warmTraits,
+  type Amount, type TokenId,
 } from '../mock';
 
-/** 1 -> "st", 2 -> "nd", 100 -> "th". For "the 100th bird in this sale". */
-function ordinal(n: number): string {
-  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
-  return ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
-}
+/** Tiles drawn per page of the picker: what `getPerch` warms on its own. */
+const PICKER_PAGE = 240;
+const NO_BIRDS: TokenId[] = [];
 
 export function Perch({ onConnect }: { onConnect: () => void }) {
   const perch = usePerch();
   const wallet = useWallet();
-  const yours = useYourBirds();
+  // The four shares of every fee are the Roost's, read rather than written
+  // down: this page used to say "50% burned, 50% to the Treasury" from a
+  // literal a week after the contracts stopped doing that.
+  const roost = useRoost();
   const tx = useTx();
 
-  const [selling, setSelling] = useState<TokenId[]>([]);
-  // Ticked only when a bird in this sale is likely to be the hundredth. Reset
-  // whenever the selection changes, so it can never carry over from a smaller
-  // sale that did not reach the countdown.
-  const [burnAck, setBurnAck] = useState(false);
   const [count, setCount] = useState(1);
   const [named, setNamed] = useState<TokenId | null>(null);
   const [next, setNext] = useState<TokenId[]>([]);
   const [busy, setBusy] = useState(false);
   // The amount the approval sheet is open for, or null when it is closed.
   const [approving, setApproving] = useState<Amount | null>(null);
+  // The picker draws the perch's whole holding, but the trait cache behind
+  // `traitsForId` is warmed a page at a time as the box is scrolled —
+  // thousands of `traitsOf` in one call is more than a node will run. `shown`
+  // is how many tiles are drawn so far; the sentinel at the end asks for more.
+  const [shown, setShown] = useState(PICKER_PAGE);
+  const poolBox = useRef<HTMLDivElement>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
+  // "Buy this bird" keeps its size when the count goes past one: the block
+  // that shows the single bird is measured while it is on screen, and the
+  // grid that replaces it is given exactly that height.
+  const nextBlock = useRef<HTMLDivElement>(null);
+  const [nextBlockH, setNextBlockH] = useState<number | null>(null);
 
   const p = perch.data;
 
@@ -52,6 +61,31 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
   }, [p, count]);
 
   useEffect(() => { if (p && named !== null && !p.heldIds.includes(named)) setNamed(null); }, [p, named]);
+
+  // The next page of the picker, when its end scrolls into view.
+  const held = p?.heldIds ?? NO_BIRDS;
+  useEffect(() => {
+    const box = poolBox.current;
+    const end = sentinel.current;
+    if (!box || !end || shown >= held.length) return;
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      void warmTraits(held.slice(shown, shown + PICKER_PAGE)).then(() => setShown((s) => s + PICKER_PAGE));
+    }, { root: box, rootMargin: '120px' });
+    io.observe(end);
+    return () => io.disconnect();
+  }, [held, shown]);
+
+  useLayoutEffect(() => {
+    const block = nextBlock.current;
+    if (!block) return;
+    const measure = () => setNextBlockH(block.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(block);
+    return () => ro.disconnect();
+  }, [count, p?.lowestId]);
 
   /*
     BUYING FROM THE PERCH IS A `transferFrom` OF AVIANS.
@@ -67,22 +101,8 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
   */
   const allowanceToPerch = wallet.data?.approvals.aviansToPerch ?? 0n;
 
-  const onFix = (kind: FixKind, amount?: Amount) => {
-    if (kind === 'refresh') perch.reload();
-    if (kind === 'switch-network') onConnect();
-    if (kind === 'approve') setApproving(amount && amount > 0n ? amount : null);
-    if (kind === 'approve-operator') void approveBirds();
-  };
-
-  const approveBirds = async () => {
-    setBusy(true);
-    await tx.run('Approving the perch', (on) => setPerchApproval(true, on), {
-      onFix,
-      outcome: () => 'The perch can move your birds now. Nothing has moved yet.',
-    });
-    await wallet.reload();
-    setBusy(false);
-  };
+  // The drawer's fix this screen owns; the rest are the site's and the drawer's.
+  const onFix: FixHandlers = { approve: (amount) => setApproving(amount && amount > 0n ? amount : null) };
 
   const doApprove = async (amount: Amount) => {
     setApproving(null);
@@ -103,53 +123,20 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
     return (
       <div className="page page--wide">
         <ErrorState
-          title="That read failed."
-          detail="We could not reach the perch. Your birds are exactly where they were."
+          title="The perch could not be read."
+          detail="Nothing has moved. Try again in a moment."
           onRetry={perch.reload}
         />
       </div>
     );
   }
 
-  const route = routeFor(selling.length, wallet.data?.approvals.birdsToPerch ?? false, p.operatorWhitelisted);
-  // The countdown lands inside this sale: bird number `depositsUntilNextBurn`
-  // of the list is the one that would be the hundredth.
-  const burnRisk = selling.length > 0 && p.depositsUntilNextBurn <= selling.length;
-  const sellable = yours.data ?? [];
-
-  const doSell = async () => {
-    setBusy(true);
-    await tx.run(`Selling ${selling.length === 1 ? 'a bird' : `${selling.length} birds`} to the perch`,
-      (on) => sellToPerch(selling, { route: route.route }, on),
-      {
-        onFix,
-        outcome: (r) => (r.burnt.length === 0
-          ? `${avians(r.paid)} is in your wallet.`
-          : r.burnt.length === 1
-            ? `${avianNumber(r.burnt[0])} was the hundredth bird into the perch and was burnt. You were paid in full — ${avians(r.paid)} is in your wallet.`
-            : `${r.burnt.map(avianNumber).join(' and ')} were hundredth birds into the perch and were burnt. You were paid in full — ${avians(r.paid)} is in your wallet.`),
-        rows: (r) => (r.burnt.length === 0 ? [] : [
-          ...selling.map((id) => ({
-            label: avianNumber(id),
-            value: r.burnt.includes(id) ? 'burnt' : 'in the perch',
-            tone: (r.burnt.includes(id) ? 'warn' : 'ok') as 'warn' | 'ok',
-          })),
-          { label: 'Paid to you', value: avians(r.paid), tone: 'ok' as const },
-        ]),
-        note: (r) => (r.burnt.length === 0 ? undefined
-          : 'One bird in every hundred sold to the perch is burnt. Its seller is paid the same as any other — nothing was deducted for it.'),
-      });
-    setSelling([]);
-    setBurnAck(false);
-    setBusy(false);
-  };
-
   const doBuyNext = async () => {
     setBusy(true);
-    await tx.run('Buying the next bird', (on) => buyNext(count, on), {
+    await tx.run(count === 1 ? 'Buying the next bird' : `Buying the next ${count} birds`, (on) => buyNext(count, on), {
       context: { balance: wallet.data?.avians, price: p.buyNext * BigInt(count) },
       onFix,
-      outcome: (r) => `${r.ids.map(avianNumber).join(', ')} — yours.`,
+      outcome: (r) => `${r.ids.map(avianNumber).join(', ')}: yours. In your wallet now.`,
     });
     setBusy(false);
   };
@@ -160,7 +147,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
     await tx.run(`Buying ${avianNumber(named)}`, (on) => buyNamed([named], on), {
       context: { balance: wallet.data?.avians, price: p.buyNamed },
       onFix,
-      outcome: () => `${avianNumber(named)} — yours.`,
+      outcome: () => `${avianNumber(named)}: yours. In your wallet now.`,
     });
     setNamed(null);
     setBusy(false);
@@ -168,13 +155,13 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
 
   return (
     <div className="page page--wide">
-      <p className="eyebrow">The perch</p>
-      <h2>It never closes.</h2>
-      <p className="lede" style={{ maxWidth: 900 }}>
-        It buys any bird for <span className="num">{avians(p.sell)}</span>, sells the next one out of
-        its own holdings for <span className="num">{avians(p.buyNext)}</span>, and the one you choose for{' '}
-        <span className="num">{avians(p.buyNamed)}</span>. Half of every fee is burned; half goes to
-        the Treasury.
+      <h2>The perch</h2>
+      <p className="lede" style={{ maxWidth: 820 }}>
+        The pool that buys birds back. It pays <span className="num">{avians(p.sell)}</span> for any
+        bird, always, and sells the next one for <span className="num">{avians(p.buyNext)}</span> or
+        one you pick for <span className="num">{avians(p.buyNamed)}</span>. One bird in every
+        hundred sold to it is burnt; the seller is paid in full either way. To sell a bird, open{' '}
+        <a href={href({ name: 'birds' })}>My Birds</a>.
       </p>
 
       {!p.operatorWhitelisted ? (
@@ -183,7 +170,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
             <Note tone="warn">
               <strong className="strong">The batch route is not approved on this deployment.</strong>{' '}
               <span className="small">
-                We send each bird in directly instead — same price, same result, one transaction per
+                Each bird is sent in directly instead: same price, same result, one transaction per
                 bird. The operator has been told.
               </span>
             </Note>
@@ -192,181 +179,61 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
       ) : null}
 
       <div className="perch-grid">
-        {/* ── sell ─────────────────────────────────────────────────────── */}
-        <section className="panel" aria-labelledby="sell-h">
-          <div className="row">
-            <h3 id="sell-h">Sell a bird</h3>
-            <span className="spacer" />
-            <span className="num" style={{ color: 'var(--confirm)' }}>{avians(p.sell)}</span>
-          </div>
-          <p className="small dim" style={{ marginTop: 6 }}>
-            You receive {avians(p.sell)} each, instantly. The perch&rsquo;s base is
-            {' '}{avians(p.base)} and it keeps a 10% fee, so {avians(p.sell)} is what reaches you.
-            Half of that fee is burned; half goes to the Treasury.
-          </p>
-
-          {/*
-            THE HUNDREDTH BIRD.
-
-            The perch burns one bird for every hundred deposited, and the count
-            advances per bird rather than per transaction — so a sale of several
-            can straddle the line, and the one that lands on it is the one at
-            that position in the list.
-
-            The warning is about LIKELIHOOD and says so. `depositsUntilNextBurn`
-            was true when it was read; anyone else selling in between moves it,
-            so a sale that looked safe can burn and a sale that looked doomed can
-            miss. The receipt is the only truth, and it is what the drawer
-            reports afterwards.
-          */}
-          <p className="tiny dim" style={{ marginTop: 10 }}>
-            One bird in every {formatCount(p.burnEvery)} sold to the perch is burnt.{' '}
-            {p.depositsUntilNextBurn === 1
-              ? 'The next one in is the hundredth.'
-              : `${formatCount(p.depositsUntilNextBurn)} more sales until the next one.`}{' '}
-            The seller is paid the full {avians(p.sell)} either way.
-          </p>
-
-          {sellable.length === 0 ? (
-            <div style={{ marginTop: 18 }}>
-              <EmptyState title="You have no birds to sell.">
-                Compose one, or buy one from the perch.
-              </EmptyState>
-            </div>
-          ) : (
-            <>
-              <div className="tiles" style={{ marginTop: 18 }}>
-                {sellable.map((b) => {
-                  const on = selling.includes(b.id);
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      className={`tile${on ? ' tile--on' : ''}`}
-                      aria-pressed={on}
-                      onClick={() => {
-                        setBurnAck(false);
-                        setSelling((v) => (on ? v.filter((x) => x !== b.id) : [...v, b.id]));
-                      }}
-                    >
-                      <Avian traits={b.traits} alt={avianNumber(b.id)} />
-                      <span className="mono tiny dim" style={{ display: 'block', textAlign: 'center', marginTop: 4 }}>
-                        #{formatCount(b.id)}
-                      </span>
-                      {on ? <span className="tile__mark" aria-hidden="true"><Icon name="check" size={11} /></span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="row" style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <span className="small">{selling.length} selected</span>
-                <span className="spacer" />
-                <span className="num" style={{ fontSize: 17 }}>{avians(p.sell * BigInt(selling.length))}</span>
-              </div>
-
-              {selling.length > 0 ? (
-                <p className="tiny dim" style={{ marginTop: 10 }}>{route.reason}</p>
-              ) : null}
-
-              {route.offerApproval ? (
-                <div style={{ marginTop: 14 }}>
-                  <WriteGate onConnect={onConnect}>
-                    <button
-                      type="button" className="btn btn--ghost btn--wide" disabled={busy || tx.busy}
-                      onClick={approveBirds}
-                    >
-                      Approve the perch for your birds
-                    </button>
-                  </WriteGate>
-                </div>
-              ) : null}
-
-              {burnRisk ? (
-                <div style={{ marginTop: 14 }}>
-                  <Box tone="warn">
-                    <Note tone="warn">
-                      <strong className="strong">
-                        {avianNumber(selling[p.depositsUntilNextBurn - 1])} is likely to be burnt.
-                      </strong>{' '}
-                      <span className="small">
-                        {selling.length === 1
-                          ? 'The perch is one deposit from its hundredth.'
-                          : `It is the ${formatCount(p.depositsUntilNextBurn)}${ordinal(p.depositsUntilNextBurn)} bird in this sale, and the perch is ${formatCount(p.depositsUntilNextBurn)} deposit${p.depositsUntilNextBurn === 1 ? '' : 's'} from its hundredth.`}{' '}
-                        You are paid the full {avians(p.sell * BigInt(selling.length))}
-                        {selling.length === 1 ? '' : ` for all ${formatCount(selling.length)}`}{' '}
-                        either way — nothing is deducted for the burn.
-                      </span>
-                    </Note>
-                    <p className="tiny dim" style={{ margin: '10px 0 0' }}>
-                      Likely, not certain: if somebody else sells first the count moves and a
-                      different bird lands on it. The receipt afterwards is the truth.
-                    </p>
-                    <p className="tiny dim" style={{ margin: '8px 0 0' }}>
-                      A burnt bird&rsquo;s wallet is orphaned — whatever is inside it stays there
-                      and nobody can reach it again. The same is true of a bird you send to brood.
-                    </p>
-                    <label className="row" style={{ gap: 8, marginTop: 12, alignItems: 'flex-start' }}>
-                      <input
-                        type="checkbox"
-                        checked={burnAck}
-                        onChange={(e) => setBurnAck(e.target.checked)}
-                        style={{ marginTop: 3 }}
-                      />
-                      <span className="small">
-                        I understand one of these birds is likely to be burnt.
-                      </span>
-                    </label>
-                  </Box>
-                </div>
-              ) : null}
-
-              <div style={{ marginTop: 14 }}>
-                <WriteGate onConnect={onConnect}>
-                  <button
-                    type="button" className="btn btn--wide"
-                    disabled={selling.length === 0 || busy || tx.busy || (burnRisk && !burnAck)}
-                    onClick={doSell}
-                  >
-                    {selling.length === 0 ? 'Choose a bird' : `Sell ${selling.length === 1 ? 'it' : `${selling.length} birds`} — ${avians(p.sell * BigInt(selling.length))}`}
-                  </button>
-                </WriteGate>
-              </div>
-            </>
-          )}
-        </section>
-
         {/* ── buy next ─────────────────────────────────────────────────── */}
         <section className="panel" aria-labelledby="next-h">
           <div className="row">
-            <h3 id="next-h">Buy this bird</h3>
+            <h3 id="next-h">Buy the next bird</h3>
             <span className="spacer" />
             <span className="num" style={{ color: 'var(--attention)' }}>{avians(p.buyNext)}</span>
           </div>
           <p className="small dim" style={{ marginTop: 6 }}>
-            This is the lowest id the perch is holding. Which bird you get is not random, and not
-            the most recently sold.
+            The perch sells its lowest-numbered bird first. This is the one you get.
           </p>
 
           {p.poolSize === 0 || p.lowestId === null ? (
             <div style={{ marginTop: 18 }}>
-              <EmptyState title="The perch is holding nothing right now.">
-                It buys any bird at {avians(p.sell)}, so this fills up as soon as somebody sells.
+              <EmptyState title="The perch holds no birds right now.">
+                It buys any bird for {avians(p.sell)}, so this fills as soon as somebody sells one.
               </EmptyState>
             </div>
           ) : (
             <>
-              <div style={{ marginTop: 18 }}>
-                <Avian traits={traitsForId(p.lowestId)} alt={avianNumber(p.lowestId)} />
-              </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <a className="strong" href={href({ name: 'bird', id: p.lowestId })}>{avianNumber(p.lowestId)}</a>
-                <span className="spacer" />
-                <Tag>In the perch</Tag>
-              </div>
-              <p className="tiny dim" style={{ marginTop: 6 }}>
-                {traitNames(traitsForId(p.lowestId)).join(' · ')}
-              </p>
+              {/*
+                One bird: its picture, large. More than one: the birds you
+                would get, in the picker's grid — the lowest ids in order,
+                one more appearing with each press of "+". What you see is
+                exactly what the purchase delivers, so there is nothing to
+                say about it in words.
+              */}
+              {count === 1 || next.length < 2 ? (
+                <div ref={nextBlock} style={{ marginTop: 18 }}>
+                  <Avian traits={traitsForId(p.lowestId)} alt={avianNumber(p.lowestId)} />
+                  <div className="row" style={{ marginTop: 12 }}>
+                    <a className="strong" href={href({ name: 'bird', id: p.lowestId })}>{avianNumber(p.lowestId)}</a>
+                    <span className="spacer" />
+                    <Tag>In the perch</Tag>
+                  </div>
+                  <p className="tiny dim" style={{ marginTop: 6 }}>
+                    {traitNames(traitsForId(p.lowestId)).join(', ')}
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className="pool-grid pool-scroll"
+                  // The single bird's block's height, so the card does not shrink.
+                  style={{ marginTop: 18, height: nextBlockH ?? undefined, maxHeight: 'none', alignContent: 'start' }}
+                  aria-label={`The ${count} birds you would get`}
+                >
+                  {next.map((id) => (
+                    <a key={id} className="tile" href={href({ name: 'bird', id })}>
+                      <Avian traits={traitsForId(id)} alt={avianNumber(id)} />
+                      <span className="mono tiny dim" style={{ display: 'block', textAlign: 'center', marginTop: 4 }}>
+                        #{formatCount(id)}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
 
               <div className="row" style={{ marginTop: 18 }}>
                 <span className="small dim">How many</span>
@@ -381,13 +248,6 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
                   <Icon name="plus" size={14} />
                 </button>
               </div>
-
-              {count > 1 && next.length > 1 ? (
-                <p className="tiny dim" style={{ marginTop: 10 }}>
-                  You would get {next.map((id) => `#${formatCount(id)}`).join(', ')} — the {count}{' '}
-                  lowest, in order. You see exactly which birds before you sign.
-                </p>
-              ) : null}
 
               <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
                 <span className="small">You pay</span>
@@ -404,7 +264,8 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
                       : doBuyNext())}
                   >
                     {allowanceToPerch < p.buyNext * BigInt(count) ? 'Approve, then buy'
-                      : count === 1 ? `Buy ${avianNumber(p.lowestId)}` : `Buy ${count} birds`}
+                      : count === 1 ? `Buy ${avianNumber(p.lowestId)} for ${avians(p.buyNext)}`
+                        : `Buy ${count} birds for ${avians(p.buyNext * BigInt(count))}`}
                   </button>
                 </WriteGate>
               </div>
@@ -415,14 +276,13 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
         {/* ── buy named ────────────────────────────────────────────────── */}
         <section className="panel" aria-labelledby="named-h">
           <div className="row">
-            <h3 id="named-h">Buy your choice bird</h3>
+            <h3 id="named-h">Buy a bird you pick</h3>
             <span className="spacer" />
             <span className="num" style={{ color: 'var(--attention)' }}>{avians(p.buyNamed)}</span>
           </div>
           <p className="small dim" style={{ marginTop: 6 }}>
-            The extra {avians(p.buyNamed - p.buyNext)} is what picking costs. If the bird you picked
-            leaves the pool before your transaction lands, the purchase is refused and nothing is
-            taken.
+            Picking costs {avians(p.buyNamed - p.buyNext)} more. If someone buys your pick first,
+            the purchase is refused and nothing is taken.
           </p>
 
           {p.poolSize === 0 ? (
@@ -433,10 +293,24 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
             <>
               <div className="row row--wrap" style={{ marginTop: 16, gap: 10 }}>
                 <Tag>{formatCount(p.poolSize)} birds in the perch</Tag>
-                <Tag>Lowest id {p.lowestId !== null ? formatCount(p.lowestId) : '—'}</Tag>
+                {p.lowestId !== null ? <Tag>Lowest id {formatCount(p.lowestId)}</Tag> : null}
               </div>
-              <div className="pool-grid" style={{ marginTop: 14 }}>
-                {p.heldIds.slice(0, 12).map((id) => (
+              {/*
+                Every bird the perch holds, in a box three rows tall that
+                scrolls without a scrollbar — the buyer scrolls the pictures,
+                not a control beside them. The whole list is here, not the
+                first twelve: a buyer choosing a bird has to be able to see
+                what there is to choose from.
+              */}
+              <div
+                ref={poolBox}
+                className="pool-grid pool-scroll"
+                // The same height as the other card's picture block, whatever
+                // the perch holds: the card keeps its size, and the two match.
+                style={{ marginTop: 14, height: nextBlockH ?? undefined, maxHeight: nextBlockH ? 'none' : undefined, alignContent: 'start' }}
+                tabIndex={0} aria-label="Every bird in the perch. Scroll for more."
+              >
+                {p.heldIds.slice(0, shown).map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -450,18 +324,19 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
                     </span>
                   </button>
                 ))}
+                <div ref={sentinel} aria-hidden="true" style={{ gridColumn: '1 / -1', height: 1 }} />
               </div>
               {p.poolSize > 12 ? (
                 <p className="tiny dim" style={{ marginTop: 10 }}>
-                  {formatCount(p.poolSize - 12)} more in the perch. <a href={href({ name: 'flock' })}>Filter the flock</a> to
-                  find one.
+                  All {formatCount(p.poolSize)} are above; scroll the pictures for the rest, or{' '}
+                  <a href={href({ name: 'flock' })}>filter the flock</a> to find one by its traits.
                 </p>
               ) : null}
 
               <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <span className="small">{named !== null ? avianNumber(named) : 'Nothing picked'}</span>
+                <span className="small">{named !== null ? avianNumber(named) : 'Nothing picked yet'}</span>
                 <span className="spacer" />
-                <span className="num" style={{ fontSize: 17 }}>{named !== null ? avians(p.buyNamed) : '—'}</span>
+                {named !== null ? <span className="num" style={{ fontSize: 17 }}>{avians(p.buyNamed)}</span> : null}
               </div>
 
               <div style={{ marginTop: 14 }}>
@@ -473,9 +348,9 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
                       ? setApproving(p.buyNamed)
                       : doBuyNamed())}
                   >
-                    {named === null ? 'Pick a bird'
+                    {named === null ? 'Pick a bird above'
                       : allowanceToPerch < p.buyNamed ? 'Approve, then buy'
-                        : `Buy ${avianNumber(named)}`}
+                        : `Buy ${avianNumber(named)} for ${avians(p.buyNamed)}`}
                   </button>
                 </WriteGate>
               </div>
@@ -488,31 +363,38 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
       {/* ── solvency ───────────────────────────────────────────────────── */}
       <div className="panel solvency">
         <div>
-          <p className="eyebrow" style={{ margin: 0 }}>The perch can always pay</p>
+          <h4>The perch can always pay.</h4>
           <p className="small" style={{ marginTop: 10, maxWidth: 760 }}>
-            The perch must hold <span className="num">{avians(p.backingRequired)}</span> against
-            every bird that isn&rsquo;t already in it — {avians(p.base)} reserved apiece. Each
-            buyback pays {avians(p.sell)} to the seller. It currently holds{' '}
-            <span className="num">{avians(p.aviansHeld)}</span>.
+            It holds {avians(p.base)} for every bird that is not already in it. Fees charged on
+            every buy and sell are sent to the Roost to be split between AVIANS token staker
+            rewards, brooder rewards, protocol revenue, and burns.
           </p>
           <div className="bar" style={{ marginTop: 16 }} role="img"
             aria-label={`Holding ${avians(p.aviansHeld)} against a requirement of ${avians(p.backingRequired)}`}>
             <i style={{ width: `${p.aviansHeld === 0n ? 0 : Number((p.backingRequired * 1000n) / p.aviansHeld) / 10}%` }} />
           </div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <span className="tiny dim">REQUIRED {avians(p.backingRequired)}</span>
+          <div className="row row--wrap" style={{ marginTop: 8, rowGap: 4 }}>
+            <span className="label">Required</span>
+            <span className="num" style={{ fontSize: 13 }}>{avians(p.backingRequired)}</span>
             <span className="spacer" />
-            <span className="tiny" style={{ color: 'var(--accent)' }}>HOLDS {avians(p.aviansHeld)}</span>
+            <span className="label">Holds</span>
+            <span className="num" style={{ fontSize: 13, color: 'var(--accent)' }}>{avians(p.aviansHeld)}</span>
           </div>
         </div>
+        {/*
+          The fee is the 10% or 15% between the sell price and the buy prices,
+          and all of it goes to the Roost. The four shares are the Roost's
+          constants, read: STAKING_BPS and the rest.
+        */}
         <div className="inset">
-          <p className="eyebrow" style={{ margin: 0 }}>Every fee, split</p>
-          <div className="row" style={{ marginTop: 12 }}>
-            <span className="small">Burned</span><span className="spacer" /><span className="num">50%</span>
-          </div>
-          <div className="row" style={{ marginTop: 6 }}>
-            <span className="small">To the Treasury</span><span className="spacer" /><span className="num">50%</span>
-          </div>
+          <h4>Where the fees go</h4>
+          <p className="tiny dim" style={{ margin: '6px 0 0' }}>
+            The whole fee, to the Roost, which splits it once a day.
+          </p>
+          <FeeShare label="AVIANS stakers" bps={roost.data?.splitBps.staking} />
+          <FeeShare label="Brooding birds" bps={roost.data?.splitBps.nest} />
+          <FeeShare label="Burnt" bps={roost.data?.splitBps.burn} />
+          <FeeShare label="The protocol" bps={roost.data?.splitBps.admin} />
         </div>
       </div>
 
@@ -531,6 +413,16 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
         onClose={() => setApproving(null)}
         onApprove={(_route, amount) => doApprove(amount)}
       />
+    </div>
+  );
+}
+
+function FeeShare({ label, bps }: { label: string; bps: number | undefined }) {
+  return (
+    <div className="row" style={{ marginTop: 8 }}>
+      <span className="small">{label}</span>
+      <span className="spacer" />
+      <span className="num">{bps === undefined ? <Unread /> : formatBps(bps)}</span>
     </div>
   );
 }

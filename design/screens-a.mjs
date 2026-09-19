@@ -47,7 +47,7 @@ export const Main = doc({
     <p class="eyebrow">5,555 composed pixel birds · Robinhood Chain</p>
     <h1>Pick your own<br>damn bird.</h1>
     <p class="lede" style="max-width:600px">5,555 pixel birds you compose yourself — six choices, no reveal, and a chain
-      that refuses to let anyone mint your combination twice. Stored on-chain, all 12,872 bytes of it.</p>
+      that refuses to let anyone mint your combination twice. Stored on-chain, all 12,866 bytes of it.</p>
     <div class="row" style="gap:24px;margin-top:36px">
       <button class="btn">Compose your Avian ${icon('arrow', C.ink)}</button>
       <span class="small"><a href="#">See the flock</a> <span class="dim">·</span> <a href="#">Read how the perch works</a></span>
@@ -130,7 +130,7 @@ export const Main = doc({
   <p class="eyebrow" style="margin-top:44px">The receipts</p>
   <div class="receipts">
     <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">All on-chain.</strong>
-      <span class="small">The whole collection is 12,872 bytes on one contract. There is no link to break, because there is no link.</span></span></div></div>
+      <span class="small">The whole collection is 12,866 bytes on one contract. There is no link to break, because there is no link.</span></span></div></div>
     <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">Your money never touches us.</strong>
       <span class="small">A paid mint&rsquo;s 100,000 AVIANS goes to the buy-back perch in the same transaction. We can&rsquo;t hold it and we can&rsquo;t redirect it.</span></span></div></div>
     <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">Nobody can print AVIANS.</strong>

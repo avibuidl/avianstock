@@ -5,14 +5,17 @@
 // comes from the mock layer's `explain`, which is the only place one is written.
 
 import {
-  createContext, useCallback, useContext, useMemo, useState, type ReactNode,
+  createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import { Icon } from './Icon';
 import { Tag } from './Primitives';
 import {
-  ContractError, errorDetail, explain, type ExplainContext, type FixKind,
+  ContractError, errorDetail, explain, refreshAll, type ExplainContext,
   type Hex, type OnPhase, type TxPhase,
 } from '../mock';
+import { handlersFor, runFix, type FixHandler, type FixHandlers } from '../lib/fixes';
+
+export type { FixHandler, FixHandlers };
 
 /**
  * A batch call can succeed while part of what was asked for did not happen, so
@@ -41,8 +44,6 @@ export type TxState = {
   note?: string;
 };
 
-type FixHandler = (kind: FixKind, amount?: bigint) => void;
-
 type Ctx = {
   state: TxState;
   busy: boolean;
@@ -54,20 +55,32 @@ type Ctx = {
       outcome?: (r: T) => string;
       rows?: (r: T) => TxRow[];
       note?: (r: T) => string | undefined;
-      onFix?: FixHandler;
+      /** The screen's fixes, by kind. See `lib/fixes.ts`. */
+      onFix?: FixHandlers;
     },
   ) => Promise<T | undefined>;
   dismiss: () => void;
 };
 
+type Run = Parameters<Ctx['run']>;
+
 const TxContext = createContext<Ctx | null>(null);
 
-export function TxProvider({ children }: { children: ReactNode }) {
+/**
+ * `siteFixes` are the fixes no one screen owns: opening the trade modal for
+ * "Get AVIANS", opening the wallet dialog for "Switch to Robinhood Chain".
+ * The app supplies them once, and every screen's refusals get them.
+ */
+export function TxProvider({ children, siteFixes }: { children: ReactNode; siteFixes?: FixHandlers }) {
   const [state, setState] = useState<TxState>({ label: '', phase: 'idle' });
   const [ctx, setCtx] = useState<ExplainContext>({});
-  const [fix, setFix] = useState<{ handler?: FixHandler }>({});
+  const [fix, setFix] = useState<{ handler?: FixHandlers }>({});
+  // The last write, so "Try again" can send it again exactly as it was: a
+  // signature refused in the wallet, a deadline that passed while it waited.
+  const last = useRef<Run | null>(null);
 
   const run: Ctx['run'] = useCallback(async (label, fn, opts) => {
+    last.current = [label, fn, opts] as Run;
     setCtx(opts?.context ?? {});
     setFix({ handler: opts?.onFix });
     setState({ label, phase: 'signing' });
@@ -98,12 +111,19 @@ export function TxProvider({ children }: { children: ReactNode }) {
   const dismiss = useCallback(() => setState({ label: '', phase: 'idle' }), []);
   const busy = state.phase === 'signing' || state.phase === 'pending';
 
+  // The drawer's own two: re-run the last write, and re-read every panel.
+  // Last in the chain, so a screen that knows better goes first.
+  const builtIn = useMemo<FixHandlers>(() => ({
+    retry: () => { const l = last.current; if (l) void run(...l); },
+    refresh: () => refreshAll(),
+  }), [run]);
+
   const value = useMemo(() => ({ state, busy, run, dismiss }), [state, busy, run, dismiss]);
 
   return (
     <TxContext.Provider value={value}>
       {children}
-      <TxDrawer state={state} ctx={ctx} onDismiss={dismiss} onFix={fix.handler} />
+      <TxDrawer state={state} ctx={ctx} onDismiss={dismiss} fixes={[fix.handler, siteFixes, builtIn]} />
     </TxContext.Provider>
   );
 }
@@ -115,13 +135,15 @@ export function useTx(): Ctx {
 }
 
 function TxDrawer({
-  state, ctx, onDismiss, onFix,
-}: { state: TxState; ctx: ExplainContext; onDismiss: () => void; onFix?: FixHandler }) {
+  state, ctx, onDismiss, fixes,
+}: { state: TxState; ctx: ExplainContext; onDismiss: () => void; fixes: (FixHandlers | undefined)[] }) {
   if (state.phase === 'idle') return null;
 
   const failed = state.phase === 'failed';
   const done = state.phase === 'confirmed';
   const e = failed ? explain(state.error, ctx) : null;
+  // The button exists only when something will act on it.
+  const handlers = e?.fix ? handlersFor(e.fix.kind, ...fixes) : [];
   // Broadcast but unconfirmed is not a refusal, and must not be dressed as
   // one: a red panel over the word "Refused" is what a person reads first,
   // and they would read it while the transaction was still in flight.
@@ -148,7 +170,7 @@ function TxDrawer({
 
       <h4 style={{ marginTop: 14 }}>
         {failed ? e!.title
-          : done ? state.outcome ?? `${state.label} — done.`
+          : done ? state.outcome ?? `${state.label}: done.`
             : state.phase === 'signing' ? 'Waiting for your wallet.' : `${state.label}…`}
       </h4>
 
@@ -161,8 +183,8 @@ function TxDrawer({
         <p className="small" style={{ marginTop: 8 }}>
           {failed ? e!.sentence
             : state.phase === 'signing'
-              ? 'Nothing has been sent yet. Cancelling here costs nothing.'
-              : 'Sent. We are not going to guess how long it takes.'}
+              ? 'Nothing has been sent yet. Cancelling in your wallet costs nothing.'
+              : 'Sent. Waiting for the chain to confirm it.'}
         </p>
       )}
 
@@ -189,7 +211,7 @@ function TxDrawer({
 
       {state.hash ? (
         <div className="row" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-          <span className="tiny dim">TRANSACTION</span>
+          <span className="label">Transaction</span>
           <span className="spacer" />
           <span className="mono tiny" style={{ color: 'var(--text)' }}>
             {state.hash.slice(0, 10)}…{state.hash.slice(-8)}
@@ -199,19 +221,19 @@ function TxDrawer({
 
       {failed ? (
         <>
-          {e!.fix && onFix ? (
+          {e!.fix && handlers.length > 0 ? (
             <button
               type="button"
               className="btn btn--small"
               style={{ marginTop: 14 }}
-              onClick={() => { onFix(e!.fix!.kind, e!.fix!.amount); onDismiss(); }}
+              onClick={() => { onDismiss(); runFix(handlers, e!.fix!.amount, state.error); }}
             >
               {e!.fix.label}
             </button>
           ) : null}
           {state.detail ? (
             <div className="row" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-              <span className="tiny dim">DECODED</span>
+              <span className="label">Decoded</span>
               <span className="spacer" />
               <span className="mono tiny dim">{state.detail}</span>
             </div>
@@ -235,7 +257,7 @@ function Phases({ phase }: { phase: TxPhase }) {
         <span key={label} className="row" style={{ gap: 6 }}>
           <span className={`steps__dot${i === at ? ' steps__dot--on' : i < at ? ' steps__dot--done' : ''}`} />
           <span className="tiny" style={{ color: i <= at ? 'var(--text)' : 'var(--text-dim)' }}>{label}</span>
-          {i < 2 ? <span className="tiny dim" style={{ margin: '0 4px' }}>→</span> : null}
+          {i < 2 ? <span className="tiny dim" style={{ margin: '0 4px' }} aria-hidden="true">/</span> : null}
         </span>
       ))}
     </div>

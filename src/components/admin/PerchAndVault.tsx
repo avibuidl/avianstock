@@ -43,7 +43,7 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
       <Control
         title="Where the perch sends its fees"
         now={<Addr value={admin.perch.feeRecipient} />}
-        note="Half of every perch fee is burned; this is where the other half goes."
+        note="Every perch fee, whole. This should be the Roost: the card below says whether it is."
       >
         <div className={s.form}>
           <Field
@@ -82,7 +82,7 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
               {v.isLocked
                 ? <> <Tag tone="ok"><Icon name="lock" size={11} /> locked</Tag></>
                 : <> <Tag tone="warn">unlocked</Tag></>}
-              {' · '}
+              {', '}
               {nothingAccrued
                 ? <span className="dim">nothing accrued yet</span>
                 : <>pending {formatEth(pending.eth, 6)} ETH, {avians(pending.avians)}</>}
@@ -118,7 +118,7 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
               />
             </div>
             <p className="tiny dim" style={{ marginTop: 10 }}>
-              Collecting fees takes nothing out of the position itself — it decreases liquidity by
+              Collecting fees takes nothing out of the position itself: it decreases liquidity by
               zero and takes only what the pool has accrued.
             </p>
           </Control>
@@ -183,7 +183,7 @@ export function PerchAndVault({ admin }: { admin: AdminState }) {
                     word: 'withdraw',
                     consequence: <>
                       The vault does not accept a second position, so once position{' '}
-                      #{formatCount(v.tokenId)} leaves, this vault is spent — and the on-chain proof
+                      #{formatCount(v.tokenId)} leaves, this vault is spent: and the on-chain proof
                       the Contracts page shows becomes a proof about a vault that is empty.
                     </>,
                   },

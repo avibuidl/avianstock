@@ -3,7 +3,7 @@
 
 /* ── tiles: a bird you can pick ───────────────────────────────────────── */
 
-.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--s2); }
 .pool-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); }
 
 .tile {
@@ -14,7 +14,9 @@
   cursor: pointer;
   transition: border-color var(--motion) linear;
 }
-.tile:hover { border-color: var(--line-strong); }
+.tile:hover { border-color: var(--line-strong); text-decoration: none; }
+/* A tile that is a link: the id under the picture keeps its own colour. */
+a.tile:hover { color: inherit; }
 .tile--on { border-color: var(--accent); outline: 1px solid var(--accent); }
 .tile--warn { border-color: var(--rust); }
 .tile__mark {
@@ -26,9 +28,12 @@
 
 /* ── the perch ────────────────────────────────────────────────────────── */
 
+/* Two buys, a little wider than the thirds they used to be, centred on the
+   page — the sell panel that made three moved to My Birds. */
 .perch-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 440px));
+  justify-content: center;
   gap: var(--s5);
   align-items: start;
   margin-top: var(--s6);
@@ -44,15 +49,15 @@
 
 /* ── the nest ────────────────────────────────────────────────────────── */
 
-.says {
+/* The Treasury card, full width under the lede: the figures on the left, the
+   one public button and its reasons on the right, the way the perch's
+   solvency card is arranged. One column under 1080px. */
+.treasury {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  margin-top: var(--s6);
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--s6);
+  align-items: start;
 }
-.says > div { background: var(--ink); padding: var(--s5); }
 
 .two-up {
   display: grid;
@@ -92,17 +97,31 @@
 
 /* ── your birds ───────────────────────────────────────────────────────── */
 
-.birds-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
-  gap: var(--s6);
-  align-items: start;
-  margin-top: var(--s6);
-}
-
-.bird-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
-.bird-card { border: 1px solid var(--line); background: var(--panel); }
+/* Six across, the flock's tile size: the satchel column that used to sit
+   beside the cards is a dialog now, so the cards have the whole page. */
+.bird-cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s4); margin-top: var(--s6); }
+.bird-card { position: relative; border: 1px solid var(--line); background: var(--panel); }
 .bird-card--on { border-color: var(--accent); outline: 1px solid var(--accent); }
+/* The square in the picture's corner that picks a bird for a sale. Empty
+   until pressed, filled with a tick when picked; the card's border follows. */
+.bird-card__pick {
+  position: absolute; top: 8px; left: 8px; z-index: 1;
+  width: 28px; height: 28px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink); border: 1px solid var(--line-strong); color: var(--ink);
+  cursor: pointer;
+}
+.bird-card__pick:hover { border-color: var(--accent); }
+.bird-card__pick--on { background: var(--accent); border-color: var(--accent); }
+/* The card's one or two buttons in a row, equal widths, one filling the row
+   on its own. The card is a sixth of the page, so the labels are one word. */
+.bird-card__actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--s2);
+}
+.bird-card__actions .btn { padding-left: var(--s2); padding-right: var(--s2); }
 
 .hold-row {
   display: flex; align-items: center; gap: var(--s3);
@@ -158,47 +177,50 @@
 
 /* ── contracts ────────────────────────────────────────────────────────── */
 
-.contracts-grid {
+/* The lock's three figures in a row inside its full-width card. */
+.lock-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s5);
-  align-items: start;
-  margin-top: var(--s6);
-}
-/*
-  The network card's three groups of facts, side by side across a full-width
-  panel. `auto-fit` rather than a count of three: two of the groups wait on
-  their own reads, and a fixed three columns would hold an empty track open
-  until they landed.
-*/
-.net-facts__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--s5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
   margin-top: var(--s4);
-  align-items: start;
 }
+.lock-facts > div { background: var(--panel-inset); padding: var(--s4); }
 
 /* ── responsive ───────────────────────────────────────────────────────── */
 
 @media (max-width: 1080px) {
   .perch-grid { grid-template-columns: minmax(0, 1fr); }
   .solvency { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
-  .says { grid-template-columns: minmax(0, 1fr); }
+  .treasury { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
   .two-up { grid-template-columns: minmax(0, 1fr); }
-  .birds-split { grid-template-columns: minmax(0, 1fr); }
   .bird-detail { grid-template-columns: minmax(0, 1fr); }
   .fl-grid { grid-template-columns: minmax(0, 1fr); }
-  .contracts-grid { grid-template-columns: minmax(0, 1fr); }
   .gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .bird-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bird-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 720px) {
   .page { padding: var(--s5) var(--s4) var(--s7); }
   .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bird-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bird-card__pick { width: 36px; height: 36px; }
   .pool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .fl-pair { grid-template-columns: minmax(0, 1fr); }
   .tiers { grid-template-columns: minmax(0, 1fr); }
+  .lock-facts { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The perch's whole holding, in a box three rows of tiles tall that scrolls
+   with no scrollbar drawn: the pictures are what the buyer scrolls. Keyboard
+   users reach it by its tab stop and scroll it with the arrows. */
+.pool-scroll {
+  max-height: 372px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.pool-scroll::-webkit-scrollbar { display: none; }

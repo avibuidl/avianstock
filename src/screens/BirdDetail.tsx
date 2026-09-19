@@ -4,11 +4,12 @@
 import { Avian, Box, ErrorState, Note, PanelSkeleton, Tag } from '../components/Primitives';
 import { CATEGORIES } from '../art/traits';
 import { comboHex } from '../art/render';
-import { avians, avianNumber, formatCount, formatEth, formatReward, formatSince } from '../lib/format';
+import { avians, avianNumber, formatCount, formatEth, formatReward, formatSince, shortAddress } from '../lib/format';
 import { href } from '../router';
-import { PERCH_BUY_NAMED, PERCH_BASE, satchelBlocksStaking, useBird } from '../mock';
+import { SettleControl } from '../components/Settle';
+import { PERCH_BUY_NAMED, PERCH_BASE, useBird } from '../mock';
 
-export function BirdDetail({ id }: { id: number }) {
+export function BirdDetail({ id, onConnect }: { id: number; onConnect: () => void }) {
   const bird = useBird(id);
   const now = Math.floor(Date.now() / 1000);
 
@@ -19,8 +20,8 @@ export function BirdDetail({ id }: { id: number }) {
     return (
       <div className="page">
         <ErrorState
-          title="No such bird — or that read failed."
-          detail={`Avian #${formatCount(id)} has either not been minted or could not be read.`}
+          title={`Avian #${formatCount(id)} could not be read.`}
+          detail="It has not been minted, or the read failed. Try again in a moment."
           onRetry={bird.reload}
         />
         <p className="small" style={{ marginTop: 16 }}>
@@ -32,11 +33,17 @@ export function BirdDetail({ id }: { id: number }) {
 
   const b = bird.data;
   const loc = b.location;
-  const nested = satchelBlocksStaking(b);
+  const nested = b.satchel.holds.filter((h) => h.kind === 'avian').length;
+  const lines = b.broodLines ?? [];
+  const symbolOf = (token: string) => {
+    const l = lines.find((x) => x.token.address.toLowerCase() === token.toLowerCase());
+    return l ? { symbol: l.token.symbol, decimals: l.token.decimals } : { symbol: shortAddress(token), decimals: 18 };
+  };
+  const unsettled = lines.some((l) => l.unsettled > 0n);
 
   return (
     <div className="page page--wide">
-      <p className="small"><a href={href({ name: 'flock' })}>← The flock</a></p>
+      <p className="small"><a href={href({ name: 'flock' })}>Back to the flock</a></p>
 
       <div className="bird-detail">
         <div>
@@ -61,17 +68,17 @@ export function BirdDetail({ id }: { id: number }) {
                 <h2 style={{ fontSize: 22 }}>{avianNumber(b.id)}</h2>
                 <span className="spacer" />
                 {loc.where === 'perch' ? <Tag>In the perch</Tag>
-                  : loc.where === 'roost' ? <Tag tone="ok">Brooding · Tier {loc.tier}</Tag>
-                    : loc.where === 'satchel' ? <Tag tone="hot">In a satchel</Tag>
-                      : loc.where === 'burnt' ? <Tag tone="bad">Burnt</Tag>
-                        : <Tag>Held</Tag>}
+                  : loc.where === 'satchel' ? <Tag tone="hot">In a satchel</Tag>
+                    : loc.where === 'burnt' ? <Tag tone="bad">Burnt</Tag>
+                      : b.brood?.live ? <Tag tone="ok">Brooding, tier {b.brood.tier}</Tag>
+                        : b.brood ? <Tag tone="warn">Brood ended</Tag>
+                          : <Tag>Held</Tag>}
               </div>
               <p className="mono tiny" style={{ margin: '8px 0 0', overflowWrap: 'anywhere', color: 'var(--text)' }}>
                 {loc.where === 'wallet' ? loc.owner
-                  : loc.where === 'roost' ? <>Brooded by {loc.staker}</>
-                    : loc.where === 'satchel' ? <>Inside {avianNumber(loc.hostId)}&rsquo;s satchel</>
-                      : loc.where === 'burnt' ? 'Nobody — it was burnt by the perch'
-                        : 'Held by the perch'}
+                  : loc.where === 'satchel' ? <>Inside {avianNumber(loc.hostId)}&rsquo;s satchel</>
+                    : loc.where === 'burnt' ? 'Nobody. It was burnt by the perch.'
+                      : 'Held by the perch'}
               </p>
             </div>
           </div>
@@ -92,8 +99,8 @@ export function BirdDetail({ id }: { id: number }) {
                   Nobody owns it now and nobody can.
                 </p>
                 <p className="tiny dim" style={{ margin: '10px 0 0' }}>
-                  Its six choices stay taken — the combination below can never be minted again by
-                  anyone. Its wallet is orphaned: whatever was inside it is unreachable.
+                  Its six choices stay taken: nobody can mint this combination again. Its wallet is
+                  orphaned, and whatever was inside it is unreachable.
                 </p>
               </Box>
             </div>
@@ -105,18 +112,25 @@ export function BirdDetail({ id }: { id: number }) {
               bird back for {avians(PERCH_BASE - 10000n * 10n ** 18n)}.{' '}
               <a href={href({ name: 'perch' })}>Go to the perch</a>
             </p>
-          ) : loc.where === 'roost' ? (
+          ) : b.brood?.live ? (
             <p className="small dim" style={{ marginTop: 14 }}>
-              Brooding for {formatSince(now - loc.since)} at tier {loc.tier}, so it counts {loc.tier}{' '}
-              {loc.tier === 1 ? 'share' : 'shares'} of weight. Its satchel is locked with it until it
-              comes home.
+              Brooding for {formatSince(now - b.brood.activatedAt)} at tier {b.brood.tier}, so it counts{' '}
+              {b.brood.tier} {b.brood.tier === 1 ? 'share' : 'shares'} of weight. It stays in its
+              holder&rsquo;s wallet; rewards are delivered{' '}
+              {b.brood.delivery.toWallet ? 'to the holder’s wallet' : 'into its satchel, and go with the bird'}.
+            </p>
+          ) : b.brood ? (
+            <p className="small dim" style={{ marginTop: 14 }}>
+              Its brooding ended when it changed hands. What it earned before that goes to the
+              wallet that brooded it, {shortAddress(b.brood.activator)}, when anyone next settles it; the
+              rest returns to the stream, and the new holder broods afresh.
             </p>
           ) : null}
         </div>
 
         <div>
           <section className="panel" aria-labelledby="traits-h">
-            <h3 id="traits-h" style={{ fontSize: 20 }}>Attributes</h3>
+            <h3 id="traits-h" style={{ fontSize: 20 }}>Traits</h3>
             <div style={{ marginTop: 16 }}>
               {CATEGORIES.map((cat, i) => (
                 <div key={cat.key} className="trait-row">
@@ -133,12 +147,12 @@ export function BirdDetail({ id }: { id: number }) {
               ))}
             </div>
             <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-              <span className="tiny dim">REGISTER KEY</span>
+              <span className="label">Combination</span>
               <span className="spacer" />
               <span className="mono" style={{ fontSize: 13 }}>{comboHex(b.combo)}</span>
             </div>
             <p className="tiny dim" style={{ marginTop: 10 }}>
-              This combination is refused to everyone else, permanently.
+              Nobody else can mint this combination, ever.
             </p>
           </section>
 
@@ -152,13 +166,13 @@ export function BirdDetail({ id }: { id: number }) {
               {b.satchel.address}
             </p>
             <p className="small dim" style={{ marginTop: 10 }}>
-              An ERC-6551 account that belongs to the bird and is controlled by whoever owns it. It
-              exists and can receive assets before anybody deploys it.
+              The bird&rsquo;s own wallet (an ERC-6551 account), controlled by whoever holds the
+              bird. It can receive assets before it is deployed.
             </p>
 
             {b.satchel.holds.length > 0 ? (
               <>
-                <p className="eyebrow" style={{ margin: '18px 0 0' }}>Holding</p>
+                <h4 style={{ margin: '18px 0 0' }}>Inside it</h4>
                 {b.satchel.holds.map((h, i) => (
                   <div key={i} className="hold-row">
                     {h.kind === 'avian' ? (
@@ -190,14 +204,60 @@ export function BirdDetail({ id }: { id: number }) {
               <p className="small dim" style={{ marginTop: 12 }}>Empty.</p>
             )}
 
-            {nested.length > 0 ? (
-              <div style={{ marginTop: 16 }}>
-                <Box tone="warn">
-                  <Note tone="warn">
+            {b.brood && lines.length > 0 ? (
+              <div style={{ marginTop: 18 }}>
+                <div className="row">
+                  <h4 style={{ margin: 0 }}>Rewards</h4>
+                  <span className="spacer" />
+                  <span className="tiny dim">
+                    {b.brood.delivery.toWallet ? 'Delivered to the holder’s wallet' : 'Delivered here'}
+                  </span>
+                </div>
+                {lines.map((l) => (
+                  <div key={l.token.address} className="hold-row">
+                    <Tag>{l.token.symbol}</Tag>
                     <span className="small">
-                      Brooding this bird locks {nested.length === 1 ? 'the bird' : 'both birds'}{' '}
-                      inside it until it comes home. And nothing may be sent into a satchel that
-                      would close an ownership loop — we check before every send.
+                      <span className="num">{formatReward(l.unsettled, l.token.decimals)}</span>
+                      <span className="dim"> unsettled</span>
+                    </span>
+                    <span className="spacer" />
+                    <span className="small">
+                      <span className="num">{formatReward(l.settled, l.token.decimals)}</span>
+                      <span className="dim"> settled</span>
+                    </span>
+                  </div>
+                ))}
+                {!b.brood.live && lines.some((l) => l.pending.toActivator > 0n || l.pending.returned > 0n) ? (
+                  <p className="tiny dim" style={{ marginTop: 8 }}>
+                    At settle: {lines.filter((l) => l.pending.toActivator > 0n || l.pending.returned > 0n).map((l) =>
+                      `${formatReward(l.pending.toActivator, l.token.decimals)} ${l.token.symbol} to ${shortAddress(b.brood!.activator)}, ${formatReward(l.pending.returned, l.token.decimals)} back to the stream`).join('; ')}.
+                  </p>
+                ) : null}
+                {unsettled || !b.brood.live ? (
+                  <div style={{ marginTop: 12 }}>
+                    <SettleControl
+                      ids={[b.id]}
+                      label={b.brood.live ? 'Settle what it has earned' : 'Settle the ended brood'}
+                      symbolOf={symbolOf} onConnect={onConnect} onDone={() => bird.reload()} ghost
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : b.brood && lines.length === 0 ? (
+              <p className="small dim" style={{ marginTop: 12 }}>
+                Brooding, with nothing streaming yet. Its weight is counted; rewards begin when a
+                token is listed.
+              </p>
+            ) : null}
+
+            {nested > 0 ? (
+              <div style={{ marginTop: 16 }}>
+                <Box>
+                  <Note>
+                    <span className="small">
+                      {nested === 1 ? 'The bird' : `The ${nested} birds`} inside can be moved by
+                      whoever holds this one, brooding or not. Nothing may be sent into a satchel
+                      that would close an ownership loop; the site checks before every send.
                     </span>
                   </Note>
                 </Box>

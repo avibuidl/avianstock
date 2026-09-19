@@ -43,12 +43,11 @@ export function WalletDialog({ open, onClose }: { open: boolean; onClose: () => 
           <>
             <h3 id="wallet-title" style={{ marginTop: 16 }}>No wallet found.</h3>
             <p className="small" style={{ marginTop: 10 }}>
-              Nothing on this browser announced itself. Install a browser wallet, or open this page
-              inside a wallet&rsquo;s own browser — a lot of minting happens that way.
+              No wallet extension announced itself to this browser. Install one, or open this page
+              inside a wallet app&rsquo;s own browser.
             </p>
             <p className="small dim" style={{ marginTop: 10 }}>
-              Reading the site works either way: the flock, the perch, the numbers and the contracts
-              are all still here.
+              Reading the site works without one.
             </p>
           </>
         ) : c.status === 'connected' ? (
@@ -57,7 +56,7 @@ export function WalletDialog({ open, onClose }: { open: boolean; onClose: () => 
             <dl className="kv" style={{ marginTop: 16 }}>
               <dt>Wallet</dt><dd>{c.wallet.name}</dd>
               <dt>Address</dt><dd><Address value={c.address} long /></dd>
-              <dt>Network</dt><dd>{NETWORK.chainName} · {NETWORK.chainId}</dd>
+              <dt>Network</dt><dd>{NETWORK.chainName}, id {NETWORK.chainId}</dd>
             </dl>
             <button
               type="button"
@@ -72,9 +71,9 @@ export function WalletDialog({ open, onClose }: { open: boolean; onClose: () => 
           <NetworkPanel onDone={onClose} />
         ) : (
           <>
-            <h3 id="wallet-title" style={{ marginTop: 16 }}>Which wallet?</h3>
+            <h3 id="wallet-title" style={{ marginTop: 16 }}>Choose a wallet</h3>
             <p className="small dim" style={{ marginTop: 8 }}>
-              Every wallet that announced itself on this browser.
+              Every wallet this browser has. Connecting signs nothing.
             </p>
             <div className="stack" style={{ marginTop: 16, gap: 8 }}>
               {wallets.map((w) => (
@@ -151,29 +150,29 @@ export function NetworkPanel({ onDone }: { onDone?: () => void }) {
   return (
     <>
       <div className="row" style={{ marginTop: 16 }}>
-        {unknown ? <Tag tone="hot">Chain unknown to this wallet</Tag> : <Tag tone="bad">Wrong network</Tag>}
+        {unknown ? <Tag tone="hot">Network not in this wallet</Tag> : <Tag tone="bad">Wrong network</Tag>}
         <span className="spacer" />
-        <span className="mono tiny dim">{unknown ? 'error 4902' : 'chain → 4663'}</span>
+        <span className="mono tiny dim">{unknown ? 'error 4902' : 'chain id 4663'}</span>
       </div>
 
       <h3 style={{ marginTop: 16 }}>
         {unknown
-          ? 'Your wallet has never seen Robinhood Chain.'
-          : 'Nothing here can be signed until you switch.'}
+          ? 'Your wallet does not have Robinhood Chain yet.'
+          : 'Switch to Robinhood Chain to sign anything.'}
       </h3>
 
       <p className="small" style={{ marginTop: 10 }}>
         {unknown
-          ? 'We’ll ask it to add the network, and then switch to it. That is two prompts, and the second only appears after you accept the first.'
-          : 'Avian Stock is on Robinhood Chain, id 4663. We check the chain immediately before every transaction, not once when the page loads — a person can switch networks at any moment, and a mint sent to the wrong chain is a real loss.'}
+          ? 'Your wallet will ask you to add the network, then to switch to it. Two prompts; the second appears after you accept the first.'
+          : 'Avian Stock is on Robinhood Chain, chain id 4663. The site checks the network right before every transaction, so nothing can be sent to the wrong chain.'}
       </p>
 
       {unknown ? (
         <div className="inset" style={{ marginTop: 16 }}>
           <dl className="kv" style={{ gridTemplateColumns: '110px 1fr' }}>
             <dt>Network</dt><dd>{NETWORK.chainName}</dd>
-            <dt>Chain id</dt><dd>{NETWORK.chainId} · {NETWORK.chainIdHex}</dd>
-            <dt>Currency</dt><dd>ETH · 18 decimals</dd>
+            <dt>Chain id</dt><dd>{NETWORK.chainId} ({NETWORK.chainIdHex})</dd>
+            <dt>Currency</dt><dd>ETH, 18 decimals</dd>
             <dt>RPC</dt><dd style={{ fontSize: 11.5 }}>{NETWORK.rpcUrls[0]}</dd>
             <dt>Explorer</dt><dd style={{ fontSize: 11.5 }}>{NETWORK.blockExplorerUrls[0]}</dd>
           </dl>
@@ -186,14 +185,14 @@ export function NetworkPanel({ onDone }: { onDone?: () => void }) {
 
       {unknown ? (
         <div className="row" style={{ marginTop: 14, gap: 8 }}>
-          <Tag>Step 1 · Add</Tag><Icon name="arrow" size={14} color="var(--ash)" /><Tag>Step 2 · Switch</Tag>
+          <Tag>Add</Tag><Icon name="arrow" size={14} color="var(--ash)" /><Tag>Switch</Tag>
         </div>
       ) : null}
 
       <p className="tiny dim" style={{ marginTop: 12 }}>
         {unknown
-          ? 'If you dismiss the first prompt nothing is lost — you can start again from here.'
-          : 'Reading the site still works. Every button that would sign something is disabled, with the reason on it.'}
+          ? 'Dismiss either prompt and nothing is lost. Start again from here.'
+          : 'Reading the site still works. Every button that would sign something is disabled until you switch.'}
       </p>
     </>
   );
@@ -208,8 +207,8 @@ export function NetworkBar({ onFix }: { onFix: () => void }) {
       <Note tone="bad">
         <strong className="strong">
           {c.status === 'unknown-network'
-            ? 'Your wallet has never seen Robinhood Chain.'
-            : 'You’re on another network. Avian Stock lives on Robinhood Chain.'}
+            ? 'Your wallet does not have Robinhood Chain yet.'
+            : 'You are on another network. Avian Stock is on Robinhood Chain.'}
         </strong>
       </Note>
       <span className="spacer" />
@@ -236,10 +235,10 @@ export function WriteGate({
         : 'Switch to Robinhood Chain';
 
   const why = c.status === 'no-wallet'
-    ? 'Install a browser wallet, or open this page inside a wallet’s own browser.'
-    : c.status === 'disconnected' ? 'Nothing is signed by connecting.'
+    ? 'Install a wallet extension, or open this page inside a wallet app’s browser.'
+    : c.status === 'disconnected' ? 'Connecting signs nothing.'
       : c.status === 'connecting' ? 'The prompt is open in your wallet.'
-        : 'Avian Stock is on Robinhood Chain, id 4663.';
+        : 'Avian Stock is on Robinhood Chain, chain id 4663.';
 
   return (
     <div>

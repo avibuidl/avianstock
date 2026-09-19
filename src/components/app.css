@@ -1,113 +1,133 @@
 /* Component styles that are shared across screens. */
 
-/* ── the header ───────────────────────────────────────────────────────── */
+/* ── the frame: a sidebar on the left, the page beside it ─────────────── */
 
-.site {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: var(--s5);
-  height: var(--header-h);
-  padding: 0 var(--s5);
-  border-bottom: 1px solid var(--line);
-  background: var(--ink);
+.frame {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
 }
-/*
-  THE HEADER SHRINKS IN A DEFINITE ORDER, and nothing in it may push the page
-  sideways.
+.frame__page { min-width: 0; }
 
-  It used to. `flex: none` on the brand and `white-space: nowrap` on the wallet
-  chip meant neither could give, so at 375px the header was 425px wide and the
-  whole document scrolled horizontally — on every screen, not only this one.
-
-  So: the MARK never shrinks, because it is the way back to the home page and a
-  0px link is not a link. The WORDMARK gives first, truncating and then leaving
-  altogether below 440px. The CHIP gives last, truncating its own text, which
-  matters for "Waiting for your wallet…" at 320px — the longest thing that can
-  appear there. Each of those is a floor, and the breakpoints below mean the
-  first two are the only ones normally reached.
-*/
-.site__brand {
-  display: flex; align-items: center; gap: var(--s3);
-  /* Shrinkable, but no `min-width: 0` — that would let it go under its own
-     min-content and squash the mark, which is exactly what must not happen.
-     The wordmark carries the `min-width: 0` instead, so it is the part that
-     gives. */
-  flex: 0 1 auto; overflow: hidden;
-}
-/* `flex: none` alone is not enough: the global `img { max-width: 100% }` still
-   lets the mark be squeezed by a narrowed brand, and it was — 27px wide inside
-   a 32px box at 320px, a subtly stretched bird. Pin it. */
-.site__brand > img { flex: none; width: 32px; height: 32px; max-width: none; }
-.site__wordmark {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--text-strong);
+/* The brand, in the sidebar and in the strip. The MARK never shrinks — it is
+   the way home, and a 0px link is not a link; the wordmark is the part that
+   gives, truncating and then leaving altogether on the narrowest phones. */
+.brand { display: flex; align-items: center; gap: var(--s3); flex: 0 1 auto; overflow: hidden; }
+/* The way home is a link, but a wordmark does not underline. */
+.brand:hover { text-decoration: none; }
+/* The global `img { max-width: 100% }` would let a narrowed brand squeeze the
+   mark — 27px inside a 32px box, a subtly stretched bird. Pin it. */
+.brand > img { flex: none; width: 32px; height: 32px; max-width: none; }
+.brand__wordmark {
+  font-family: var(--font-sans);
+  font-weight: 600; font-size: 19px; letter-spacing: -0.03em; color: var(--text-strong);
   flex: 0 1 auto; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.site__nav { display: flex; gap: var(--s5); font-size: 14px; }
-.site__nav a { color: var(--text); padding-bottom: 3px; text-decoration: none; }
-.site__nav a:hover { text-decoration: none; }
-.site__nav a[aria-current='page'] { color: var(--text-strong); box-shadow: inset 0 -2px 0 var(--accent); }
-
-/* An action among the routes. Shaped like its neighbours so the row reads as
-   one thing, coloured like a control so it does not read as a page. */
-.site__navAction {
-  background: transparent;
-  border: 0;
-  padding: 0 0 3px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--accent);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.site__navAction:hover { color: var(--teal-pale); }
-
-.site .site__burger { display: none; }
 
 /*
-  1280, not 1000, and not 1180 either.
+  The sidebar. Sticky in its grid column and exactly the viewport tall, so it
+  stays put while the page scrolls and the page never runs under it. The
+  current page is marked by a 2px bar on the sidebar's left edge — the old
+  underline, turned on its side.
+*/
+.side {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column;
+  padding: var(--s5) var(--s4);
+  border-right: 1px solid var(--line);
+  background: var(--ink);
+  overflow-y: auto;
+  z-index: 40;
+}
+/*
+  Each page is a block: a bordered box on the inset ground, a 14px line
+  drawing, then the name in tracked capitals in the mono face. The current
+  page is the one box filled — the accent, with ink text, the way the site's
+  primary button is drawn. Hard corners, 1px hairlines, an 8px gap: the
+  pixel grid's discipline, not a template's.
+*/
+.side__nav { display: flex; flex-direction: column; gap: 6px; margin-top: var(--s6); }
+.side__nav a,
+.side__nav .side__navAction {
+  display: flex; align-items: center; gap: var(--s3);
+  width: 100%; text-align: left;
+  padding: 10px var(--s3);
+  border: 1px solid var(--line);
+  background: var(--panel-inset);
+  font-family: var(--font-mono);
+  font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--text); text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--motion) linear, color var(--motion) linear;
+}
+.side__nav a:hover,
+.side__nav .side__navAction:hover { border-color: var(--line-strong); color: var(--text-strong); text-decoration: none; }
+.side__nav a[aria-current='page'] {
+  background: var(--accent); border-color: var(--accent); color: var(--ink);
+}
+/* An action among the pages: the same box, coloured like a control so it
+   does not read as a page. */
+.side__navAction { color: var(--accent); cursor: pointer; }
+.side__navAction:hover { color: var(--teal-pale); border-color: var(--teal-mid); }
+.side__wallet { margin-top: auto; padding-top: var(--s5); }
+/* The chip on two lines here: the address, then the network under it,
+   starting where the address starts (the dot's width plus the gap). The
+   chip is a button, and a button centres its text: without the alignment
+   below the network name floated 16px off the address, centred in what was
+   left of its row. */
+.side .wchip { width: 100%; flex-wrap: wrap; row-gap: 2px; white-space: normal; text-align: left; }
+.side .wchip__net { flex-basis: 100%; padding-left: 15px; }
+.side .btn { width: 100%; }
+.side__scrim { display: none; }
 
-  The horizontal nav needs about 693px once the owner's link and the trade
-  action are both in it, and with the brand at 199px and a connected wallet chip
-  at 223px that is 1215px before any slack. Below the old 1000px breakpoint the
-  nav was still being drawn and did not fit — which used to push the whole page
-  sideways and, after the brand was made shrinkable, quietly clipped the
-  wordmark to "Fine Avians …" instead. Neither is what the burger is for.
+/* ── the top line: the price band ────────────────────────────────────── */
 
-  Measured again after "Trade AVIANS" joined the row: clean at 1290, clipped at
-  1190. So the breakpoint moves with it. That does put laptops between 1180 and
-  1280 into the burger, which is the price of a ninth item — and the price of
-  keeping the label unambiguous, since a nav containing "The Perch" cannot also
-  say a bare "Trade" without inviting the wrong reading.
+/*
+  The band runs the whole width of the page column: from the sidebar's border
+  on the left to the window's edge on the right, with no padding either side.
+*/
+.topline { padding: var(--s4) 0 0; }
+.topline .ticker { width: 100%; max-width: none; margin: 0; }
+
+.topbar { display: none; }
+
+/*
+  The drawer, below 1280px — the burger's breakpoint before the sidebar, kept.
+  A 56px strip stays at the top with the mark, the burger beside it where it
+  was, and the wallet; the sidebar becomes a drawer that slides in from the
+  left over the content, closed by Escape, by a link, or by the scrim. Closed,
+  it is `visibility: hidden` as well as off-screen, so nothing in it is on the
+  tab order.
 */
 @media (max-width: 1280px) {
-  .site { gap: var(--s4); padding: 0 var(--s4); }
-  .site__nav {
-    display: none;
-    position: absolute; top: var(--header-h); left: 0; right: 0;
-    flex-direction: column; gap: 0;
-    background: var(--ink); border-bottom: 1px solid var(--line);
+  .frame { grid-template-columns: minmax(0, 1fr); }
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: var(--s4);
+    height: var(--header-h); padding: 0 var(--s4);
+    border-bottom: 1px solid var(--line); background: var(--ink);
   }
-  .site__nav--open { display: flex; }
-  .site__nav a,
-  .site__nav .site__navAction {
-    padding: var(--s4) var(--s4);
-    border-top: 1px solid var(--line);
-    text-align: left;
-    width: 100%;
+  .topbar__burger { flex: none; }
+  .side {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+    height: auto; z-index: 60;
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform var(--motion) linear, visibility 0s linear var(--motion);
   }
-  .site .site__burger { display: inline-flex; }
+  .side--open { transform: translateX(0); visibility: visible; transition: transform var(--motion) linear; }
+  .side__scrim { display: block; position: fixed; inset: 0; z-index: 59; background: var(--scrim); }
+  /* The wallet lives in the strip here; the drawer holds the pages. */
+  .side__wallet { display: none; }
 }
 
 .wchip {
   display: flex; align-items: center; gap: var(--s2);
   border: 1px solid var(--line-strong);
   padding: var(--s2) var(--s3);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12.5px; color: var(--text-strong);
   min-height: 40px;
   background: transparent;
@@ -116,24 +136,23 @@
   /* The last thing to give, and only when there is nothing else left. */
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
-.site .site__burger { flex: none; }
 .wchip--bad { border-color: var(--crimson); }
 .dot { width: 7px; height: 7px; background: var(--confirm); flex: none; }
 .dot--bad { background: var(--refusal); }
-.wchip__net { font-family: Inter, sans-serif; font-size: 11.5px; color: var(--text-dim); }
+.wchip__net { font-family: var(--font-sans); font-size: 12px; color: var(--text-dim); }
 
-/* Three things come off the header as it narrows, in the order they are worth
+/* Three things come off the strip as it narrows, in the order they are worth
    least. The network name goes first — the chip is already a network
    indicator. Then the wordmark shrinks. Then, on the narrowest phones, the
    wordmark goes and the 32px mark carries the brand on its own; the link keeps
    its `aria-label`, so nothing is lost to a screen reader. */
 @media (max-width: 620px) {
-  .wchip__net { display: none; }
-  .site__wordmark { font-size: 17px; }
+  .topbar .wchip__net { display: none; }
+  .topbar .brand__wordmark { font-size: 17px; }
 }
 @media (max-width: 440px) {
-  .site { gap: var(--s3); padding: 0 var(--s3); }
-  .site__wordmark { display: none; }
+  .topbar { gap: var(--s3); padding: 0 var(--s3); }
+  .topbar .brand__wordmark { display: none; }
 }
 
 /* ── the network bar ──────────────────────────────────────────────────── */
@@ -234,6 +253,24 @@
 .modal--bad { border-color: var(--crimson); }
 @media (max-width: 720px) { .modal { padding: var(--s5) var(--s4); } .scrim { padding: var(--s4); } }
 
+/*
+  A dialog that scrolls INSIDE its own box. The plain scrim scrolls the whole
+  overlay, which puts the scrollbar at the edge of the viewport; the bird's
+  sheet is tall, and its scroller belongs to the sheet. The scrim stays put,
+  the box is capped at the viewport less the scrim's padding, and the box
+  scrolls.
+*/
+.scrim--fixed { overflow: hidden; }
+.modal--scroll {
+  max-height: calc(100vh - var(--s8) - var(--s5));
+  max-height: calc(100dvh - var(--s8) - var(--s5));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 720px) {
+  .modal--scroll { max-height: calc(100vh - 2 * var(--s4)); max-height: calc(100dvh - 2 * var(--s4)); }
+}
+
 /* ── the dev panel ────────────────────────────────────────────────────── */
 
 .dev {
@@ -258,7 +295,7 @@
   border: 1px solid var(--accent); border-right: 0;
   background: var(--panel); color: var(--accent);
   padding: var(--s3) var(--s3);
-  font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-family: var(--font-mono);
   cursor: pointer;
   writing-mode: vertical-rl;
 }
@@ -274,7 +311,7 @@
 .dev__row { padding: var(--s2) 0; border-top: 1px solid var(--line); }
 .dev__opts { display: flex; gap: 4px; flex-wrap: wrap; }
 .dev__opt {
-  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  font-family: var(--font-mono); font-size: 10.5px;
   padding: 3px 6px; border: 1px solid var(--line); color: var(--text-dim);
   background: transparent; cursor: pointer;
 }
@@ -289,3 +326,60 @@
 .foot { border-top: 1px solid var(--line); padding: var(--s7) var(--s5) var(--s8); }
 .foot__inner { max-width: var(--measure); margin: 0 auto; display: flex; gap: var(--s4); align-items: flex-start; }
 @media (max-width: 720px) { .foot__inner { flex-direction: column; } }
+
+/* ── the price ticker ─────────────────────────────────────────────────── */
+
+/*
+  One thin band above the page, the whole width of the page column — the
+  sidebar's border to the window's edge. The items scroll right to left on a
+  CSS animation whose duration the component sets from the track's measured
+  width, so the speed is constant whatever is listed. Hover or focus pauses
+  it. It is not sticky.
+*/
+.ticker {
+  max-width: min(66%, 960px);
+  margin: var(--s4) auto 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-inset);
+}
+.ticker__viewport { display: flex; overflow: hidden; height: 36px; }
+.ticker__viewport:focus-visible { outline-offset: -2px; }
+.ticker__track {
+  display: flex; align-items: center; gap: var(--s6);
+  flex: none; list-style: none; margin: 0; padding: 0 var(--s4);
+  animation: ticker-scroll var(--ticker-duration, 40s) linear infinite;
+}
+.ticker:hover .ticker__track,
+.ticker:focus-within .ticker__track { animation-play-state: paused; }
+@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+.ticker__item { display: flex; align-items: baseline; gap: var(--s2); white-space: nowrap; }
+.ticker__sym {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.ticker__price { font-size: 12.5px; }
+/* The mark is a shape and a colour, and the row carries the word for it too. */
+.ticker__mark {
+  width: 0; height: 0; align-self: center;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+}
+.ticker__mark--up { border-bottom: 6px solid var(--confirm); }
+.ticker__mark--down { border-top: 6px solid var(--refusal); }
+
+/*
+  No motion: one row that wraps, no sliding, no second copy. The OS setting,
+  or the dev switcher's `reduced-motion` state, which adds the class.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ticker__viewport { height: auto; }
+  .ticker__track { animation: none; flex: 1 1 auto; flex-wrap: wrap; padding: var(--s2) var(--s4); row-gap: var(--s1); }
+  .ticker__track + .ticker__track { display: none; }
+}
+.ticker--static .ticker__viewport { height: auto; }
+.ticker--static .ticker__track { animation: none; flex: 1 1 auto; flex-wrap: wrap; padding: var(--s2) var(--s4); row-gap: var(--s1); }
+.ticker--static .ticker__track + .ticker__track { display: none; }
+
+/* The footer's links, one row, gaps rather than separators. */
+.foot__links { display: flex; flex-wrap: wrap; gap: 6px 20px; }

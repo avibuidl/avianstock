@@ -37,7 +37,9 @@
     "V4Quoter": "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94"
   },
   "multicall3": null,
-  "lens": null,
+  "sweeper": "0x0c19E4f0A28d7b3C6e5aF21b9D843e07c5B16A92",
+  "aviansStaking": "0x5aB1c0000000000000000000000000000000A51A",
+  "roost": "0x5aB1c00000000000000000000000000000000057",
   "startBlock": 0,
   "allowlistProofs": null,
   "generated": {

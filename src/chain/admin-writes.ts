@@ -19,7 +19,7 @@
 
 import { parseEventLogs, type Abi } from 'viem';
 import { run } from './writes';
-import { contracts } from './manifest';
+import { contracts, roostContracts } from './manifest';
 import { aviansAbi, liquidityVaultAbi } from './abis.generated';
 import {
   theNestAdminAbi,
@@ -27,6 +27,7 @@ import {
   liquidityVaultAdminAbi,
   thePerchAdminAbi,
   treasuryAdminAbi,
+  theRoostAdminAbi,
 } from './abis.admin.generated';
 import { adminAddress, encodeValidatorOperation } from './admin';
 import type {
@@ -40,6 +41,7 @@ const fac = () => ({ to: contracts().AvianStock, abi: avianStockAdminAbi as unkn
 const amm = () => ({ to: contracts().ThePerch, abi: thePerchAdminAbi as unknown as Abi });
 const nest = () => ({ to: contracts().TheNest, abi: theNestAdminAbi as unknown as Abi });
 const tre = () => ({ to: contracts().Treasury, abi: treasuryAdminAbi as unknown as Abi });
+const roostAdmin = () => ({ to: roostContracts().roost, abi: theRoostAdminAbi as unknown as Abi });
 const vault = () => ({ to: adminAddress('LiquidityVault'), abi: liquidityVaultAdminAbi as unknown as Abi });
 
 // ── the collection ────────────────────────────────────────────────────────
@@ -258,10 +260,16 @@ export async function setFunder(funder: Address, allowed: boolean, on?: OnPhase)
 }
 
 /** A bird the nest holds with no stake recorded against it, and nothing else. */
-export async function rescueUnstaked(id: TokenId, to: Address, on?: OnPhase) {
+/**
+ * A bird someone transferred INTO the Nest by mistake. The Nest has no
+ * receiver hook, so `safeTransferFrom` into it reverts — but a plain
+ * `transferFrom` lands one there with no way out. There is no other reason
+ * for a bird to be at the Nest's address.
+ */
+export async function rescueBird(id: TokenId, to: Address, on?: OnPhase) {
   const { hash } = await run({
     where: 'rescuing a stranded bird', ...nest(),
-    functionName: 'rescueUnstaked', args: [BigInt(id), to],
+    functionName: 'rescueBird', args: [BigInt(id), to],
   }, { on });
   return { hash };
 }
@@ -275,6 +283,14 @@ export async function rescueUnstaked(id: TokenId, to: Address, on?: OnPhase) {
  * can hold the key while a different address holds the money. The panel shows
  * where it is going before anything is signed.
  */
+/** The Roost's tenth. `NotTheAdmin` / `NothingToClaim` arrive by name from the simulation. */
+export async function claimRoostAdmin(to: Address, on?: OnPhase) {
+  const { simulated, hash } = await run<bigint>({
+    where: 'claiming the Roost’s tenth', ...roostAdmin(), functionName: 'claimAdmin', args: [to],
+  }, { on });
+  return { amount: simulated, hash };
+}
+
 export async function claimAdmin(currency: Address | null, to: Address, on?: OnPhase) {
   const { simulated, hash } = await run<bigint>({
     where: 'withdrawing from the treasury', ...tre(), functionName: 'claimAdmin',

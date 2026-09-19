@@ -1,39 +1,29 @@
-// "Which birds does this address own?" — without an indexer.
+// "Which birds does this address own?" — the collection answers.
 //
 // The collection is deliberately NOT ERC721Enumerable (HANDOVER section 9 says
-// so): there is no `tokenByIndex` and no `tokenOfOwnerByIndex`, so nothing on
-// the collection itself can walk it.
+// so): there is no `tokenByIndex` and no `tokenOfOwnerByIndex`. What it has
+// instead (since 2026-09-11) are two views of its own that walk `_ownerOf`
+// from storage, one SLOAD per id: `tokensOfOwnerIn(who, start, stop)` and
+// `ownersOf(start, stop)`. Ids are 1-based, `stop` is inclusive and free past
+// `totalMinted`, `start` of 0 means 1. Their answer IS `ownerOf`, read from
+// the same storage in the same block, so nothing needs confirming afterwards.
 //
-// TWO WAYS TO ASK, and the manifest says which.
+// Pages of at most 2,000 ids, each its own `eth_call`, in one JSON-RPC batch —
+// see `readEach` for why not Multicall3. About 2,600 gas per id, measured.
 //
-// With a lens (`manifest().lens`), `AvianLens` walks it for us: a stateless
-// contract that calls `ownerOf` for every id in a range and returns the ids an
-// address holds, or the owner of each id. Its answer IS `ownerOf`, so nothing
-// needs confirming afterwards. Pages of at most 2,000 ids, each its own
-// `eth_call` in one JSON-RPC batch — see `readEach` for why not Multicall3.
-//
-// Without one, a chunked `Transfer` log scan produces CANDIDATES, and every
-// candidate is confirmed with `ownerOf` before it is shown. Logs are a hint;
-// `ownerOf` is the authority. This is the fallback, and it is the only path on
-// which `confirmOwnership` and `ownershipConsistency` still earn their keep.
-//
-// Why the lens exists: on a chain minting ten blocks a second, the scan was 23
-// sequential `eth_getLogs` two days after deployment and growing by nine a
-// day, and the satchel check ran it once more per bird. The lens answers in
-// two or three reads and does not grow.
-//
-// Either way a read that fails THROWS, and the panel says "we could not read
-// your birds" — it never renders an empty gallery, because "you own nothing"
-// and "we could not ask" are different sentences and only one of them is true.
+// There is no other way to ask any more. The `Transfer`-log scan that used to
+// be the fallback is gone: on a chain minting ten blocks a second it was 23
+// sequential `eth_getLogs` two days after deployment, and every deployment
+// from now on carries these views. A read that fails THROWS, and the panel
+// says "we could not read your birds" — it never renders an empty gallery,
+// because "you own nothing" and "we could not ask" are different sentences and
+// only one of them is true.
 
-import { parseAbiItem } from 'viem';
-import { getLogsChunked, readEach, readMany, readOne, tryReadMany, type At } from './client';
-import { contracts, manifest } from './manifest';
-import { avianLensAbi, avianStockAbi } from './abis.generated';
+import { readEach, readOne, tryReadMany, type At } from './client';
+import { contracts } from './manifest';
+import { avianStockAbi } from './abis.generated';
 import { unpackCombo } from '../art/render';
 import type { Address, TokenId, TraitIndices } from '../mock/types';
-
-const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)');
 
 type Entry = { at: bigint; ids: TokenId[] };
 const owned = new Map<string, Entry>();
@@ -47,7 +37,7 @@ export function invalidateOwnership(who?: Address) {
   sweep = null;
 }
 
-/** A page is at most this many ids: about 8M gas at ~4,100 per `ownerOf`. */
+/** A page is at most this many ids: about 5M gas at ~2,600 per id. */
 const LENS_PAGE = 2000;
 
 /** `[start, stop]` pairs, 1-based and inclusive, covering `1..total`. */
@@ -67,73 +57,41 @@ export async function mintedSoFar(at: At): Promise<number> {
 }
 
 /**
- * The ids `who` holds right now.
- *
- * Lens: `tokensOfOwnerIn` over every page, ascending within a page and pages
- * in order, so the concatenation is already sorted. No confirmation step — the
- * lens read `ownerOf` to answer, and reading it again would be asking the same
- * contract the same question in the same block.
- *
- * Scan: every id `who` has ever RECEIVED, confirmed still theirs. Only the
- * `to` side is scanned; a bird received and later sent away simply fails the
- * `ownerOf` confirmation, so scanning `from` as well would cost a second pass
- * to learn nothing.
+ * The ids `who` holds right now: `tokensOfOwnerIn` over every page, ascending
+ * within a page and pages in order, so the concatenation is already sorted.
+ * `total` is passed by a caller that has already read it, so the pages go out
+ * in the same round as its other collection reads.
  */
 export async function ownedBy(who: Address, at: At, total?: number): Promise<TokenId[]> {
   const key = who.toLowerCase();
   const hit = owned.get(key);
   if (hit && hit.at === at.blockNumber) return hit.ids;
 
-  const lens = manifest().lens;
-  if (lens) {
-    // `total` is passed by a caller that has already read it, so the lens
-    // pages can go out in the same round as its other lens reads.
-    const minted = total ?? await mintedSoFar(at);
-    const perPage = await readEach<readonly bigint[]>(pages(minted).map(([start, stop]) => ({
-      address: lens, abi: avianLensAbi, functionName: 'tokensOfOwnerIn',
-      args: [contracts().AvianStock, who, start, stop],
-    })), at);
-    const ids = perPage.flatMap((page) => page.map((id) => Number(id)));
-    owned.set(key, { at: at.blockNumber, ids });
-    return ids;
-  }
-
-  const logs = await getLogsChunked({
-    address: contracts().AvianStock,
-    event: TRANSFER,
-    args: { to: who },
-    fromBlock: BigInt(manifest().startBlock),
-    toBlock: at.blockNumber,
-  }) as { args: { tokenId?: bigint } }[];
-
-  const candidates = [...new Set(logs.map((l) => Number(l.args.tokenId)))]
-    .filter((n) => Number.isInteger(n) && n > 0)
-    .sort((a, b) => a - b);
-
-  const ids = await confirmOwnership(candidates, who, at);
+  const minted = total ?? await mintedSoFar(at);
+  const perPage = await readEach<readonly bigint[]>(pages(minted).map(([start, stop]) => ({
+    address: contracts().AvianStock, abi: avianStockAbi, functionName: 'tokensOfOwnerIn',
+    args: [who, start, stop],
+  })), at);
+  const ids = perPage.flatMap((page) => page.map((id) => Number(id)));
   owned.set(key, { at: at.blockNumber, ids });
   return ids;
 }
 
 /**
- * Who holds every id, `1..totalMinted`, at the pinned block — or null when
- * there is no lens and the caller has to fall back to scanning.
+ * Who holds every id, `1..totalMinted`, at the pinned block.
  *
  * Index `i` is the owner of id `i + 1`; the zero address is a burnt or unminted
  * id. ONE sweep per page load, kept for the block: every satchel on the page
  * is then a local lookup — "which ids have this satchel's address as owner" —
- * where it used to be a log scan per bird. The Flock's "whose is this" is the
- * same lookup.
+ * and the Flock's "whose is this" is the same lookup.
  */
-export async function ownersAt(at: At, total?: number): Promise<Address[] | null> {
-  const lens = manifest().lens;
-  if (!lens) return null;
+export async function ownersAt(at: At, total?: number): Promise<Address[]> {
   if (sweep && sweep.at === at.blockNumber) return sweep.owners;
 
   const minted = total ?? await mintedSoFar(at);
   const perPage = await readEach<readonly Address[]>(pages(minted).map(([start, stop]) => ({
-    address: lens, abi: avianLensAbi, functionName: 'ownersOf',
-    args: [contracts().AvianStock, start, stop],
+    address: contracts().AvianStock, abi: avianStockAbi, functionName: 'ownersOf',
+    args: [start, stop],
   })), at);
   const owners = perPage.flatMap((page) => [...page]);
   sweep = { at: at.blockNumber, owners };
@@ -146,54 +104,6 @@ export function heldByFrom(owners: Address[], address: Address): TokenId[] {
   const out: TokenId[] = [];
   owners.forEach((o, i) => { if (o.toLowerCase() === want) out.push(i + 1); });
   return out;
-}
-
-/**
- * `ownerOf` for every candidate, in one multicall. A revert means "not any more".
- *
- * FALLBACK ONLY. The lens's answer is `ownerOf` already; this exists to turn
- * the log scan's candidates into a fact, and has nothing to add to a fact.
- */
-export async function confirmOwnership(ids: TokenId[], who: Address, at: At): Promise<TokenId[]> {
-  if (ids.length === 0) return [];
-  const results = await tryReadMany<Address>(
-    ids.map((id) => ({
-      address: contracts().AvianStock,
-      abi: avianStockAbi,
-      functionName: 'ownerOf',
-      args: [BigInt(id)],
-    })),
-    at,
-  );
-  const out: TokenId[] = [];
-  results.forEach((r, i) => {
-    if (r.ok && r.value.toLowerCase() === who.toLowerCase()) out.push(ids[i]);
-  });
-  return out;
-}
-
-/**
- * What the log scan found against what the contract counts. They should agree;
- * when they do not, the panel says it may not be showing everything rather than
- * quietly under-reporting, which is the same failure as showing a zero.
- *
- * FALLBACK ONLY. With a lens the count and the list come from the same
- * `ownerOf` walk in the same block and cannot disagree, so the read is not
- * made: the answer is "consistent" by construction.
- */
-export async function ownershipConsistency(who: Address, found: number, at: At): Promise<{
-  ok: boolean; found: number; balance: number;
-}> {
-  if (manifest().lens) return { ok: true, found, balance: found };
-  const [howMany] = await readMany<bigint>([{
-    address: contracts().AvianStock,
-    abi: avianStockAbi,
-    functionName: 'balanceOf',
-    args: [who],
-  }], at);
-  // ERC-721 `balanceOf` is a count of birds, capped at MAX_SUPPLY. Not money.
-  const counted = Number(howMany); /* count */
-  return { ok: counted === found, found, balance: counted };
 }
 
 // ── traits ────────────────────────────────────────────────────────────────

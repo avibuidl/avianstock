@@ -158,6 +158,7 @@ export async function getSwapState(who: Address | null, at?: At): Promise<SwapSt
     const permit2Expiration = Number(asTuple ? asTuple[1] : asObject?.expiration ?? 0); /* count */
 
     return {
+      chainNow: a.timestamp,
       launchAt: Number(r[0] as bigint), /* count */
       isLaunched: r[1] as boolean,
       windowSeconds: Number(r[2] as bigint), /* count */
@@ -332,7 +333,12 @@ export async function swap(
   const key = await poolKey();
   const zeroForOne = direction === 'buy';
   const { commands, inputs } = encodeExactInSingle({ key, zeroForOne, amountIn, minOut });
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + DEADLINE_SECONDS);
+  // THE CHAIN'S CLOCK, not the browser's. A deadline from `Date.now()` is
+  // wrong by however wrong the machine's clock is — and a chain that runs
+  // ahead of it refuses every swap with `TransactionDeadlinePassed` before
+  // the wallet has opened. The latest block's timestamp is what the router
+  // compares against, so that is what the deadline is built from.
+  const deadline = BigInt((await pin()).timestamp + DEADLINE_SECONDS);
 
   const { hash } = await run({
     where: direction === 'buy' ? 'buying AVIANS' : 'selling AVIANS',

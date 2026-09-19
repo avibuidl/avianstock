@@ -40,6 +40,18 @@ const ANVIL_KEYS: Hex[] = [
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
   '0x00000000000000000000000000000000000000000000000000000000deadbeef',
+  // A fourth, for the walkthrough items that need "my other wallet" — a
+  // transfer between two wallets of one person, the admin refusal from a
+  // wallet that is not the owner. Also a plain EOA on 4663 (checked
+  // 2026-09-12: no code, nonce 0).
+  '0x00000000000000000000000000000000000000000000000000000000cafebabe',
+  // A fifth: the OWNER on a rehearsal fork. anvil's own accounts carry 7702
+  // delegations on 4663, and a fork run under `--hardfork cancun` (which
+  // keeps anvil from touching the EIP-2935 history contract on every block,
+  // the call that dies when the upstream prunes the fork's state) rejects a
+  // sender with code. So the rehearsal deploys from this plain EOA instead,
+  // and `?devwallet=4` is the owner's seat on the admin panel.
+  '0x000000000000000000000000000000000000000000000000000000000badf00d',
 ];
 
 type Handler = (...args: never[]) => void;
@@ -47,7 +59,7 @@ type Handler = (...args: never[]) => void;
 export type DevWalletOptions = {
   rpcUrl: string;
   chainId: number;
-  /** 0 or 1: which anvil account. */
+  /** 0..4: which key. 0 and 1 are anvil's; 2, 3 and 4 are plain EOAs on 4663. */
   account?: number;
   /** Report this chain instead, to exercise the wrong-network path. */
   pretendChainId?: number;

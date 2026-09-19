@@ -22,9 +22,10 @@
 //     the wrong thing, which is the worst failure this application has.
 
 import { client, pin, readMany, tryReadMany, type At } from './client';
-import { contracts, manifest, poolContracts } from './manifest';
+import { contracts, manifest, poolContracts, roostContracts, sweeperAddress } from './manifest';
 import {
-  theNestAbi, aviansHookAbi, thePerchAbi, avianStockAbi, traitRegistryAbi, treasuryAbi,
+  theNestAbi, aviansHookAbi, thePerchAbi, avianStockAbi, sweeperAbi, traitRegistryAbi, treasuryAbi,
+  theRoostAbi, aviansStakingAbi,
 } from './abis.generated';
 import { setAccountConfig, verifyDerivation } from './safety';
 import { pinFeeCurve } from './launch';
@@ -61,7 +62,9 @@ export async function runStartupChecks(): Promise<StartupResult> {
   });
 
   // ── there is code at every address ──
-  const addresses = Object.entries(c)
+  const sweeper = sweeperAddress();
+  const { roost, staking: aviansStaking } = roostContracts();
+  const addresses = [...Object.entries(c), ['Sweeper', sweeper] as const, ['TheRoost', roost] as const, ['AviansStaking', aviansStaking] as const]
     .filter(([, v]) => !!v) as [string, Address][];
   const codes = await Promise.all(addresses.map(([, address]) =>
     client().getCode({ address, blockNumber: at.blockNumber }).catch(() => undefined)));
@@ -84,6 +87,9 @@ export async function runStartupChecks(): Promise<StartupResult> {
   const wanted: { claim: string; call: ReturnType<typeof token>; expect: Address }[] = [
     { claim: 'token.AVIANS() == Avians', call: token('AVIANS'), expect: c.Avians },
     { claim: 'token.MINT_SINK() == ThePerch', call: token('MINT_SINK'), expect: c.ThePerch },
+    // The transfer hook's target. A collection pointed at the wrong Nest would
+    // expire nothing, and every brood would outlive its sale.
+    { claim: 'token.NEST() == TheNest', call: token('NEST'), expect: c.TheNest },
     { claim: 'token.registry() == TraitRegistry', call: token('registry'), expect: c.TraitRegistry },
     { claim: 'amm.nft() == AvianStock', call: amm('nft'), expect: c.AvianStock },
     { claim: 'amm.avians() == Avians', call: amm('avians'), expect: c.Avians },
@@ -91,6 +97,18 @@ export async function runStartupChecks(): Promise<StartupResult> {
     { claim: 'staking.AVIANS() == Avians', call: staking('AVIANS'), expect: c.Avians },
     { claim: 'treasury.STAKING() == TheNest', call: treasury('STAKING'), expect: c.TheNest },
     { claim: 'treasury.AVIANS() == Avians', call: treasury('AVIANS'), expect: c.Avians },
+    // THE ROOST (2026-09-18). Bound to this Nest and this staking contract at
+    // construction, and the Nest's cost sink is bound to it — a Roost from
+    // another deployment would take every tier cost and split it to
+    // strangers. All checked. (The Perch's `feeRecipient` is the Roost by
+    // default but owner-settable to anything, so it is read on the admin
+    // panel rather than refused here.)
+    { claim: 'roost.NEST() == TheNest', call: { address: roost, abi: theRoostAbi as never, functionName: 'NEST' }, expect: c.TheNest },
+    { claim: 'roost.STAKING() == AviansStaking', call: { address: roost, abi: theRoostAbi as never, functionName: 'STAKING' }, expect: aviansStaking },
+    { claim: 'roost.AVIANS() == Avians', call: { address: roost, abi: theRoostAbi as never, functionName: 'AVIANS' }, expect: c.Avians },
+    { claim: 'aviansStaking.ROOST() == TheRoost', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'ROOST' }, expect: roost },
+    { claim: 'aviansStaking.AVIANS() == Avians', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'AVIANS' }, expect: c.Avians },
+    { claim: 'staking.costSink() == TheRoost', call: staking('costSink'), expect: roost },
   ];
 
   if (pool) {
@@ -99,6 +117,15 @@ export async function runStartupChecks(): Promise<StartupResult> {
       { claim: 'hook.AVIANS() == Avians', call: hook('AVIANS'), expect: c.Avians },
       { claim: 'hook.TREASURY() == Treasury', call: hook('TREASURY'), expect: c.Treasury },
     );
+  }
+  if (sweeper) {
+    // A Sweeper built for some other collection would answer `status` about
+    // the wrong birds and `sweep` nothing of ours. Its one immutable, checked.
+    wanted.push({
+      claim: 'sweeper.COLLECTION() == AvianStock',
+      call: { address: sweeper, abi: sweeperAbi as never, functionName: 'COLLECTION' },
+      expect: c.AvianStock,
+    });
   }
 
   const results = await tryReadMany<Address>(wanted.map((w) => w.call), at);
@@ -111,6 +138,37 @@ export async function runStartupChecks(): Promise<StartupResult> {
       actual: r.ok ? r.value : 'the call failed',
     });
   });
+
+  // ── the allowlist proofs, if this deployment names a file ──
+  //
+  // `proofFor` treats a missing file as "no proofs", which is the right
+  // answer for a deployment that never had any and the wrong one for a launch
+  // whose manifest names a file the host is not serving: every Merkle-listed
+  // wallet would read NotAllowlisted and nobody would know why. So it is asked
+  // here, once, and a named file that does not come back as an object stops
+  // the site with the path on screen.
+  const proofsPath = manifest().allowlistProofs;
+  if (proofsPath) {
+    let actual = 'not served';
+    let ok = false;
+    try {
+      const res = await fetch(new URL(proofsPath, location.href).toString(), { cache: 'no-store' });
+      if (res.ok) {
+        const raw = await res.json() as unknown;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          ok = true;
+          actual = `${Object.keys(raw as object).length} wallets`; /* count */
+        } else {
+          actual = 'served, but not an object of address -> proof';
+        }
+      } else {
+        actual = `${res.status} ${res.statusText}`;
+      }
+    } catch (e) {
+      actual = (e as Error).message;
+    }
+    checks.push({ claim: `the allowlist proofs file is served (${proofsPath})`, ok, expected: 'address -> proof[]', actual });
+  }
 
   // ── the token-bound account derivation ──
   try {
@@ -211,6 +269,9 @@ export async function getDeployment(): Promise<Deployment> {
   for (const [name, address] of Object.entries(m.contracts)) {
     if (address) addresses[name] = address;
   }
+  if (m.sweeper) addresses.Sweeper = m.sweeper;
+  addresses.AviansStaking = m.aviansStaking;
+  addresses.TheRoost = m.roost;
   // The third parties are READ OFF THE COLLECTION rather than listed here: the
   // registry, the account implementation and the transfer validator are all
   // immutables or owner state on this deployment, and asking is the only way to

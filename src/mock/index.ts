@@ -17,18 +17,23 @@ export {
   listWallets, connect, disconnect, switchNetwork, connection, onConnectionChanged,
   NETWORK, network, isMock,
   // reads
-  getCollection, getWallet, getBird, getBirdsOf, getMintedBirds, getPerch, getRoost,
-  getLaunch, getVault, getTreasury, getDeployment, getSupply, getRewardSplit,
+  getCollection, getWallet, getBird, getBirdsOf, getMintedBirds, getPerch, getBrood, simulateSettle,
+  canSweep, getSweep,
+  getLaunch, getVault, getTreasury, getDeployment, getSupply, getRewardSplit, getPrices,
   comboTaken, nearestAvailable, quoteSell, quoteBuyNext, quoteBuy, nextBirds, freeMintStatus,
   // the site's own logic
-  checkTransferSafety, readClaimAll, satchelBlocksStaking, satchelAddressOf,
-  traitsForId, rewardTokenMeta, buyFeeBpsAt, ADDRESSES, THIRD_PARTY,
+  checkTransferSafety, satchelAddressOf,
+  traitsForId, warmTraits, rewardTokenMeta, buyFeeBpsAt, ADDRESSES, THIRD_PARTY,
   // writes
-  approveAviansForMint, approveAviansForPerch, approveAviansForRoost,
-  setPerchApproval, setRoostApproval,
+  approveAviansForMint, approveAviansForPerch, approveAviansForNest,
+  setPerchApproval,
   signMintPermit, mint, mintMany, mintFree, sellToPerch, buyNext, buyNamed,
-  stake, unstake, claim, claimAll, transferBird, createSatchel, routeFor, onWrite,
+  brood, upgrade, redirect, settle, claim, transferBird, createSatchel, routeFor, onWrite,
+  prepareSatchels, grantSweeper, sweep,
   convertAndStream,
+  // the Roost and AVIANS staking
+  getRoost, getRoostScreen, getStaking, distribute, deliverHeld, approveAviansForStaking, stake, withdrawStake,
+  claimStakingReward, exitStaking,
   // trading AVIANS
   canSwap, getSwapState, quoteSwap, swap,
   approveAviansForPermit2, approvePermit2ForRouter, overCap, CAP_MARGIN_BPS,
@@ -46,8 +51,8 @@ export {
   setTransferValidator, lockTransferValidator, configureTransferValidator,
   rescueFromCollection,
   setFeeRecipient, rescueFromPerch,
-  approveForProbe, addRewardToken, retireRewardToken, restream, setFunder, rescueUnstaked,
-  claimAdmin, setConversionConfig, setTargets, setPriceKeeper, setKeeperDropBps, setFloorPrice,
+  approveForProbe, addRewardToken, retireRewardToken, restream, setFunder, rescueBird,
+  claimAdmin, claimRoostAdmin, setConversionConfig, setTargets, setPriceKeeper, setKeeperDropBps, setFloorPrice,
   readRoute, setRoute, setV3Route,
   collectFees, extendLock, withdrawPosition,
   transferOwnership, acceptOwnership,
@@ -62,14 +67,17 @@ export {
   MAX_SUPPLY, FREE_ALLOCATION, PAID_CEILING, PRICE, MIN_PRICE, PERCH_BASE, PERCH_BUY_NEXT,
   PERCH_BUY_NAMED, TIER_COST, TIER_WEIGHT, WINDOW_SECONDS, FEE_BPS, MAX_EXTRA_FEE_BPS,
   MAX_BUY_PER_TX, LOCK_SECONDS, AVIANS_SUPPLY, POOL_AVIANS, FREE_RESERVE,
-  REWARD_TOKENS, RETIRED_REWARD_TOKENS,
+  REWARD_TOKENS, STOCK_REWARD_TOKENS, AVIANS_REWARD, RETIRED_REWARD_TOKENS,
 } from './fixtures';
 
 // The deployment picker, and the boot result. Chrome, not chain data.
 export {
-  chosenId, loadIndex, loadManifest, manifest, hasManifest, switchDeployment,
+  chooseId, chooseDeployment, loadIndex, loadManifest, manifest, hasManifest, switchDeployment,
   explorerTx, explorerAddress, type Manifest, type DeploymentIndex,
 } from '../chain/manifest';
 export { lastStartup, type Check } from '../chain/startup';
 export { capGuard, splitForCap, curveIsFromChain } from '../chain/launch';
+// Live earnings between reads: pure arithmetic on the last read, tested in tests/estimate.test.ts.
+export { estimateEarned } from '../chain/roost';
+export { estimateUnsettled } from '../chain/reads';
 export { detailOf } from '../chain/errors';

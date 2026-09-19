@@ -11,7 +11,7 @@ import {
 import { formatCount, formatReward, parseAvians } from '../../lib/format';
 import {
   addRewardToken, allowanceOf, approveForProbe, balanceOfToken, restream,
-  retireRewardToken, rescueUnstaked, setFunder,
+  retireRewardToken, rescueBird, setFunder,
   type AdminState, type Address, type Amount,
 } from '../../mock';
 import s from '../../screens/Admin.module.css';
@@ -30,12 +30,8 @@ export function Nest({ admin }: { admin: AdminState }) {
 
       <Control
         title="Reward tokens"
-        now={n.snapshotCount === null
-          ? `${n.rewards.length} listed · cap ${n.maxRewardTokens}`
-          : `${n.snapshotCount} of ${n.maxRewardTokens} ever listed`}
-        note={n.snapshotCount === null
-          ? 'The number the cap counts could not be read — it comes from simulating claimAll, which needs a connected account. It is not zero; it is unknown.'
-          : 'The cap counts every token ever listed, not the live list: re-listing one that was retired is free, a new one is not.'}
+        now={`${formatCount(n.listedCount)} listed, cap ${n.maxRewardTokens}, ${formatCount(n.totalBrooding)} brooding`}
+        note="The cap counts every token EVER listed, retired ones included, and nothing on chain returns that number since claimAll went: re-listing a retired token is free, a new one is not. If a listing is refused, the contract names the count itself."
       >
         <div className="scroll-x" style={{ marginTop: 12 }}>
           <table className="table">
@@ -78,7 +74,7 @@ export function Nest({ admin }: { admin: AdminState }) {
           </table>
         </div>
         <p className="tiny dim" style={{ marginTop: 10 }}>
-          Escrowed is promised to stakers and untouchable. Held is what the contract actually has.
+          Escrowed is promised to brooding birds and untouchable. Held is what the contract actually has.
           The difference is the only thing a restream can re-schedule.
         </p>
       </Control>
@@ -128,8 +124,8 @@ function AddReward({
   const already = admin.nest.rewards.some(
     (r) => r.token.address.toLowerCase() === token.trim().toLowerCase(),
   );
-  const capReached = admin.nest.snapshotCount !== null
-    && admin.nest.snapshotCount >= admin.nest.maxRewardTokens;
+  // The listed count is a floor on what the cap counts (ever-listed ≥ listed).
+  const capReached = admin.nest.listedCount >= admin.nest.maxRewardTokens;
   const approved = !!state && amount !== null && state.allowance >= amount;
   const funded = !!state && amount !== null && state.balance >= amount;
 
@@ -139,7 +135,7 @@ function AddReward({
       note={<>
         The contract pulls <span className="mono">probeAmount</span> in from your wallet and sends it
         straight back, and refuses the token if the balance does not change by exactly that. It is
-        a real transfer, so it needs a real allowance first — for exactly that amount and no more.
+        a real transfer, so it needs a real allowance first: for exactly that amount and no more.
       </>}
     >
       <div className={s.form}>
@@ -161,7 +157,7 @@ function AddReward({
       </div>
 
       {failed ? (
-        <Problem>That token could not be read. Not "there is none" — we could not ask.</Problem>
+        <Problem>That token could not be read. Not "there is none": we could not ask.</Problem>
       ) : null}
 
       {already ? <Problem>That token is already listed. Retire it first to re-list it.</Problem> : null}
@@ -189,7 +185,7 @@ function AddReward({
           actions={actions}
           action={{
             key: 'probe-approve',
-            label: 'Step 1 · approve the probe',
+            label: 'Approve the probe',
             disabled: !valid || amount === null || approved,
             run: (on) => approveForProbe(token.trim() as Address, amount!, on),
             outcome: () => 'Approved, for exactly that amount.',
@@ -199,7 +195,7 @@ function AddReward({
           actions={actions}
           action={{
             key: 'add-reward',
-            label: 'Step 2 · add it',
+            label: 'Add it',
             disabled: !valid || amount === null || !approved || already,
             run: (on) => addRewardToken(token.trim() as Address, amount!, on),
             outcome: () => 'Listed. It streams as soon as something is sent to it.',
@@ -229,16 +225,16 @@ function Restream({
       now={withSurplus.length === 0 ? 'nothing spare' : `${withSurplus.length} with a surplus`}
       note={<>
         What is already earned is settled and stays settled. Only the amount above what is escrowed
-        moves — it keeps its value and changes only its timing.
+        moves: it keeps its value and changes only its timing.
       </>}
     >
       {nothingStaked ? (
-        <Problem>Nothing is staked, so there is nobody to stream to and the call refuses.</Problem>
+        <Problem>Nothing is brooding, so there is nobody to stream to and the call refuses.</Problem>
       ) : null}
 
       {withSurplus.length === 0 ? (
         <p className="tiny dim" style={{ marginTop: 10 }}>
-          Every token the nest holds is already promised to stakers. There is nothing unscheduled to
+          Every token the nest holds is already promised to brooding birds. There is nothing unscheduled to
           re-schedule.
         </p>
       ) : (
@@ -248,7 +244,7 @@ function Restream({
             <select className="select" value={at} onChange={(e) => setAt(whole(e.target.value) ?? 0)}>
               {withSurplus.map((r, i) => (
                 <option key={r.token.address} value={i}>
-                  {r.token.symbol} · {formatReward(r.surplus, r.token.decimals)} spare
+                  {r.token.symbol}, {formatReward(r.surplus, r.token.decimals)} spare
                 </option>
               ))}
             </select>
@@ -286,7 +282,7 @@ function Funders({ actions }: { actions: ReturnType<typeof useAdminActions> }) {
     <Control
       title="Funders"
       note={<>
-        A funder may call <span className="mono">notifyRewardAmount</span> — start a stream — without
+        A funder may call <span className="mono">notifyRewardAmount</span> (start a stream) without
         being the owner. The Treasury is one. That call is not on this panel: it needs an approval
         and an amount, and it is the Treasury&rsquo;s automated path rather than an owner&rsquo;s.
       </>}
@@ -335,10 +331,11 @@ function Stranded({ actions }: { actions: ReturnType<typeof useAdminActions> }) 
     <Control
       title="Stranded bird"
       note={<>
-        A bird the nest holds with no stake recorded against it — sent in with a plain{' '}
-        <span className="mono">transferFrom</span> instead of{' '}
-        <span className="mono">stake</span>, which the contract cannot credit to anyone. A bird that
-        IS staked belongs to its staker and the contract refuses to move it.
+        A bird somebody transferred INTO the nest by mistake. Nothing legitimately puts a bird
+        there: brooding moves nothing, and the nest is not a receiver, so{' '}
+        <span className="mono">safeTransferFrom</span> into it reverts: but a plain{' '}
+        <span className="mono">transferFrom</span> lands one with no way out. The transfer that
+        brought it expired whatever brood it had, like any sale.
       </>}
     >
       <div className={s.form}>
@@ -363,15 +360,15 @@ function Stranded({ actions }: { actions: ReturnType<typeof useAdminActions> }) 
             key: 'stranded',
             label: 'Send it back',
             disabled: !valid,
-            run: (on) => rescueUnstaked(tokenId!, to.trim() as Address, on),
+            run: (on) => rescueBird(tokenId!, to.trim() as Address, on),
             outcome: () => 'Sent.',
           }}
         />
       </div>
       <div style={{ marginTop: 12 }}>
         <Note tone="info">
-          Check the bird really is stranded before sending it anywhere. The contract refuses a
-          staked one, but it cannot tell you who the sender meant it for.
+          Check the bird really is stranded before sending it anywhere. The contract refuses a bird it does not
+          hold, but it cannot tell you who the sender meant it for.
         </Note>
       </div>
     </Control>

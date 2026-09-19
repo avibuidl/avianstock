@@ -37,6 +37,22 @@ const WRAPPED_ERROR_SELECTOR = (() => {
   return null;
 })();
 
+/**
+ * The V4Quoter's own wrapper. A quote is a simulated swap that reverts on
+ * purpose with the amount; when the swap reverts for a real reason instead —
+ * the hook's `BuyTooLarge` inside the opening window — the quoter bubbles
+ * it up as `UnexpectedRevertBytes(bytes)`, whose one argument is the
+ * PoolManager's `WrappedError`, whose reason is the hook's. Two layers, both
+ * unwrapped, so the trade modal can say "more than one transaction may buy"
+ * instead of "that quote failed". Found on the launch dry run.
+ */
+const UNEXPECTED_REVERT_SELECTOR = (() => {
+  for (const [selector, sig] of Object.entries(ERROR_SIGNATURES)) {
+    if (sig.startsWith('UnexpectedRevertBytes(')) return selector.toLowerCase();
+  }
+  return null;
+})();
+
 /** Named arguments off a decoded error, whatever its shape. */
 function namedArgs(name: string, values: readonly unknown[] | undefined): Record<string, unknown> {
   const entry = (errorAbi as unknown as { name: string; inputs: { name: string }[] }[])
@@ -72,6 +88,12 @@ function toErrorArgs(name: string, values: readonly unknown[] | undefined): Erro
   const launchAt = toNumber(a.launchAt);
   if (launchAt !== undefined) args.launchAt = launchAt;
   if (typeof a.token === 'string') args.token = a.token as `0x${string}`;
+  // The Roost's `TooSoon(uint256 nextAt)` and the staking's
+  // `InsufficientStake(address account, uint256 staked, uint256 wanted)`.
+  const nextAt = toNumber(a.nextAt);
+  if (nextAt !== undefined) args.at = nextAt;
+  if (typeof a.staked === 'bigint') args.staked = a.staked;
+  if (typeof a.wanted === 'bigint') args.wanted = a.wanted;
   return args;
 }
 
@@ -100,6 +122,10 @@ export function decodeRevert(data: Hex | null | undefined): Decoded {
     const inner = decodeWrapped(data);
     if (inner) return decodeRevert(inner);
   }
+  if (UNEXPECTED_REVERT_SELECTOR && selector === UNEXPECTED_REVERT_SELECTOR) {
+    const inner = decodeUnexpected(data);
+    if (inner) return decodeRevert(inner);
+  }
 
   let name: string | null = null;
   let values: readonly unknown[] | undefined;
@@ -126,6 +152,17 @@ export function decodeRevert(data: Hex | null | undefined): Decoded {
     selector,
     signature: ERROR_SIGNATURES[selector] ?? null,
   };
+}
+
+/** `UnexpectedRevertBytes(bytes revertData)` — the one argument is the inner revert. */
+function decodeUnexpected(data: Hex): Hex | null {
+  try {
+    const decoded = decodeErrorResult({ abi: errorAbi as unknown as Abi, data });
+    const inner = (decoded.args as readonly unknown[] | undefined)?.[0];
+    return typeof inner === 'string' && inner.startsWith('0x') && inner.length >= 10 ? (inner as Hex) : null;
+  } catch {
+    return null;
+  }
 }
 
 function decodeWrapped(data: Hex): Hex | null {

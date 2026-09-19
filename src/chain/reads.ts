@@ -9,37 +9,37 @@
 //     zero, an empty array or a false. The panel renders the throw as its error
 //     state, because "0 birds left" because a call timed out is a lie.
 //
-// One thing worth knowing before reading further: a `claim` or `claimAll`
-// SIMULATION cannot go through Multicall3. Aggregating makes `msg.sender` the
-// multicall contract rather than the collector, and both of those calls are
-// about what THIS wallet is owed. They are issued as individual `eth_call`s
-// with an explicit `from`, and they always will be.
+// One thing worth knowing before reading further: a SIMULATION of a write —
+// `settle`, `claim` — cannot go through Multicall3. Aggregating makes
+// `msg.sender` the multicall contract rather than the collector. They are
+// issued as individual `eth_call`s with an explicit `from`, and always will be.
 
 import { parseAbiItem, type Abi } from 'viem';
 import {
-  client, pin, readMany, readOne, tryReadAs, tryReadMany, type At,
+  client, pin, readEach, readMany, readOne, tryReadAs, tryReadMany, type At,
 } from './client';
-import { contracts, manifest, poolContracts } from './manifest';
+import { contracts, manifest, poolContracts, sweeperAddress } from './manifest';
 import {
   aviansAbi, theNestAbi, aviansHookAbi, avianStockAbi, liquidityVaultAbi, thePerchAbi,
-  traitRegistryAbi, transferValidatorAbi, treasuryAbi,
+  sweeperAbi, traitRegistryAbi, transferValidatorAbi, treasuryAbi,
 } from './abis.generated';
 import { ContractError, SELECTORS } from '../mock/errors';
 import { asContractError } from './errors';
 import {
-  confirmOwnership, heldByFrom, invalidateOwnership, mintedSoFar, ownedBy, ownersAt,
-  ownershipConsistency,
+  heldByFrom, invalidateOwnership, mintedSoFar, ownedBy, ownersAt,
   rememberTraits, traitsFor, traitsForId,
 } from './birds';
 import { birdForAccount, computeAccount, satchelAddressOf } from './safety';
 import { setLaunchParams } from './launch';
 import { packCombo, unpackCombo } from '../art/render';
+import { estimateSince } from '../lib/stream';
 import { COUNTS } from '../art/traits';
 import type {
-  Address, Amount, Bird, BirdLocation, ClaimAllResult, ClaimOutcome, CollectionState,
-  Deployment, ErrorName, Hex, LaunchState, PerchState, RewardSplit, RewardSplitPart,
-  RewardStream, RewardToken,
-  OwnerStatus, RoostState, SatchelHolding, Tier, TokenId, TraitIndices, TreasuryRow,
+  Address, Amount, Bird, BirdLocation, BroodEntry, BroodState, BroodSummary, BroodTokenLine,
+  SettleMove, SettlePreview,
+  CollectionState, Deployment, ErrorName, Hex, LaunchState, PerchState, RewardSplit,
+  RewardSplitPart, RewardStream, RewardToken,
+  OwnerStatus, SatchelHolding, SweepBird, SweepState, Tier, TokenId, TraitIndices, TreasuryRow,
   TreasuryState, VaultState,
   WalletState,
 } from '../mock/types';
@@ -103,43 +103,50 @@ export async function getCollection(at?: At): Promise<CollectionState> {
 
 // ── the allowlist proofs ──────────────────────────────────────────────────
 
-let proofs: Record<string, Hex[]> | null = null;
-let proofsLoaded = false;
-
 /**
  * `proofs.json` is a static file the site serves; building the tree is
  * `tools/allowlist.mjs`'s job and the list is the owner's. A wallet on the
  * MANUAL list has no proof and passes an empty array — the contract checks the
  * manual list first — so a missing entry is not an error.
+ *
+ * ONE FETCH, SHARED. The first caller starts it and every caller awaits the
+ * same promise. It used to set a "loaded" flag before the fetch resolved, so
+ * a second read arriving while the file was in flight — the compose page
+ * reads the wallet from two places, and StrictMode doubles every effect —
+ * got an empty proof and rendered a Merkle-listed wallet as "not on the
+ * list". Found on the launch dry run; the wallet was on the list.
  */
-export async function proofFor(who: Address): Promise<Hex[]> {
-  if (!proofsLoaded) {
-    proofsLoaded = true;
-    const path = manifest().allowlistProofs;
-    if (path) {
-      try {
-        const res = await fetch(new URL(path, location.href).toString(), { cache: 'no-store' });
-        if (res.ok) {
-          const raw = await res.json() as Record<string, unknown>;
-          const out: Record<string, Hex[]> = {};
-          for (const [address, proof] of Object.entries(raw)) {
-            if (Array.isArray(proof) && proof.every((p) => typeof p === 'string' && /^0x[0-9a-fA-F]{64}$/.test(p))) {
-              out[address.toLowerCase()] = proof as Hex[];
-            }
-          }
-          proofs = out;
-        }
-      } catch {
-        // No proofs file is a normal state. `freeMintStatus` will say
-        // NotAllowlisted for a wallet that needed one, which is the truth.
-        proofs = null;
+let proofsPromise: Promise<Record<string, Hex[]> | null> | null = null;
+
+async function loadProofs(): Promise<Record<string, Hex[]> | null> {
+  const path = manifest().allowlistProofs;
+  if (!path) return null;
+  try {
+    const res = await fetch(new URL(path, location.href).toString(), { cache: 'no-store' });
+    if (!res.ok) return null;
+    const raw = await res.json() as Record<string, unknown>;
+    const out: Record<string, Hex[]> = {};
+    for (const [address, proof] of Object.entries(raw)) {
+      if (Array.isArray(proof) && proof.every((p) => typeof p === 'string' && /^0x[0-9a-fA-F]{64}$/.test(p))) {
+        out[address.toLowerCase()] = proof as Hex[];
       }
     }
+    return out;
+  } catch {
+    // A network failure is retried on the next read rather than remembered
+    // as "no proofs". A missing file is a start-up failure (startup.ts).
+    proofsPromise = null;
+    return null;
   }
+}
+
+export async function proofFor(who: Address): Promise<Hex[]> {
+  if (!proofsPromise) proofsPromise = loadProofs();
+  const proofs = await proofsPromise;
   return proofs?.[who.toLowerCase()] ?? [];
 }
 
-export function resetProofs() { proofs = null; proofsLoaded = false; }
+export function resetProofs() { proofsPromise = null; }
 
 /** `freeMintStatus` returns a selector. Turn it into a name the UI explains. */
 const NAME_BY_SELECTOR: Record<string, ErrorName> = (() => {
@@ -175,7 +182,6 @@ export async function getWallet(who: Address, at?: At): Promise<WalletState> {
         { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'isAllowlisted', args: [who, proof] },
         { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'freeMintStatus', args: [who, proof] },
         { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'isApprovedForAll', args: [who, c.ThePerch] },
-        { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'isApprovedForAll', args: [who, c.TheNest] },
       ], a),
     ]);
 
@@ -185,7 +191,7 @@ export async function getWallet(who: Address, at?: At): Promise<WalletState> {
     const [
       aviansBalance, allowanceCollection, allowanceNest, allowancePerch,
       mintedBy, freeClaimed, isAllowlisted, freeMintSelector,
-      birdsToPerch, birdsToRoost,
+      birdsToPerch,
     ] = results;
 
     return {
@@ -199,10 +205,9 @@ export async function getWallet(who: Address, at?: At): Promise<WalletState> {
       freeMintStatus: selectorToName(freeMintSelector as string),
       approvals: {
         aviansToCollection: allowanceCollection as Amount,
-        aviansToStaking: allowanceNest as Amount,
+        aviansToNest: allowanceNest as Amount,
         aviansToPerch: allowancePerch as Amount,
         birdsToPerch: birdsToPerch as boolean,
-        birdsToRoost: birdsToRoost as boolean,
       },
     };
   });
@@ -222,21 +227,68 @@ export async function freeMintStatus(who: Address, proof: Hex[]): Promise<ErrorN
 
 // ── birds ─────────────────────────────────────────────────────────────────
 
-/** The reward tokens whose balances are worth checking inside a satchel. */
-let satchelTokens: RewardToken[] = [];
+/**
+ * The listed reward tokens, with metadata, at the block. Read once per block
+ * and handed to every satchel on the page: their balances are what a satchel
+ * is worth looking inside for.
+ */
+let listedAt: { at: bigint; tokens: RewardToken[] } | null = null;
+async function listedTokens(at: At): Promise<RewardToken[]> {
+  if (listedAt && listedAt.at === at.blockNumber) return listedAt.tokens;
+  const c = contracts();
+  const raw = await readOne<readonly Address[]>({
+    address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'listedRewardTokens',
+  }, at).catch(() => [] as readonly Address[]);
+  const meta = await tokenMeta([...raw], at);
+  const tokens = [...raw].map((a) => meta.get(a.toLowerCase())!);
+  listedAt = { at: at.blockNumber, tokens };
+  return tokens;
+}
 
-async function locationOf(id: TokenId, owner: Address, totalMinted: number, at: At): Promise<BirdLocation> {
+/**
+ * A bird is in a wallet, in the perch, inside another bird's satchel, or
+ * burnt. It is never "in the Nest": brooding is not custodial, and a bird
+ * that IS at the Nest's address got there by a mistaken `transferFrom`, which
+ * the owner's `rescueBird` undoes. That case reads as a wallet here — the
+ * Nest's — which is the truth.
+ */
+function locationOf(owner: Address, totalMinted: number): BirdLocation {
   const c = contracts();
   if (owner.toLowerCase() === c.ThePerch.toLowerCase()) return { where: 'perch' };
-  if (owner.toLowerCase() === c.TheNest.toLowerCase()) {
-    const [staker, tier] = await readOne<readonly [Address, number]>({
-      address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'stakeOf', args: [BigInt(id)],
-    }, at);
-    return { where: 'roost', staker, tier: (tier || 1) as Tier, since: at.timestamp };
-  }
   const host = birdForAccount(owner, totalMinted);
   if (host !== null) return { where: 'satchel', hostId: host };
   return { where: 'wallet', owner };
+}
+
+/**
+ * `broodOf` + `isBrooding` + `deliveryOf` for a list of ids, one multicall.
+ * `live` is the contract's word and covers the missed-stamp fallback; nothing
+ * here decides expiry from the stamp.
+ */
+async function broodsOf(ids: TokenId[], at: At): Promise<Map<TokenId, BroodSummary | null>> {
+  const out = new Map<TokenId, BroodSummary | null>();
+  if (ids.length === 0) return out;
+  const c = contracts();
+  const n = (functionName: string, args: readonly unknown[]) =>
+    ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName, args });
+  const rows = await readMany<unknown>(ids.flatMap((id) => [
+    n('broodOf', [BigInt(id)]), n('isBrooding', [BigInt(id)]), n('deliveryOf', [BigInt(id)]),
+  ]), at);
+  ids.forEach((id, i) => {
+    const b = rows[i * 3] as readonly [Address, number, bigint, bigint];
+    const live = rows[i * 3 + 1] as boolean;
+    const d = rows[i * 3 + 2] as readonly [Address, boolean];
+    const tier = Number(b[1]);
+    out.set(id, tier === 0 ? null : {
+      activator: b[0],
+      tier: tier as Tier,
+      activatedAt: Number(b[2]),
+      expiredAt: Number(b[3]),
+      live,
+      delivery: { to: d[0], toWallet: d[1] },
+    });
+  });
+  return out;
 }
 
 /**
@@ -246,7 +298,7 @@ async function locationOf(id: TokenId, owner: Address, totalMinted: number, at: 
  * one satchel as it always did.
  */
 async function satchelOf(
-  id: TokenId, totalMinted: number, at: At, owners: Address[] | null,
+  id: TokenId, totalMinted: number, at: At, owners: Address[], satchelTokens: RewardToken[],
 ): Promise<Bird['satchel']> {
   const account = satchelAddressOf(id);
   const c = contracts();
@@ -273,25 +325,9 @@ async function satchelOf(
     if (b?.ok && b.value > 0n) holds.push({ kind: 'erc20', symbol: t.symbol, decimals: t.decimals, amount: b.value });
   });
 
-  // Birds inside this bird's satchel — the reason the stake warning and the
-  // cycle refusal exist.
-  if (owners) {
-    // The sweep already holds every owner at this block. No read.
-    for (const inner of heldByFrom(owners, account)) holds.push({ kind: 'avian', id: inner });
-  } else {
-    // No lens: log scan for candidates, `ownerOf` for the truth.
-    try {
-      const inside = await ownedBy(account, at);
-      for (const inner of inside) holds.push({ kind: 'avian', id: inner });
-    } catch {
-      // A failed inner scan must not fail the whole bird. It is reported as an
-      // unknown rather than as an empty satchel by the caller's own error
-      // state; here the safe reading is "we did not see any", and every place
-      // that ACTS on this (staking, transfers) re-checks with
-      // `checkTransferSafety`, which refuses rather than allows when it cannot
-      // read.
-    }
-  }
+  // Birds inside this bird's satchel — the reason the cycle refusal exists.
+  // The sweep already holds every owner at this block. No read.
+  for (const inner of heldByFrom(owners, account)) holds.push({ kind: 'avian', id: inner });
 
   void totalMinted;
   return { address: account, deployed: !!code && code !== '0x', holds };
@@ -329,15 +365,17 @@ export async function getBird(id: TokenId, at?: At): Promise<Bird> {
       : unpackCombo(combo);
     rememberTraits(id, traits);
 
-    const owners = await ownersAt(a);
-    const [location, satchel] = await Promise.all([
-      ownerRes.ok
-        ? locationOf(id, ownerRes.value as Address, totalMinted, a)
-        : Promise.resolve({ where: 'burnt' } as BirdLocation),
-      satchelOf(id, totalMinted, a, owners),
+    const [owners, listed, broods] = await Promise.all([ownersAt(a), listedTokens(a), broodsOf([id], a)]);
+    const brood = broods.get(id) ?? null;
+    const [satchel, broodLines] = await Promise.all([
+      satchelOf(id, totalMinted, a, owners, listed),
+      brood ? broodLinesOf(id, brood, listed, a) : Promise.resolve(undefined),
     ]);
+    const location: BirdLocation = ownerRes.ok
+      ? locationOf(ownerRes.value as Address, totalMinted)
+      : { where: 'burnt' };
 
-    return { id, traits, combo, location, satchel };
+    return { id, traits, combo, location, satchel, brood, broodLines };
   });
 }
 
@@ -357,18 +395,21 @@ export async function getBirdsOf(who: Address, at?: At): Promise<Bird[]> {
            balance and token balances — together. The satchels need only the
            ids and the sweep, not the traits, so they do not wait for them.
 
-      Without a lens, `ownersAt` is null and each satchel scans as it always
-      did; the round count is then the scan's, not this function's.
+      The listed reward tokens ride in the second round too, so the third
+      can read every satchel's balance in each of them.
     */
     const totalMinted = await mintedSoFar(a);
-    const [ids, owners] = await Promise.all([ownedBy(who, a, totalMinted), ownersAt(a, totalMinted)]);
-    const [traits, combos, satchels] = await Promise.all([
+    const [ids, owners, listed] = await Promise.all([
+      ownedBy(who, a, totalMinted), ownersAt(a, totalMinted), listedTokens(a),
+    ]);
+    const [traits, combos, satchels, broods] = await Promise.all([
       traitsFor(ids, a),
       readMany<bigint>(ids.map((id) => ({
         address: contracts().AvianStock, abi: avianStockAbi as unknown as Abi,
         functionName: 'tokenCombo', args: [BigInt(id)],
       })), a),
-      Promise.all(ids.map((id) => satchelOf(id, totalMinted, a, owners))),
+      Promise.all(ids.map((id) => satchelOf(id, totalMinted, a, owners, listed))),
+      broodsOf(ids, a),
     ]);
 
     return ids.map((id, i) => ({
@@ -377,14 +418,9 @@ export async function getBirdsOf(who: Address, at?: At): Promise<Bird[]> {
       combo: combos[i],
       location: { where: 'wallet', owner: who } as BirdLocation,
       satchel: satchels[i],
+      brood: broods.get(id) ?? null,
     } satisfies Bird));
   });
-}
-
-/** For the panel that has to say when a gallery may be incomplete. */
-export async function ownershipCheck(who: Address, found: number, at?: At) {
-  const a = at ?? await pin();
-  return ownershipConsistency(who, found, a);
 }
 
 /**
@@ -422,7 +458,7 @@ Promise<{ birds: Bird[]; total: number }> {
       for (; cursor > 0 && ids.length < want; cursor--) ids.push(cursor);
       if (ids.length === 0) break;
 
-      const [traits, owners, combos] = await Promise.all([
+      const [traits, owners, combos, broods] = await Promise.all([
         traitsFor(ids, a),
         tryReadMany<Address>(ids.map((id) => ({
           address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'ownerOf', args: [BigInt(id)],
@@ -430,6 +466,7 @@ Promise<{ birds: Bird[]; total: number }> {
         readMany<bigint>(ids.map((id) => ({
           address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'tokenCombo', args: [BigInt(id)],
         })), a),
+        broodsOf(ids, a),
       ]);
 
       for (let i = 0; i < ids.length; i++) {
@@ -440,10 +477,11 @@ Promise<{ birds: Bird[]; total: number }> {
           id,
           traits: traits.get(id) ?? unpackCombo(combos[i]),
           combo: combos[i],
-          location: await locationOf(id, owner.value, total, a),
-          // The gallery does not open satchels: that is one code read, one
-          // balance and a log scan per bird, and it shows two dozen at a time.
+          location: locationOf(owner.value, total),
+          // The gallery does not open satchels: that is one code read and a
+          // balance per bird, and it shows two dozen at a time.
           satchel: { address: satchelAddressOf(id), deployed: false, holds: [] },
+          brood: broods.get(id) ?? null,
         } satisfies Bird);
       }
     }
@@ -462,13 +500,16 @@ export async function getPerch(who: Address | null, at?: At): Promise<PerchState
       ({ address: c.ThePerch, abi: thePerchAbi as unknown as Abi, functionName, args });
 
     const [base, sellFee, buyFee, pickFee, poolSize, lowest, backing, held, maxSupply,
-      burnEvery, deposits, untilBurn] =
+      burnEvery, deposits, untilBurn, burnFloor, burnsActive] =
       await readMany<unknown>([
         call('BASE'), call('SELL_FEE_BPS'), call('BUY_FEE_BPS'), call('PICK_FEE_BPS'),
         call('poolSize'), call('lowestId'), call('backingRequired'),
         { address: c.Avians, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [c.ThePerch] },
         { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'MAX_SUPPLY' },
         call('BURN_EVERY'), call('deposits'), call('depositsUntilNextBurn'),
+        // The floor (2026-09-11). `depositsUntilNextBurn` reads 0 while
+        // `burnsActive` is false, and 0 must never be read as "next sale burns".
+        call('BURN_FLOOR'), call('burnsActive'),
       ], a);
 
     const BASE = base as bigint;
@@ -503,6 +544,8 @@ export async function getPerch(who: Address | null, at?: At): Promise<PerchState
       burnEvery: Number(burnEvery as bigint), /* count */
       deposits: Number(deposits as bigint), /* count */
       depositsUntilNextBurn: Number(untilBurn as bigint), /* count */
+      burnFloor: Number(burnFloor as bigint), /* count */
+      burnsActive: burnsActive as boolean,
     };
   });
 }
@@ -632,164 +675,255 @@ export function rewardTokenMeta(a: Address): RewardToken {
     : { address: a, symbol: `${a.slice(0, 6)}…${a.slice(-4)}`, decimals: 18 };
 }
 
-/**
- * `claimAll()` simulated as the collector, NOT through Multicall3 (which would
- * make the aggregator the claimant). This is the ONLY enumeration of the
- * staking contract's `_snapshotTokens` available anywhere: that array has no
- * public getter, and it is what `claimAll` iterates — so it is also the only
- * way a RETIRED token the wallet is still owed in can appear on screen.
- */
-export async function simulateClaimAll(who: Address): Promise<ClaimAllResult> {
-  const { result } = await client().simulateContract({
-    address: contracts().TheNest,
-    abi: theNestAbi as unknown as Abi,
-    functionName: 'claimAll',
-    account: who,
+/** One bird's reward lines: unsettled, the destination's balance, and where a settle sends it. */
+async function broodLinesOf(id: TokenId, brood: BroodSummary, listed: RewardToken[], a: At): Promise<BroodTokenLine[]> {
+  if (listed.length === 0) return [];
+  const c = contracts();
+  const n = (functionName: string, args: readonly unknown[]) =>
+    ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName, args });
+  const rows = await readMany<unknown>(listed.flatMap((t) => [
+    n('earned', [BigInt(id), t.address]),
+    n('pending', [BigInt(id), t.address]),
+    { address: t.address, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [brood.delivery.to] },
+  ]), a);
+  return listed.map((token, i) => {
+    const p = rows[i * 3 + 1] as readonly [bigint, bigint, bigint];
+    return {
+      token,
+      unsettled: rows[i * 3] as bigint,
+      settled: rows[i * 3 + 2] as bigint,
+      pending: { toDestination: p[0], toActivator: p[1], returned: p[2] },
+    };
   });
-  const [tokens, paid, skipped] = result as unknown as [Address[], bigint[], boolean[]];
-  return { tokens: [...tokens], paid: [...paid], skipped: [...skipped] };
 }
 
 /**
- * Would `claim(token)` move? A paused token, or a wallet on the issuer's
- * blocklist, reverts with `TransferFailed` — the accrual stays safe either way.
- * Simulated per token with an explicit `from`, for the same reason as above.
+ * The Nest, for the brooding screen: the streams, and every bird the
+ * connected wallet holds with whatever brood it carries.
+ *
+ * NOTHING IS CUSTODIAL and there is no per-wallet list on chain. The wallet's
+ * birds come from the collection (`tokensOfOwnerIn`), their broods from
+ * `broodOf` each, and each brooding bird's reward lines from three reads per
+ * listed token: `earned` (unsettled, costs no gas to show and is what makes
+ * the stream visible), the destination's `balanceOf` (settled — the satchel,
+ * or the holder's own wallet when they chose that), and `pending` (where a
+ * settle would send it now, which for an expired brood is the split).
+ *
+ * `claimable` is read per LISTED token. A retired token could in principle
+ * hold a claimable share for this wallet, and the contract has no way to
+ * enumerate it; a `RewardHeld(0, wallet, token, …)` receipt is the only place
+ * such a token is ever named, and the receipt says to claim it.
  */
-async function transferable(who: Address | null, token: Address): Promise<boolean> {
-  if (!who) return true;
-  try {
-    await client().simulateContract({
-      address: contracts().TheNest,
-      abi: theNestAbi as unknown as Abi,
-      functionName: 'claim',
-      args: [token],
-      account: who,
-    });
-    return true;
-  } catch (e) {
-    return asContractError(e).errorName !== 'TransferFailed';
-  }
-}
-
-export async function getRoost(who: Address | null, at?: At): Promise<RoostState> {
+export async function getBrood(who: Address | null, at?: At): Promise<BroodState> {
   return guard('reading the nest', async () => {
     const a = at ?? await pin();
     const c = contracts();
-    const s = (functionName: string, args?: readonly unknown[]) =>
+    const n = (functionName: string, args: readonly unknown[] = []) =>
       ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName, args });
 
-    const [t1, t2, t3, totalWeight, totalStaked, totalBurned, listedRaw] = await readMany<unknown>([
-      s('TIER_1_COST'), s('TIER_2_COST'), s('TIER_3_COST'),
-      s('totalWeight'), s('totalStaked'), s('totalBurned'), s('listedRewardTokens'),
+    const [t1, t2, t3, totalWeight, totalBrooding, totalForwarded] = await readMany<unknown>([
+      n('TIER_1_COST'), n('TIER_2_COST'), n('TIER_3_COST'),
+      n('totalWeight'), n('totalBrooding'), n('totalForwarded'),
     ], a);
+    const listed = await listedTokens(a);
 
-    const listedAddresses = [...(listedRaw as Address[])];
-
-    // The tokens `claimAll` will actually touch — listed AND retired-with-a-
-    // balance. Only a connected wallet can be simulated for, so an anonymous
-    // read sees the listed set alone, which is the truth for that reader.
-    let claimAllTokens: Address[] = [];
-    if (who) {
-      try {
-        claimAllTokens = (await simulateClaimAll(who)).tokens;
-      } catch {
-        claimAllTokens = [];
-      }
-    }
-    const everyToken = [...new Set([...listedAddresses, ...claimAllTokens].map((x) => x.toLowerCase()))]
-      .map((x) => (listedAddresses.find((l) => l.toLowerCase() === x)
-        ?? claimAllTokens.find((k) => k.toLowerCase() === x)!) as Address);
-
-    satchelTokens = [];   // filled below, once the metadata is known
-
-    const [meta, yourWeight, stakedIds] = await Promise.all([
-      tokenMeta(everyToken, a),
-      who ? readOne<bigint>(s('weightOf', [who]), a) : Promise.resolve(0n),
-      who ? readOne<readonly bigint[]>(s('stakedIdsOf', [who]), a) : Promise.resolve([] as readonly bigint[]),
-    ]);
-
-    satchelTokens = everyToken.map((x) => meta.get(x.toLowerCase())!);
-
-    const perToken = everyToken.length
-      ? await readMany<unknown>(everyToken.flatMap((token) => [
-        s('earned', [who ?? ZERO_ADDRESS, token]),
-        s('rewardData', [token]),
-        s('totalPaid', [token]),
-        s('claimedBy', [who ?? ZERO_ADDRESS, token]),
+    // The streams, per token.
+    const perToken = listed.length
+      ? await readMany<unknown>(listed.flatMap((t) => [
+        n('rewardData', [t.address]), n('totalPaid', [t.address]), n('totalReturned', [t.address]),
       ]), a)
       : [];
-
-    const streams: RewardStream[] = [];
-    const retired: RewardStream[] = [];
-
-    for (let i = 0; i < everyToken.length; i++) {
-      const token = meta.get(everyToken[i].toLowerCase())!;
-      const data = perToken[i * 4 + 1] as { rewardRate?: bigint; periodFinish?: bigint };
-      const stream: RewardStream = {
+    const streams: RewardStream[] = listed.map((token, i) => {
+      const data = perToken[i * 3] as { rewardRate?: bigint; periodFinish?: bigint; escrowed?: bigint };
+      return {
         token,
-        earned: perToken[i * 4] as bigint,
-        rate: (data?.rewardRate ?? 0n),
+        rate: data?.rewardRate ?? 0n,
         periodFinish: Number(data?.periodFinish ?? 0n),
-        claimedByYou: perToken[i * 4 + 3] as bigint,
-        totalPaid: perToken[i * 4 + 2] as bigint,
-        transferable: await transferable(who, token.address),
+        escrowed: data?.escrowed ?? 0n,
+        totalPaid: perToken[i * 3 + 1] as bigint,
+        totalReturned: perToken[i * 3 + 2] as bigint,
       };
-      const isListed = listedAddresses.some((l) => l.toLowerCase() === token.address.toLowerCase());
-      (isListed ? streams : retired).push(stream);
+    });
+
+    // Anonymous: the streams alone. That is the truth for that reader.
+    if (!who) {
+      return {
+        tierCost: { 1: t1 as bigint, 2: t2 as bigint, 3: t3 as bigint },
+        totalWeight: totalWeight as bigint,
+        totalBrooding: Number(totalBrooding as bigint),
+        totalForwarded: totalForwarded as bigint,
+        listed, streams, yours: [], claimable: [],
+        chainNow: a.timestamp,
+      };
     }
 
-    const ids = (stakedIds as readonly bigint[]).map((x) => Number(x));
-    const traits = await traitsFor(ids, a);
-    const tiers = ids.length
-      ? await readMany<readonly [Address, number]>(ids.map((id) => s('stakeOf', [BigInt(id)])), a)
-      : [];
+    const birds = await getBirdsOf(who, a);
 
-    const staked: Bird[] = ids.map((id, i) => ({
-      id,
-      traits: traits.get(id)!,
-      combo: packCombo(traits.get(id)!),
-      location: {
-        where: 'roost', staker: tiers[i][0], tier: (tiers[i][1] || 1) as Tier, since: a.timestamp,
-      },
-      satchel: { address: satchelAddressOf(id), deployed: false, holds: [] },
+    // Per brooding bird, per token: unsettled, pending, and the destination's
+    // balance — one round for all of them, alongside the wallet's claimable.
+    const brooding = birds.filter((b) => b.brood !== null);
+    const [perBird, claimRows] = await Promise.all([
+      Promise.all(brooding.map((b) => broodLinesOf(b.id, b.brood!, listed, a))),
+      listed.length
+        ? readMany<bigint>(listed.map((t) => n('claimable', [who, t.address])), a)
+        : Promise.resolve([] as bigint[]),
+    ]);
+    const linesFor = new Map<TokenId, BroodTokenLine[]>();
+    brooding.forEach((b, i) => linesFor.set(b.id, perBird[i]));
+
+    const yours: BroodEntry[] = birds.map((bird) => ({
+      bird,
+      brood: bird.brood,
+      lines: linesFor.get(bird.id) ?? [],
     }));
+
+    const claimable = listed
+      .map((token, i) => ({ token, amount: claimRows[i] ?? 0n }))
+      .filter((x) => x.amount > 0n);
 
     return {
       tierCost: { 1: t1 as bigint, 2: t2 as bigint, 3: t3 as bigint },
       totalWeight: totalWeight as bigint,
-      yourWeight: yourWeight as bigint,
-      totalStaked: Number(totalStaked as bigint),
-      totalBurned: totalBurned as bigint,
-      staked,
-      listed: streams.map((x) => x.token),
-      streams,
-      retired,
-      operatorWhitelisted: await operatorWhitelisted(c.TheNest, who, ids[0] ?? 1, a),
+      totalBrooding: Number(totalBrooding as bigint),
+      totalForwarded: totalForwarded as bigint,
+      listed, streams, yours, claimable,
+      chainNow: a.timestamp,
     };
   });
 }
 
 /**
- * The three arrays zipped and READ. Two of the rows look identical in the raw
- * arrays and mean opposite things, so the reading is done once, here:
- *
- *   paid > 0                      -> paid
- *   paid === 0, skipped === false -> nothing was owed. NOT a failure.
- *   skipped === true              -> the token refused. The rewards are safe.
+ * A brooding bird's unsettled reward in one token NOW, carried forward from
+ * the last read: `rate × weight / totalWeight / 1e18` per second since the
+ * read while the stream is live, never below what was read. What a settle
+ * would move is the chain's figure, read fresh; this is what the line shows
+ * between reads. Pure: tests/estimate.test.ts.
  */
-export function readClaimAll(r: ClaimAllResult): ClaimOutcome[] {
-  return r.tokens.map((address, i) => {
-    const meta = rewardTokenMeta(address);
-    const paid = r.paid[i] ?? 0n;
-    const skipped = r.skipped[i] ?? false;
-    return {
-      token: address,
-      symbol: meta.symbol,
-      decimals: meta.decimals,
-      paid,
-      skipped,
-      kind: skipped ? 'skipped' : paid > 0n ? 'paid' : 'nothing-owed',
-    };
+export function estimateUnsettled(o: {
+  unsettledAtRead: Amount; rate: Amount; weight: bigint; totalWeight: bigint;
+  periodFinish: number; chainNowAtRead: number; now: number;
+}): Amount {
+  return estimateSince({
+    atRead: o.unsettledAtRead, rate: o.rate, share: o.weight, total: o.totalWeight,
+    periodFinish: o.periodFinish, chainNowAtRead: o.chainNowAtRead, now: o.now,
+  });
+}
+
+/**
+ * What `settle(ids)` would deliver, token by token, simulated as `who` —
+ * for the "settle" control to show before the wallet opens. The Nest emits
+ * `Settled`, `ExpirySettled`, `RewardHeld` and `RewardReturned` inside the
+ * simulation exactly as it would on chain, so the answer is the receipt in
+ * advance. A bird with no brood contributes nothing and is not an error.
+ */
+export async function simulateSettle(who: Address, ids: TokenId[]): Promise<SettlePreview> {
+  const c = contracts();
+  const { request } = await client().simulateContract({
+    address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'settle',
+    args: [ids.map((i) => BigInt(i))], account: who,
+  });
+  void request;
+  // `simulateContract` does not return logs. Ask the Nest instead, at the
+  // same block, what it would do: `pending` per bird per token is the same
+  // arithmetic `settle` runs, and it names the destination.
+  const a = await pin();
+  const listed = await listedTokens(a);
+  const broods = await broodsOf(ids, a);
+  const n = (functionName: string, args: readonly unknown[]) =>
+    ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName, args });
+  const withBrood = ids.filter((id) => broods.get(id));
+  const rows = withBrood.length && listed.length
+    ? await readMany<readonly [bigint, bigint, bigint]>(withBrood.flatMap((id) =>
+      listed.map((t) => n('pending', [BigInt(id), t.address]))), a)
+    : [];
+  const moves: SettleMove[] = [];
+  withBrood.forEach((id, bi) => {
+    const brood = broods.get(id)!;
+    listed.forEach((token, ti) => {
+      const [toDestination, toActivator, returned] = rows[bi * listed.length + ti];
+      if (toDestination > 0n) {
+        moves.push({ id, token, amount: toDestination, kind: brood.delivery.toWallet ? 'to-wallet' : 'to-satchel', to: brood.delivery.to });
+      }
+      if (toActivator > 0n) moves.push({ id, token, amount: toActivator, kind: 'to-activator', to: brood.activator });
+      if (returned > 0n) moves.push({ id, token, amount: returned, kind: 'returned', to: c.TheNest });
+    });
+  });
+  return { ids: withBrood, moves };
+}
+
+// ── the sweeper — HANDOVER section 5, "Collecting from many birds at once" ──
+
+/**
+ * `sweepable` reads one balance per bird per token, so a page of it is a
+ * real call: a hundred birds over five tokens is some 500 balance reads and
+ * a hundred each of `ownerOf` and `permissions`. Each page is its own
+ * `eth_call` (`readEach`), never summed through Multicall3.
+ */
+const SWEEPABLE_PAGE = 100;
+
+/** The Sweeper's address, or a throw: nothing calls this on a deployment without one. */
+function sweeperOrThrow(): Address {
+  const s = sweeperAddress();
+  if (!s) throw new Error('the Sweeper was asked for on a deployment that has none — the panel should not exist here');
+  return s;
+}
+
+/**
+ * Every held bird's standing with the Sweeper, and what a sweep would move.
+ *
+ * `status(id)` per bird — satchel, deployed, granted — through the multicall,
+ * and `sweepable(holder, ids, tokens)` over the same list in pages. The
+ * amounts are read for every bird, granted or not: a satchel with stock in
+ * it and no grant is the bird this panel exists for. `granted` is the
+ * contract's word and is keyed by the CURRENT holder, so a bird bought
+ * yesterday reads false whatever its seller granted.
+ *
+ * Tokens: the Nest's listed reward tokens, then any the holder names by
+ * address — a token retired from the list but still sitting in a satchel is
+ * the case for that. A failed read throws; nothing here becomes a zero.
+ */
+export async function getSweep(who: Address, extra: Address[] = [], at?: At): Promise<SweepState> {
+  return guard('reading the sweeper', async () => {
+    const sweeper = sweeperOrThrow();
+    const a = at ?? await pin();
+    const totalMinted = await mintedSoFar(a);
+    const [ids, listed] = await Promise.all([ownedBy(who, a, totalMinted), listedTokens(a)]);
+    const extras = extra.filter((x, i) =>
+      !listed.some((t) => t.address.toLowerCase() === x.toLowerCase())
+      && extra.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+    const meta = await tokenMeta(extras, a);
+    const tokens: RewardToken[] = [...listed, ...extras.map((x) => meta.get(x.toLowerCase())!)];
+
+    const s = (functionName: string, args: readonly unknown[]) =>
+      ({ address: sweeper, abi: sweeperAbi as unknown as Abi, functionName, args });
+    const pages: TokenId[][] = [];
+    for (let i = 0; i < ids.length; i += SWEEPABLE_PAGE) pages.push(ids.slice(i, i + SWEEPABLE_PAGE));
+
+    const [statuses, sweepable] = await Promise.all([
+      readMany<readonly [Address, boolean, boolean]>(ids.map((id) => s('status', [BigInt(id)])), a),
+      readEach<readonly [readonly boolean[], readonly (readonly bigint[])[]]>(
+        pages.map((page) => s('sweepable', [who, page.map((id) => BigInt(id)), tokens.map((t) => t.address)])), a,
+      ),
+    ]);
+
+    const amounts = new Map<TokenId, Amount[]>();
+    pages.forEach((page, p) => {
+      const [, rows] = sweepable[p];
+      page.forEach((id, i) => amounts.set(id, [...(rows[i] ?? [])]));
+    });
+
+    const birds: SweepBird[] = ids.map((id, i) => {
+      const [satchel, deployed, granted] = statuses[i];
+      return { id, satchel, deployed, granted, amounts: amounts.get(id) ?? tokens.map(() => 0n) };
+    });
+
+    // Worth drawing: a grant exists, or a satchel holds something in a LISTED
+    // token. The extras do not count — they are only ever present once the
+    // panel is open and the holder has typed one.
+    const relevant = birds.some((b) => b.granted)
+      || birds.some((b) => b.amounts.slice(0, listed.length).some((x) => x > 0n));
+
+    return { tokens, birds, relevant };
   });
 }
 
@@ -1013,8 +1147,9 @@ export async function getSupply(at?: At): Promise<{ total: Amount; inPool: Amoun
     const inPool = await readOne<bigint>({
       address: c.Avians, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [c.ThePerch],
     }, a);
-    // AVIANS has no mint path, so everything the supply has lost was burned:
-    // the AMM's half-fee and the nest's tier costs.
+    // AVIANS has no mint path, so everything the supply has lost was burned —
+    // by the Roost, the one burner since 2026-09-18 (a fifth of everything it
+    // receives, at each distribute). `roost.burned()` says the same number.
     return { total, inPool, burned: initial - total };
   });
 }
@@ -1127,5 +1262,4 @@ export { traitsForId } from './birds';
 export const TRANSFER_EVENT = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)');
 export function collectionAddress(): Address { return contracts().AvianStock; }
 export function computeSatchel(id: TokenId): Address { return computeAccount(id); }
-export { confirmOwnership };
 export type { Deployment };

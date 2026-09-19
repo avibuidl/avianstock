@@ -19,11 +19,16 @@ import * as fake from './reads';
 import * as fakeWrites from './writes';
 import * as fakeWallet from './wallet';
 import * as fakeSwap from './swap';
+import * as fakePrices from './prices';
+import * as fakeRoost from './roost';
 import * as chain from '../chain/reads';
 import * as chainWrites from '../chain/writes';
 import * as chainWallet from '../chain/provider';
 import * as chainSwap from '../chain/swap';
-import { hasManifest, manifest } from '../chain/manifest';
+import * as chainPrices from '../chain/prices';
+import * as chainRoost from '../chain/roost';
+import * as chainBirds from '../chain/birds';
+import { hasManifest, manifest, sweeperAddress } from '../chain/manifest';
 import { buyFeeBpsAt as chainBuyFeeBpsAt } from '../chain/launch';
 import {
   ADDRESSES as MOCK_ADDRESSES, THIRD_PARTY as MOCK_THIRD_PARTY,
@@ -33,12 +38,12 @@ import {
 import { CHAIN_ID } from './types';
 import type {
   AdminContract, AdminRoute, AdminState, AdminTargetRow, Address, AllowlistCheck, Amount, Bird,
-  ClaimAllResult,
-  ClaimOutcome, CollectionState, Connection, Deployment, ErrorName, ForeignToken, Hex,
+  BroodState, SettlePreview,
+  CollectionState, Connection, Deployment, ErrorName, ForeignToken, Hex,
   LaunchState, NetworkDescription, OnPhase, PerchState, PermitSignature, RewardToken,
-  OwnerStatus, RewardSplit, RoostState, SwapQuote, SwapState, Tier, TokenId, TraitIndices,
+  OwnerStatus, RewardSplit, SwapQuote, SwapState, SweepResult, SweepState, Tier, TokenId, TraitIndices,
   TransferSafety,
-  TreasuryState,
+  TreasuryState, PriceBoard, RoostState, StakingState, DistributeResult, DeliverResult,
   V3Hop, V4Hop, ValidatorOperation, VaultState, WalletInfo, WalletState,
 } from './types';
 
@@ -135,8 +140,23 @@ export const getMintedBirds = (o?: { offset?: number; limit?: number }): Promise
 export const getPerch = (): Promise<PerchState> =>
   (isMock() ? fake.getPerch() : chain.getPerch(account()));
 
-export const getRoost = (who: Address | null): Promise<RoostState> =>
-  (isMock() ? fake.getRoost(who) : chain.getRoost(who));
+export const getBrood = (who: Address | null): Promise<BroodState> =>
+  (isMock() ? fake.getBrood(who) : chain.getBrood(who));
+
+/** What a settle would move, token by token — the receipt in advance. */
+export const simulateSettle = (who: Address, ids: TokenId[]): Promise<SettlePreview> =>
+  (isMock() ? fake.simulateSettle(who, ids) : chain.simulateSettle(who, ids));
+
+/**
+ * Whether this deployment has a Sweeper at all. The mock always does; a chain
+ * deployment has one when its manifest names it, and the panel does not exist
+ * otherwise — no read, no call, no ABI touched.
+ */
+export const canSweep = (): boolean =>
+  (isMock() ? true : sweeperAddress() !== null);
+
+export const getSweep = (who: Address, extra: Address[] = []): Promise<SweepState> =>
+  (isMock() ? fake.getSweep(who, extra) : chain.getSweep(who, extra));
 
 export const getLaunch = (): Promise<LaunchState> =>
   (isMock() ? fake.getLaunch() : chain.getLaunch());
@@ -182,17 +202,20 @@ export const freeMintStatus = (who: Address, proof: Hex[]): Promise<ErrorName | 
 export const checkTransferSafety = (id: TokenId, to: Address): Promise<TransferSafety> =>
   (isMock() ? fake.checkTransferSafety(id, to) : chain.checkTransferSafety(id, to));
 
-export const readClaimAll = (r: ClaimAllResult): ClaimOutcome[] =>
-  (isMock() ? fake.readClaimAll(r) : chain.readClaimAll(r));
-
-export const satchelBlocksStaking = (bird: Bird): TokenId[] =>
-  (isMock() ? fake.satchelBlocksStaking(bird) : chain.satchelBlocksStaking(bird));
 
 export const satchelAddressOf = (id: TokenId): Address =>
   (isMock() ? mockSatchelAddressOf(id) : chain.computeSatchel(id));
 
 export const traitsForId = (id: TokenId): TraitIndices =>
   (isMock() ? mockTraitsForId(id) : chain.traitsForId(id));
+
+/**
+ * Warm the trait cache for ids a picker is about to draw, so the synchronous
+ * `traitsForId` above never misses. The perch's picker asks a page at a time
+ * as it is scrolled. Nothing to do on the mock, whose traits are all known.
+ */
+export const warmTraits = (ids: TokenId[]): Promise<void> =>
+  (isMock() ? Promise.resolve() : chainBirds.traitsFor(ids).then(() => undefined));
 
 export const rewardTokenMeta = (a: Address): RewardToken =>
   (isMock() ? mockRewardTokenMeta(a) : chain.rewardTokenMeta(a));
@@ -204,6 +227,8 @@ export function ADDRESSES_FOR_DISPLAY(): Record<string, Address> {
   if (isMock()) return MOCK_ADDRESSES;
   const out: Record<string, Address> = {};
   for (const [name, address] of Object.entries(manifest().contracts)) if (address) out[name] = address;
+  const sweeper = sweeperAddress();
+  if (sweeper) out.Sweeper = sweeper;
   return out;
 }
 
@@ -225,14 +250,11 @@ export const approveAviansForMint = (amount: Amount, on?: OnPhase) =>
 export const approveAviansForPerch = (amount: Amount, on?: OnPhase) =>
   (isMock() ? fakeWrites.approveAviansForPerch(amount, on) : chainWrites.approveAviansForPerch(amount, on));
 
-export const approveAviansForRoost = (amount: Amount, on?: OnPhase) =>
-  (isMock() ? fakeWrites.approveAviansForRoost(amount, on) : chainWrites.approveAviansForRoost(amount, on));
+export const approveAviansForNest = (amount: Amount, on?: OnPhase) =>
+  (isMock() ? fakeWrites.approveAviansForNest(amount, on) : chainWrites.approveAviansForNest(amount, on));
 
 export const setPerchApproval = (enabled: boolean, on?: OnPhase) =>
   (isMock() ? fakeWrites.setPerchApproval(enabled, on) : chainWrites.setPerchApproval(enabled, on));
-
-export const setRoostApproval = (enabled: boolean, on?: OnPhase) =>
-  (isMock() ? fakeWrites.setRoostApproval(enabled, on) : chainWrites.setRoostApproval(enabled, on));
 
 export const signMintPermit = (count: number): Promise<PermitSignature> =>
   (isMock() ? fakeWrites.signMintPermit(count) : chainWrites.signMintPermit(count));
@@ -255,26 +277,74 @@ export const buyNext = (n: number, on?: OnPhase) =>
 export const buyNamed = (ids: TokenId[], on?: OnPhase) =>
   (isMock() ? fakeWrites.buyNamed(ids, on) : chainWrites.buyNamed(ids, on));
 
-export const stake = (entries: { id: TokenId; tier: Tier }[], o?: { route?: 'batch' | 'push' }, on?: OnPhase) =>
-  (isMock() ? fakeWrites.stake(entries, o, on) : chainWrites.stake(entries, o, on));
+// Brooding: nothing moves a bird. One `broodTo` for the batch, a choice per bird.
+export const brood = (entries: { id: TokenId; tier: Tier; toWallet: boolean }[], on?: OnPhase) =>
+  (isMock() ? fakeWrites.brood(entries, on) : chainWrites.brood(entries, on));
 
-export const unstake = (ids: TokenId[], on?: OnPhase) =>
-  (isMock() ? fakeWrites.unstake(ids, on) : chainWrites.unstake(ids, on));
+export const upgrade = (id: TokenId, newTier: Tier, on?: OnPhase) =>
+  (isMock() ? fakeWrites.upgrade(id, newTier, on) : chainWrites.upgrade(id, newTier, on));
+
+export const redirect = (id: TokenId, toWallet: boolean, on?: OnPhase) =>
+  (isMock() ? fakeWrites.redirect(id, toWallet, on) : chainWrites.redirect(id, toWallet, on));
+
+export const settle = (ids: TokenId[], on?: OnPhase) =>
+  (isMock() ? fakeWrites.settle(ids, on) : chainWrites.settle(ids, on));
 
 export const claim = (token: Address, on?: OnPhase) =>
   (isMock() ? fakeWrites.claim(token, on) : chainWrites.claim(token, on));
 
-export const claimAll = (on?: OnPhase): Promise<ClaimAllResult & { hash: Hex }> =>
-  (isMock() ? fakeWrites.claimAll(on) : chainWrites.claimAll(on));
-
 export const transferBird = (id: TokenId, to: Address, on?: OnPhase) =>
   (isMock() ? fakeWrites.transferBird(id, to, on) : chainWrites.transferBird(id, to, on));
+
+// ── the Roost and AVIANS staking (2026-09-18) ────────────────────────────
+
+export const getRoost = (): Promise<RoostState> =>
+  (isMock() ? fakeRoost.getRoost() : chainRoost.getRoost());
+
+/** The Roost screen's one read: both cards under one pin. */
+export const getRoostScreen = (): Promise<{ roost: RoostState; staking: StakingState }> =>
+  (isMock() ? fakeRoost.getRoostScreen(account()) : chainRoost.getRoostScreen(account()));
+
+/** Send a held leg on. Anyone, any time. */
+export const deliverHeld = (on?: OnPhase): Promise<DeliverResult & { hash: Hex }> =>
+  (isMock() ? fakeRoost.deliverHeld(on) : chainRoost.deliverHeld(on));
+
+export const getStaking = (): Promise<StakingState> =>
+  (isMock() ? fakeRoost.getStaking(account()) : chainRoost.getStaking(account()));
+
+export const distribute = (on?: OnPhase): Promise<DistributeResult & { hash: Hex }> =>
+  (isMock() ? fakeRoost.distribute(on) : chainRoost.distribute(on));
+
+export const approveAviansForStaking = (amount: Amount, on?: OnPhase) =>
+  (isMock() ? fakeRoost.approveAviansForStaking(amount, on) : chainRoost.approveAviansForStaking(amount, on));
+
+export const stake = (amount: Amount, on?: OnPhase) =>
+  (isMock() ? fakeRoost.stake(amount, on) : chainRoost.stake(amount, on));
+
+export const withdrawStake = (amount: Amount, on?: OnPhase) =>
+  (isMock() ? fakeRoost.withdrawStake(amount, on) : chainRoost.withdrawStake(amount, on));
+
+export const claimStakingReward = (on?: OnPhase): Promise<{ hash: Hex; paid: Amount }> =>
+  (isMock() ? fakeRoost.claimStakingReward(on) : chainRoost.claimStakingReward(on));
+
+export const exitStaking = (on?: OnPhase): Promise<{ hash: Hex; paid: Amount }> =>
+  (isMock() ? fakeRoost.exitStaking(on) : chainRoost.exitStaking(on));
 
 export const convertAndStream = (currency: Address | null, on?: OnPhase) =>
   (isMock() ? fakeWrites.convertAndStream(currency, on) : chainWrites.convertAndStream(currency, on));
 
 export const createSatchel = (id: TokenId, on?: OnPhase) =>
   (isMock() ? fakeWrites.createSatchel(id, on) : chainWrites.createSatchel(id, on));
+
+// The Sweeper: deploy for a batch, grant on each satchel, sweep the granted.
+export const prepareSatchels = (ids: TokenId[], on?: OnPhase) =>
+  (isMock() ? fakeWrites.prepareSatchels(ids, on) : chainWrites.prepareSatchels(ids, on));
+
+export const grantSweeper = (id: TokenId, enabled: boolean, on?: OnPhase) =>
+  (isMock() ? fakeWrites.grantSweeper(id, enabled, on) : chainWrites.grantSweeper(id, enabled, on));
+
+export const sweep = (ids: TokenId[], tokens: Address[], on?: OnPhase): Promise<SweepResult> =>
+  (isMock() ? fakeWrites.sweep(ids, tokens, on) : chainWrites.sweep(ids, tokens, on));
 
 export const routeFor = (count: number, approved: boolean, whitelisted: boolean) =>
   (isMock() ? fakeWrites.routeFor(count, approved, whitelisted) : chainWrites.routeFor(count, approved, whitelisted));
@@ -443,10 +513,15 @@ export const setFunder = async (funder: Address, allowed: boolean, on?: OnPhase)
     ? (await import('./admin')).setFunder(funder, allowed, on)
     : (await import('../chain/admin-writes')).setFunder(funder, allowed, on));
 
-export const rescueUnstaked = async (id: TokenId, to: Address, on?: OnPhase) =>
+export const rescueBird = async (id: TokenId, to: Address, on?: OnPhase) =>
   (isMock()
-    ? (await import('./admin')).rescueUnstaked(id, to, on)
-    : (await import('../chain/admin-writes')).rescueUnstaked(id, to, on));
+    ? (await import('./admin')).rescueBird(id, to, on)
+    : (await import('../chain/admin-writes')).rescueBird(id, to, on));
+
+export const claimRoostAdmin = async (to: Address, on?: OnPhase) =>
+  (isMock()
+    ? (await import('./admin')).claimRoostAdmin(to, on)
+    : (await import('../chain/admin-writes')).claimRoostAdmin(to, on));
 
 export const claimAdmin = async (currency: Address | null, to: Address, on?: OnPhase) =>
   (isMock()
@@ -550,4 +625,11 @@ export function onWrite(fn: () => void): () => void {
   const offChain = chainWrites.onWrite(fn);
   const offChange = chainWallet.onChainOrAccountChange(fn);
   return () => { offMock(); offChain(); offChange(); };
+}
+
+// ── the price ticker ──────────────────────────────────────────────────────
+
+/** Every listed stock token's price in ETH, at one block. Nothing here is a quote. */
+export function getPrices(): Promise<PriceBoard> {
+  return isMock() ? fakePrices.getPrices() : chainPrices.getPrices();
 }

@@ -12,7 +12,7 @@ The design canvas it was drawn from is in [`design/`](design/).
 ```bash
 npm install
 npm run prepare:all     # ../art -> src/art/pieces.json, ../logo and ../pfp -> public/
-npm run fonts           # the three typefaces into public/fonts/ (needs network, once)
+npm run fonts           # Geist and Geist Mono into public/fonts/ (needs network, once)
 npm run dev
 ```
 
@@ -132,10 +132,28 @@ node scripts/make-manifest.mjs --chain 4663 --id mainnet-4663 \
   --label "Robinhood Chain" --rpc https://rpc.mainnet.chain.robinhood.com
 ```
 
+The addresses come from `contracts/broadcast/Deploy.s.sol/<chain>/run-latest.json`,
+the pool's from `DeployLaunch.s.sol`'s and the Sweeper's from `DeploySweeper.s.sol`'s.
+The token alone may come from `DeployAvians.s.sol`'s instead: the runbook's step 0
+puts AVIANS on chain early, and `Deploy.s.sol` then reuses it without a `CREATE` of
+its own. The generator takes the token from whichever broadcast has it and refuses
+when both do and they differ (step 1 run without `AVIARY_AVIANS` — a second token
+nobody published); `AvianStock.AVIANS()` is then checked against it on the chain.
+
 Then open `?d=mainnet-4663`. Files live in `public/deployments/`, are fetched at
 runtime, and can be replaced without a rebuild. A manifest that is missing a
 field, malformed, or whose addresses disagree with each other on chain stops
 the app with a page that names the field or the mismatch.
+
+Without `?d=`, the site opens on a real deployment whenever one is configured
+(indexed, with `driver: "chain"`, and passing that validation): mainnet
+(chain 4663) if it is, else the newest chain deployment in the index, and the
+mock only when the index holds no chain deployment at all. A choice the browser
+remembers is honoured while it is still indexed, except a remembered mock while
+a chain deployment exists. `?d=mock` is the way to the mock once one does. The
+index's `default` is read only as a tie-break among chain deployments
+(`src/chain/manifest.ts`, `chooseDeployment`; `tests/chooser.test.ts` is the
+table).
 
 Two failure modes worth seeing once (write the file, open `?d=<id>`, delete it):
 
@@ -215,6 +233,78 @@ headers exist at all, `src/main.tsx` additionally refuses to render when
 it should not be frameable anywhere. That guard is a backstop for the header,
 not a replacement: set the header.
 
+### The Roost, and AVIANS staking
+
+Since 2026-09-18 every AVIANS fee — the whole of every Perch fee and every
+brooding tier cost — lands at the Roost and is split 40% to AVIANS stakers,
+30% to brooding birds (through the Nest; AVIANS is a listed reward token),
+20% burnt, 10% the admin's. `#/roost` (`screens/Roost.tsx`, reads and writes
+in `chain/roost.ts`) shows the Roost card — what is waiting, the two legs and
+whether each would move (`stakingReady()`/`nestReady()`, reason verbatim),
+one **Distribute** button enabled when the day is up and there is something
+to move, its receipt decoded into `Allocated/Delivered/Held/Burned` — and the
+staking card: my stake, claimable, share, the stream's daily rate and end,
+the undelivered remainder, and stake / withdraw / claim / exit. `stake` needs
+an AVIANS approval to the staking contract (approve-only: the contract takes
+no permit). The manifest carries `roost` and `aviansStaking`, required; the
+generator reads them from the deploy broadcast and cross-checks the wiring
+(`roost.NEST/STAKING/AVIANS`, `staking.ROOST/AVIANS`, `nest.costSink`), and
+warns if `perch.feeRecipient` is not the Roost. The admin panel's Roost card
+shows both addresses and claims the tenth. Nothing about the split is on the
+site as a constant: the four shares are read (`STAKING_BPS` …).
+
+### The frame, and the price ticker
+
+The nav is a 200px column on the left (`components/Sidebar.tsx`): wordmark,
+the pages one per line with the current one marked by a bar on the left edge,
+"Trade AVIANS" among them, the wallet at the bottom. Below 1280px the column
+is a drawer over the content — Escape, a link, or the scrim closes it — and a
+56px strip keeps the mark, the burger and the wallet. `--header-h` in `tokens.css`
+is 0 above the breakpoint and 56px below it; the sticky things on the pages
+read that.
+
+Above the page, one thin band (`components/Ticker.tsx`) scrolls the listed
+stock tokens' prices in ETH, the whole width of the page column, never
+sticky, paused on hover or focus, and a static wrapping row under
+`prefers-reduced-motion` (or the dev switcher's `ticker: reduced-motion`).
+Its caption is visually hidden and it is not a live region.
+
+Every figure is a chain read (`chain/prices.ts`): `TheNest.listedRewardTokens()`
+for which tokens, then for each the pool the owner routed — `Treasury.v3RouteOf(NATIVE, token)`,
+whose one hop names it — or, failing that, `V3_FACTORY.getPool(token, WETH, fee)`
+at 0.05% then 0.3%, the first with liquidity. The price is the pool's
+`slot0().sqrtPriceX96` turned into ETH per whole token with the pair's order
+(`token0 == WETH`) and both tokens' decimals, in BigInt. Once resolved, a refresh
+is one `pin()` and ONE `eth_call` (Multicall3 `aggregate3` at that block: the
+listing, then `slot0` and `liquidity` per pool), every 15 seconds while the
+tab is visible. A token whose pool is missing, empty or unanswered is left
+out of that refresh, never shown as zero; three failed refreshes in a row
+take the band down. There is no USD figure and no price API — the CSP reaches
+the RPC and nothing else — and the Treasury's `floorPrice` is not a market
+price and is not here. AVIANS itself is not on the band.
+
+### Shipping a build, and reading a receipt
+
+```bash
+npm run check:release        # npm run check, then scripts/check-release.mjs --chain 4663
+npm run receipt -- <txhash>  # one transaction, decoded with the site's own ABIs (--d <id> | --rpc <url>)
+```
+
+`check:release` is the gate before `wrangler deploy`: the deployment the site
+opens on, by the rule above, must be a chain deployment on the chain named, with
+a Sweeper and a served proofs file;
+`dist/` must carry the same index, manifest and proofs; `dist/_headers` must
+exist with a CSP whose `connect-src` reaches that deployment's RPC (the policy
+is generated from the manifests present at build time, so a manifest dropped
+in after the build fails here rather than as a blank site). `LAUNCH-CHECKLIST.md`
+is the launch-day walk, row by row, with what each receipt must carry.
+
+`make-manifest.mjs --proofs <file>` copies the allowlist toolkit's proofs.json
+under `public/deployments/proofs/` and records the served path — the manifest
+field is a URL the site fetches, never a filesystem path. A chain manifest
+written over a `"mock"` or missing default becomes the index's default on its
+own; `--default` forces it; a testnet never displaces a mainnet default.
+
 ### Running it against a local chain
 
 ```bash
@@ -226,3 +316,12 @@ npm run dev
 # ?d=local-fork&wrongchain=1  the wrong-network path
 # ?d=local-fork&unknownchain  the 4902 add-then-switch path
 ```
+
+A `local-*` id is **per-machine**: its addresses exist only on a fork you
+started yourself, so the file is gitignored (`public/deployments/local-*.json`)
+and `make-manifest` never adds it to `index.json`. The site loads it straight
+from `?d=local-fork` — the file of that name beside the index — and does not
+remember it as the last choice, so a fork you tear down cannot break the next
+boot. The index is only for deployments that ship, and `npm test` checks that
+every entry in it names a file that exists in the repository and is a manifest
+the site would boot on (a `local-*` entry fails that test).

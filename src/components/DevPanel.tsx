@@ -18,7 +18,7 @@ type Row = { key: keyof Scenario; label: string; options: string[] };
 const ROWS: Row[] = [
   { key: 'connection', label: 'connection', options: ['no-wallet', 'disconnected', 'connecting', 'wrong-network', 'unknown-network', 'connected'] },
   { key: 'data', label: 'data', options: ['loading', 'empty', 'error', 'populated'] },
-  { key: 'launch', label: 'launch', options: ['before', 'window', 'after'] },
+  { key: 'launch', label: 'launch', options: ['before', 'imminent', 'window', 'after'] },
   { key: 'paidMint', label: 'paid door', options: ['closed', 'open', 'sold-out', 'wallet-cap'] },
   { key: 'freeMint', label: 'free door', options: ['closed', 'open-allowlisted', 'open-not-allowlisted', 'already-claimed', 'exhausted', 'released'] },
   { key: 'balance', label: 'balance', options: ['none', 'short', 'enough', 'plenty'] },
@@ -26,10 +26,14 @@ const ROWS: Row[] = [
   { key: 'approvalRoute', label: 'approval route', options: ['approve', 'permit'] },
   { key: 'combo', label: 'combination', options: ['available', 'taken'] },
   { key: 'perch', label: 'perch', options: ['empty', 'some', 'full'] },
-  { key: 'roost', label: 'roost', options: ['nothing-staked', 'tier-1', 'tier-2', 'tier-3', 'mixed'] },
+  { key: 'brood', label: 'brood', options: ['none', 'brooding', 'brooding-to-wallet', 'expired-unsettled', 'settled-claimable', 'mixed'] },
   { key: 'rewards', label: 'rewards', options: ['none-listed', 'accruing', 'one-paused', 'all-paused'] },
+  { key: 'sweeper', label: 'sweeper', options: ['none-granted', 'some-granted', 'all-granted', 'all-swept'] },
   { key: 'satchel', label: 'satchel', options: ['empty', 'holds-tokens', 'holds-birds'] },
   { key: 'operatorWhitelist', label: 'operators', options: ['applied', 'missing'] },
+  { key: 'ticker', label: 'ticker', options: ['all', 'one-missing', 'reduced-motion'] },
+  { key: 'roost', label: 'roost', options: ['ready', 'nest-held', 'nest-held-brooding', 'too-soon'] },
+  { key: 'staking', label: 'staking', options: ['mid-week', 'nothing-staked', 'held-with-staker', 'held-nobody-staked'] },
 ];
 
 /** Every error a user-facing call can return — HANDOVER section 7. */

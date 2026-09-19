@@ -118,3 +118,54 @@ test('the Perch-only burn errors are decodable, though nothing here can raise th
     assert.equal(decodeRevert(selector as `0x${string}`).name, expected);
   }
 });
+
+test('the Sweeper’s refusals decode: its NotTheOwner shares the Nest’s selector, and the satchel’s NotAuthorized is its own', () => {
+  // HANDOVER section 7, the Sweeper rows. `NotTheOwner(uint256,address,address)`
+  // is the same signature on the Nest and the Sweeper, so one selector names
+  // both and the sentence is the same: that bird is not in this wallet.
+  const holder = '0x0000000000000000000000000000000000000001';
+  const caller = '0x0000000000000000000000000000000000000002';
+  const decoded = decodeRevert(`0x04987a21${(1204n).toString(16).padStart(64, '0')}${holder.slice(2).padStart(64, '0')}${caller.slice(2).padStart(64, '0')}` as `0x${string}`);
+  assert.equal(decoded.name, 'NotTheOwner');
+  assert.equal(decoded.args.id, 1204);
+  assert.equal(decodeRevert('0x615fd3c0').name, 'EmptyList');
+  // AccountV3's, from the satchel: a grant by someone who is not the holder.
+  assert.equal(decodeRevert('0xea8e4eb5').name, 'NotAuthorized');
+});
+
+test('a hook revert inside the V4Quoter\'s UnexpectedRevertBytes is unwrapped twice, down to BuyTooLarge and its cap', () => {
+  // The quoter simulates the swap; the PoolManager wraps the hook's revert;
+  // the quoter wraps that. BuyTooLarge(uint256 cumulative, uint256 cap).
+  const cap = 50_000_000n * 10n ** 18n;
+  const inner = `0xc888aaa1${(60_000_000n * 10n ** 18n).toString(16).padStart(64, '0')}${cap.toString(16).padStart(64, '0')}`;
+  const wrapped = encodeWrapped(inner);
+  const selector = Object.entries(ERROR_SIGNATURES).find(([, sig]) => sig.startsWith('UnexpectedRevertBytes('))?.[0];
+  assert.ok(selector, 'UnexpectedRevertBytes should be in the generated set, read from QuoterRevert.sol');
+  const body = encodeAbiParameters([{ type: 'bytes' }], [wrapped]);
+  const decoded = decodeRevert(`${selector}${body.slice(2)}` as `0x${string}`);
+  assert.equal(decoded.name, 'BuyTooLarge');
+  assert.equal(decoded.args.cap, cap);
+});
+
+test('the Roost’s and the staking’s refusals decode by name, with their arguments', () => {
+  // TooSoon(uint256 nextAt): the timestamp is in the error, and the card reads it.
+  const at = 1_800_000_000n;
+  const soon = decodeRevert(`0xe86f59ea${at.toString(16).padStart(64, '0')}` as `0x${string}`);
+  assert.equal(soon.name, 'TooSoon');
+  assert.equal(soon.args.at, Number(at));
+  assert.equal(decodeRevert('0x01663f24').name, 'NothingToDistribute');
+  assert.equal(decodeRevert('0x969bf728').name, 'NothingToClaim');
+  assert.equal(decodeRevert('0x1f2a2005').name, 'ZeroAmount');
+  // InsufficientStake(address, uint256 staked, uint256 wanted): "You have N staked."
+  const who = '0x0000000000000000000000000000000000000001';
+  const ins = decodeRevert(`0x936d426d${who.slice(2).padStart(64, '0')}${(5n * 10n ** 18n).toString(16).padStart(64, '0')}${(9n * 10n ** 18n).toString(16).padStart(64, '0')}` as `0x${string}`);
+  assert.equal(ins.name, 'InsufficientStake');
+  assert.equal(ins.args.staked, 5n * 10n ** 18n);
+  assert.equal(ins.args.wanted, 9n * 10n ** 18n);
+});
+
+test('deliverHeld’s two refusals decode by name', () => {
+  // HANDOVER section 7 (2026-09-19): nothing waits, or what waits still cannot move.
+  assert.equal(decodeRevert('0x7a17debd').name, 'NothingHeld');
+  assert.equal(decodeRevert('0x1e1b399d').name, 'NothingDeliverable');
+});

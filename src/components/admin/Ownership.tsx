@@ -63,9 +63,9 @@ export function Ownership({ admin }: { admin: AdminState }) {
           <Control
             key={o.contract}
             title={o.contract}
-            now={<><Addr value={o.owner} />{yours ? ' · you' : ''}</>}
+            now={<><Addr value={o.owner} />{yours ? ', you' : ''}</>}
             note={o.pendingOwner
-              ? <>Pending: <span className="mono">{o.pendingOwner}</span>{yoursPending ? ' — that is you.' : ''}</>
+              ? <>Pending: <span className="mono">{o.pendingOwner}</span>{yoursPending ? ': that is you.' : ''}</>
               : undefined}
           >
             <div className={s.form}>
@@ -117,7 +117,7 @@ export function Ownership({ admin }: { admin: AdminState }) {
       {/*
         The explanation sits ABOVE the button, the way every other control on
         this page explains itself, rather than beside it. In the row it was a
-        block of prose bottom-aligned against a 46px button — text and controls
+        block of prose bottom-aligned against a 46px button: text and controls
         do not share a baseline, and putting them on one line only looked like
         they should.
       */}
@@ -141,7 +141,7 @@ export function Ownership({ admin }: { admin: AdminState }) {
       <div style={{ marginTop: 16 }}>
         <Note tone="info">
           Connecting a wallet is not signing in, here least of all. Nothing on this page asks for a
-          seed phrase, a private key, or a signature to prove who you are — every action below is a
+          seed phrase, a private key, or a signature to prove who you are: every action below is a
           transaction to a named contract, and the contract decides whether to accept it.
         </Note>
       </div>

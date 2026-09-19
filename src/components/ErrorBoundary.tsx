@@ -28,12 +28,11 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="page">
         <div className="box box--bad" role="alert">
           <Note tone="bad">
-            <strong className="strong">Something on this screen broke.</strong>
+            <strong className="strong">This screen hit a bug.</strong>
           </Note>
           <p className="small" style={{ marginTop: 8 }}>
-            That is our fault, not yours, and nothing on chain was touched — your birds, your
-            AVIANS and anything brooding are exactly where they were. The rest of the site still
-            works.
+            Nothing on chain was touched: your birds, your AVIANS and anything brooding are where
+            they were. The rest of the site still works.
           </p>
           <div className="row" style={{ gap: 12, marginTop: 16 }}>
             <button type="button" className="btn btn--small" onClick={() => this.setState({ error: null })}>

@@ -84,13 +84,24 @@ export type Manifest = {
   /** Canonical Multicall3, if this chain has one. Null ⇒ JSON-RPC batching. */
   multicall3: Address | null;
   /**
-   * `AvianLens`, if one is deployed: a stateless view that answers "which ids
-   * does this address hold" and "who holds each id" in a handful of reads.
-   * Null ⇒ the `Transfer` log scan, which is the same answer found the slow
-   * way. When it is set, the scan does not run at all.
+   * The Sweeper (HANDOVER section 5, "Collecting from many birds at once"),
+   * or null when this deployment has none. Not in `contracts`: it is not part
+   * of the seven-contract deployment, any key may deploy it at any time after
+   * the collection, and the site works without it — on null the "collect from
+   * my birds" panel does not exist. The key must be present either way.
    */
-  lens: Address | null;
-  /** The deploy block. Where the `Transfer` log scan starts, when it runs. */
+  sweeper: Address | null;
+  /**
+   * THE ROOST AND AVIANS STAKING (2026-09-18). Two of the nine creations in
+   * the deploy — the Roost is what the Nest and the Perch send every AVIANS
+   * fee to, and the staking contract is its first leg — so both are REQUIRED
+   * and never null: a deployment without them is a deployment of the old
+   * contracts, and the site refuses it rather than showing a screen that
+   * reads nothing.
+   */
+  aviansStaking: Address;
+  roost: Address;
+  /** The deploy block. Where the site's event reads start. */
   startBlock: number;
   /** Where `proofs.json` lives for this deployment, or null for no allowlist file. */
   allowlistProofs: string | null;
@@ -323,11 +334,49 @@ export function validateManifest(raw: unknown, expectedId: string): {
     multicall3 = checkAddress(raw.multicall3, 'multicall3', problems);
   }
 
-  let lens: Address | null = null;
-  if (!('lens' in raw)) {
-    problems.push({ path: 'lens', says: 'required — use null if no AvianLens is deployed (the log scan will run)' });
-  } else if (raw.lens !== null) {
-    lens = checkAddress(raw.lens, 'lens', problems);
+  // `lens` existed for one day (2026-09-11), while "who holds what" was a
+  // separate contract. The two views are the collection's own now, and a
+  // manifest that still names a lens was generated against contracts that
+  // predate every 2026-09-11 change — the Nest's, the Perch's floor, the
+  // collection's hook. It is refused rather than tolerated, because the site
+  // would otherwise boot against a deployment it cannot drive.
+  if ('lens' in raw) {
+    problems.push({
+      path: 'lens',
+      says: 'this manifest predates 2026-09-11 (the lens folded into the collection) — regenerate it against the redeployed contracts',
+    });
+  }
+
+  // The Sweeper: required as a key, null as a statement. An address that is
+  // also one of the seven is the paste error it looks like.
+  let sweeper: Address | null = null;
+  if (!('sweeper' in raw)) {
+    problems.push({ path: 'sweeper', says: 'required — use null if this deployment has no Sweeper yet' });
+  } else if (raw.sweeper !== null) {
+    sweeper = checkAddress(raw.sweeper, 'sweeper', problems);
+    if (sweeper) {
+      const clash = Object.entries(contracts).find(([, a]) => a && a.toLowerCase() === sweeper!.toLowerCase());
+      if (clash) problems.push({ path: 'sweeper', says: `is the same address as contracts.${clash[0]}` });
+    }
+  }
+
+  // The Roost and the staking contract: required, addresses, and neither may
+  // be one of the others — the same paste-error check the seven get.
+  const roostSet: Record<string, Address | null> = { aviansStaking: null, roost: null };
+  for (const key of ['aviansStaking', 'roost'] as const) {
+    if (!(key in raw) || raw[key] === null) {
+      problems.push({ path: key, says: `required — this manifest predates 2026-09-18 (the Roost); regenerate it against the redeployed contracts` });
+      continue;
+    }
+    const a = checkAddress(raw[key], key, problems);
+    if (!a) continue;
+    const clash = Object.entries(contracts).find(([, x]) => x && x.toLowerCase() === a.toLowerCase());
+    if (clash) problems.push({ path: key, says: `is the same address as contracts.${clash[0]}` });
+    if (sweeper && sweeper.toLowerCase() === a.toLowerCase()) problems.push({ path: key, says: 'is the same address as sweeper' });
+    roostSet[key] = a;
+  }
+  if (roostSet.aviansStaking && roostSet.roost && roostSet.aviansStaking.toLowerCase() === roostSet.roost.toLowerCase()) {
+    problems.push({ path: 'roost', says: 'is the same address as aviansStaking' });
   }
 
   if (typeof raw.startBlock !== 'number' || !Number.isInteger(raw.startBlock) || raw.startBlock < 0) {
@@ -351,7 +400,9 @@ export function validateManifest(raw: unknown, expectedId: string): {
       contracts: contracts as ContractSet,
       thirdParty,
       multicall3,
-      lens,
+      sweeper,
+      aviansStaking: roostSet.aviansStaking!,
+      roost: roostSet.roost!,
       startBlock: raw.startBlock as number,
       allowlistProofs: (raw.allowlistProofs ?? null) as string | null,
       generated: isPlainObject(raw.generated) ? (raw.generated as Manifest['generated']) : undefined,
@@ -400,16 +451,106 @@ export async function loadIndex(): Promise<DeploymentIndex> {
 
 const STORAGE_KEY = 'avian-stock.deployment';
 
-/** `?d=<id>` wins, then the last choice, then the index's default. */
-export function chosenId(index: DeploymentIndex): string {
-  const known = (id: string | null) => (id && index.deployments.some((d) => d.id === id) ? id : null);
+/**
+ * A PER-MACHINE deployment: a fork somebody started themselves, whose
+ * addresses exist nowhere else. Such a manifest is never in the index — an
+ * entry for it would point every other clone at a file nobody else has — so
+ * it is loaded straight from `?d=local-fork`, from the file of that name
+ * beside the index, and it is never the remembered choice: a stale
+ * `local-*` in storage after the file is gone would break the next boot.
+ * The slug is strict so the id can only ever name a file in that folder.
+ */
+const LOCAL_ID = /^local-[a-z0-9-]+$/;
+export function isLocalId(id: string): boolean { return LOCAL_ID.test(id); }
+
+/** Mainnet. The one chain a configured deployment on it is preferred to any other. */
+export const MAINNET_CHAIN_ID = 4663;
+
+/**
+ * One indexed entry, once its file has been read: what its manifest said it
+ * was, or nulls when the file did not load or did not validate. A chain
+ * deployment is CONFIGURED when `driver` is "chain" here — the file is
+ * indexed, loads, and passes the same validation the boot applies.
+ */
+export type IndexedDeployment = { id: string; driver: 'chain' | 'mock' | null; chainId: number | null };
+
+/**
+ * The id to open (2026-09-19). The site opens on a real deployment whenever
+ * one is configured, and on the mock only when none is. In order:
+ *
+ *   1. `?d=<id>`: an indexed id, or a local-* file. Once a chain deployment
+ *      exists this is the only way to the mock: `?d=mock`.
+ *   2. The remembered choice, if still indexed, unless it is the mock while a
+ *      chain deployment is configured: a mock remembered from the design work
+ *      must not pin a visitor to it.
+ *   3. Mainnet (chain 4663), if configured.
+ *   4. The last configured chain deployment in the index. The generator
+ *      appends, so the last is the newest.
+ *   5. The mock, only when no chain deployment is configured.
+ *
+ * `index.default` is no longer what the site opens on. It is read as a
+ * tie-break among chain deployments (two on mainnet, say) and to pick among
+ * mock entries, never as a reason to open the mock over a chain deployment.
+ *
+ * Pure, so the cases are unit tests: the browser's `?d=` and localStorage
+ * are read by `chooseId` and passed in.
+ */
+export function chooseDeployment(
+  index: DeploymentIndex, known: IndexedDeployment[], fromUrl: string | null, stored: string | null,
+): string {
+  const indexed = (id: string | null): id is string => !!id && index.deployments.some((d) => d.id === id);
+  const configured = index.deployments
+    .map((d) => known.find((k) => k.id === d.id))
+    .filter((k): k is IndexedDeployment => !!k && k.driver === 'chain');
+  const isMock = (id: string) => known.find((k) => k.id === id)?.driver === 'mock' || id === 'mock';
+  const preferDefault = (among: IndexedDeployment[]) =>
+    among.find((k) => k.id === index.default) ?? among[among.length - 1];
+
+  if (fromUrl && isLocalId(fromUrl)) return fromUrl;
+  if (indexed(fromUrl)) return fromUrl;
+  if (indexed(stored) && !(configured.length > 0 && isMock(stored))) return stored;
+  const mainnet = configured.filter((k) => k.chainId === MAINNET_CHAIN_ID);
+  if (mainnet.length > 0) return preferDefault(mainnet).id;
+  if (configured.length > 0) return configured[configured.length - 1].id;
+  const mocks = index.deployments.filter((d) => isMock(d.id));
+  if (mocks.length > 0) return mocks.find((d) => d.id === index.default)?.id ?? mocks[0].id;
+  // Nothing loaded at all. The index's default is indexed (loadIndex checked),
+  // and loading it is what will say what is wrong with it.
+  return index.default;
+}
+
+/**
+ * `?d=<id>` wins — an index entry, or a local-* file — otherwise every indexed
+ * manifest is read to learn which chain deployments are configured, and
+ * `chooseDeployment` decides. The files are small and are fetched again by
+ * `loadManifest` for the one that wins; the double read is the price of
+ * keeping that function as it is.
+ */
+export async function chooseId(index: DeploymentIndex): Promise<string> {
   const fromUrl = new URLSearchParams(location.search).get('d');
   let stored: string | null = null;
   try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* private mode */ }
-  return known(fromUrl) ?? known(stored) ?? index.default;
+  if (fromUrl && (isLocalId(fromUrl) || index.deployments.some((d) => d.id === fromUrl))) return fromUrl;
+
+  const known = await Promise.all(index.deployments.map(async (d): Promise<IndexedDeployment> => {
+    try {
+      const raw = await fetchJson(new URL(d.file, new URL(INDEX_URL, location.href)).toString());
+      const { manifest: m, problems } = validateManifest(raw, d.id);
+      // A chain manifest that does not validate is not configured, and the
+      // site opens elsewhere; say so where a developer will look, because
+      // opening the mock in silence would hide a broken deploy.
+      if (!m) console.warn(`deployments/${d.id}.json is not usable, so it is not a deployment the site will open on:`, problems.map((p) => `${p.path}: ${p.says}`).join('; '));
+      return { id: d.id, driver: m?.driver ?? null, chainId: m?.network.chainId ?? null };
+    } catch (e) {
+      console.warn(`deployments/${d.id}.json could not be read:`, (e as Error)?.message ?? String(e));
+      return { id: d.id, driver: null, chainId: null };
+    }
+  }));
+  return chooseDeployment(index, known, fromUrl, stored);
 }
 
 export function rememberChoice(id: string) {
+  if (isLocalId(id)) return;                          // per-machine, and possibly gone tomorrow
   try { localStorage.setItem(STORAGE_KEY, id); } catch { /* private mode */ }
 }
 
@@ -427,11 +568,14 @@ export function switchDeployment(id: string): void {
 
 export async function loadManifest(index: DeploymentIndex, id: string): Promise<Manifest> {
   const entry = index.deployments.find((d) => d.id === id);
-  if (!entry) throw new ManifestError(INDEX_URL, [{ path: 'deployments', says: `has no deployment called ${JSON.stringify(id)}` }]);
-  const url = new URL(entry.file, new URL(INDEX_URL, location.href)).toString();
+  // A local-* id has no entry by design; its file sits beside the index. A
+  // missing one fails the same way a bad entry does: loudly, naming the file.
+  const file = entry?.file ?? (isLocalId(id) ? `./${id}.json` : null);
+  if (!file) throw new ManifestError(INDEX_URL, [{ path: 'deployments', says: `has no deployment called ${JSON.stringify(id)}` }]);
+  const url = new URL(file, new URL(INDEX_URL, location.href)).toString();
   const raw = await fetchJson(url);
   const { manifest, problems } = validateManifest(raw, id);
-  if (!manifest) throw new ManifestError(entry.file, problems);
+  if (!manifest) throw new ManifestError(file, problems);
   return manifest;
 }
 
@@ -480,6 +624,15 @@ export function contracts(): ContractSet { return manifest().contracts; }
  * state this site has been in and will be in again on a fresh chain.
  */
 export function thirdParty(): ThirdPartySet | null { return manifest().thirdParty; }
+
+/** The Sweeper, or null: no panel, no reads, no call to it anywhere. */
+export function sweeperAddress(): Address | null { return manifest().sweeper; }
+
+/** The Roost and the AVIANS staking contract. Never null: see the type. */
+export function roostContracts(): { roost: Address; staking: Address } {
+  const m = manifest();
+  return { roost: m.roost, staking: m.aviansStaking };
+}
 
 /** The pool half of a deployment, or null when it has not been launched. */
 export function poolContracts(): { hook: Address; vault: Address } | null {

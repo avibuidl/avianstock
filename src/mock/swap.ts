@@ -52,6 +52,7 @@ export function getSwapState(_who: Address | null): Promise<SwapState> {
     const step2 = overlay.permit2Router !== null || s.swap === 'ready';
 
     return {
+      chainNow: now,
       launchAt: launch.launchAt,
       isLaunched: launch.isLaunched,
       windowSeconds: launch.windowSeconds,

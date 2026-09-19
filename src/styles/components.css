@@ -46,10 +46,10 @@
      the underline from `a:hover` and grow a line under the label, which no
      other control on the site does. */
   text-decoration: none;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  padding: var(--s3) var(--s5);
+  letter-spacing: -0.005em;
+  padding: var(--s3) 22px;
   min-height: 48px;
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -62,16 +62,26 @@
   text-align: center;
   transition: background var(--motion) linear, border-color var(--motion) linear, color var(--motion) linear;
 }
-.btn:hover { text-decoration: none; }
-.btn:hover:not(:disabled) { background: var(--teal-pale); border-color: var(--teal-pale); }
+/*
+  THE LABEL KEEPS ITS COLOUR ON HOVER.
+
+  Several of these are anchors, and base.css turns every hovered anchor
+  teal-pale. On a filled button the hover background is teal-pale too, so the
+  label vanished into it. Every hover rule below names its text colour, and
+  the anchor form is written out so it outranks `a:hover`.
+*/
+.btn:hover, a.btn:hover { text-decoration: none; color: var(--ink); }
+/* A 1px push on press: the one piece of motion a control has. */
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:hover:not(:disabled) { background: var(--teal-pale); border-color: var(--teal-pale); color: var(--ink); }
 
 .btn--ghost { background: transparent; border-color: var(--line-strong); color: var(--text-strong); }
-.btn--ghost:hover:not(:disabled) { background: transparent; border-color: var(--accent); color: var(--accent); }
+.btn--ghost:hover:not(:disabled), a.btn--ghost:hover { background: transparent; border-color: var(--accent); color: var(--accent); }
 
 .btn--danger { background: transparent; border-color: var(--crimson); color: var(--refusal); }
-.btn--danger:hover:not(:disabled) { background: var(--wash-bad); border-color: var(--crimson-light); }
+.btn--danger:hover:not(:disabled), a.btn--danger:hover { background: var(--wash-bad); border-color: var(--crimson-light); color: var(--refusal); }
 
-.btn--small { padding: var(--s2) var(--s3); min-height: 40px; font-size: 13px; }
+.btn--small { padding: var(--s2) var(--s3); min-height: 40px; font-size: 13.5px; }
 .btn--wide { width: 100%; }
 
 /* A disabled control still has to be readable — it is telling you something. */
@@ -102,7 +112,7 @@
   border: 0;
   color: var(--text-strong);
   padding: var(--s3) var(--s4);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   outline: none;
 }
@@ -129,9 +139,10 @@
 /* Colour never carries meaning alone: every one of these has an icon and a
    word beside it. */
 .tag {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px 7px;
   border: 1px solid var(--line-strong);
@@ -151,6 +162,7 @@
   gap: var(--s2);
   align-items: flex-start;
   font-size: 14px;
+  text-wrap: pretty;
   line-height: 1.5;
 }
 .note > svg { flex: none; margin-top: 3px; }
@@ -172,16 +184,16 @@
   width: 20px; height: 20px;
   border: 1px solid var(--accent);
   color: var(--accent);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1;
   flex: none;
 }
 .numbox--big { width: 38px; height: 38px; font-size: 17px; }
 
-.kv { display: grid; grid-template-columns: minmax(96px, auto) 1fr; gap: var(--s1) var(--s3); font-size: 13px; margin: 0; }
+.kv { display: grid; grid-template-columns: minmax(96px, auto) 1fr; gap: var(--s1) var(--s3); font-size: 13.5px; margin: 0; }
 .kv dt { color: var(--text-dim); }
-.kv dd { margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-strong); overflow-wrap: anywhere; }
+.kv dd { margin: 0; font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); overflow-wrap: anywhere; }
 
 .bar { height: 10px; background: var(--panel-inset); border: 1px solid var(--line); }
 .bar > i { display: block; height: 100%; background: var(--teal-mid); }
@@ -205,8 +217,8 @@
 
 .table { width: 100%; border-collapse: collapse; }
 .table td, .table th { border-bottom: 1px solid var(--line); padding: var(--s3) var(--s2); font-size: 15px; vertical-align: baseline; text-align: left; }
-.table th { font-weight: 600; color: var(--text-dim); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
-.table td:last-child { text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-strong); font-size: 14px; }
+.table th { font-family: var(--font-mono); font-weight: 500; color: var(--text-dim); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; }
+.table td:last-child { text-align: right; font-family: var(--font-mono); color: var(--text-strong); font-size: 14px; }
 
 /*
   A column of figures. `td:last-child` above right-aligns the LAST cell only,
@@ -219,7 +231,7 @@
 .table th.right { text-align: right; }
 .table td.num {
   text-align: right;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   color: var(--text-strong);
   font-size: 14px;
   font-variant-numeric: tabular-nums;
@@ -242,3 +254,16 @@
 }
 
 .scroll-x { overflow-x: auto; }
+
+/* ── an amount that has not been read yet ─────────────────────────────── */
+
+/* Not a dash (a dash is also how a table writes "nothing") and not a zero (a
+   zero is a claim about somebody's wallet): a short block in the skeleton's
+   colour, the width of three figures, with the words for a screen reader. */
+.unread {
+  display: inline-block;
+  width: 3ch; height: 0.7em;
+  vertical-align: -0.05em;
+  background: var(--slate);
+  animation: skel 1.2s ease-in-out infinite;
+}

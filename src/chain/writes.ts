@@ -25,19 +25,18 @@ import {
   stringToHex, toHex, type Abi, type Hash,
 } from 'viem';
 import { client } from './client';
-import { chainIdHex, contracts, manifest } from './manifest';
+import { chainIdHex, contracts, manifest, sweeperAddress } from './manifest';
 import { requireChain, providerRequest, type Guarded } from './provider';
 import { asContractError } from './errors';
 import {
-  aviansAbi, theNestAbi, thePerchAbi, avianStockAbi, treasuryAbi,
+  accountV3Abi, aviansAbi, theNestAbi, thePerchAbi, avianStockAbi, sweeperAbi, treasuryAbi,
 } from './abis.generated';
 import { ContractError } from '../mock/errors';
 import { checkTransferSafety } from './safety';
 import { invalidateOwnership } from './birds';
-import { simulateClaimAll } from './reads';
 import { isValid } from '../art/traits';
 import type {
-  Address, Amount, ClaimAllResult, Hex, OnPhase, PermitSignature, SellResult, Tier, TokenId,
+  Address, Amount, Hex, NestEvents, OnPhase, PermitSignature, SellResult, SweepResult, Tier, TokenId,
   TraitIndices,
 } from '../mock/types';
 
@@ -194,7 +193,8 @@ export async function approveAviansForMint(amount: Amount, on?: OnPhase) {
   return { hash };
 }
 
-export async function approveAviansForRoost(amount: Amount, on?: OnPhase) {
+/** The only approval brooding needs: AVIANS to the Nest, for the tier costs. */
+export async function approveAviansForNest(amount: Amount, on?: OnPhase) {
   const { hash } = await run({
     where: 'approving AVIANS for the nest',
     to: contracts().Avians, abi: aviansAbi, functionName: 'approve',
@@ -216,20 +216,26 @@ export async function approveAviansForPerch(amount: Amount, on?: OnPhase) {
   return { hash };
 }
 
+/**
+ * THE ONE BIRD APPROVAL, and it targets the perch only.
+ *
+ * There is no bird approval to the Nest (2026-09-11): a bird broods in its
+ * holder's wallet and the Nest never calls `transferFrom` on anything. A
+ * request to make the Nest an operator has no reason to exist, so it is
+ * refused here — in the write, where no call site can route around it — as
+ * the site bug it would be.
+ */
 export async function setPerchApproval(enabled: boolean, on?: OnPhase) {
-  const { hash } = await run({
-    where: 'approving the perch to move your birds',
-    to: contracts().AvianStock, abi: avianStockAbi, functionName: 'setApprovalForAll',
-    args: [contracts().ThePerch, enabled],
-  }, { on });
-  return { hash };
+  return setOperator(contracts().ThePerch, enabled, 'approving the perch to move your birds', on);
 }
 
-export async function setRoostApproval(enabled: boolean, on?: OnPhase) {
+async function setOperator(operator: Address, enabled: boolean, where: string, on?: OnPhase) {
+  if (operator.toLowerCase() === contracts().TheNest.toLowerCase()) {
+    throw new Error('setApprovalForAll with the Nest as operator: the Nest never moves a bird and must never be asked to. This is a site bug.');
+  }
   const { hash } = await run({
-    where: 'approving the nest to move your birds',
-    to: contracts().AvianStock, abi: avianStockAbi, functionName: 'setApprovalForAll',
-    args: [contracts().TheNest, enabled],
+    where, to: contracts().AvianStock, abi: avianStockAbi, functionName: 'setApprovalForAll',
+    args: [operator, enabled],
   }, { on });
   return { hash };
 }
@@ -508,6 +514,17 @@ export async function mintFree(traits: TraitIndices, proof: Hex[], on?: OnPhase)
  * receipt is the only truthful answer to "was mine the hundredth", and half an
  * answer is worse than none.
  */
+/** `BurnWithheld` from the perch: a hundredth at or below the floor, kept. */
+function withheldFrom(logs: unknown[], perch: Address): TokenId[] {
+  const events = parseEventLogs({
+    abi: thePerchAbi as unknown as Abi, eventName: 'BurnWithheld', logs: logs as never,
+  }) as unknown as { address: Address; args: { id: bigint } }[];
+  return events
+    .filter((l) => l.address.toLowerCase() === perch.toLowerCase())
+    .map((l) => Number(l.args.id)) /* count */
+    .sort((a, b) => a - b);
+}
+
 function burntFrom(logs: unknown[], perch: Address, collection: Address): TokenId[] {
   const fromPerch = parseEventLogs({
     abi: thePerchAbi as unknown as Abi, eventName: 'BirdBurned', logs: logs as never,
@@ -548,12 +565,25 @@ export async function sellToPerch(
       where: 'selling to the perch', to: c.ThePerch, abi: thePerchAbi,
       functionName: 'sell', args: [ids.map((i) => BigInt(i))],
     }, { on });
-    return { paid: simulated, burnt: burntFrom(logs, c.ThePerch, c.AvianStock), hash };
+    const ev = nestEvents(logs);
+    return {
+      paid: simulated,
+      burnt: burntFrom(logs, c.ThePerch, c.AvianStock),
+      withheld: withheldFrom(logs, c.ThePerch),
+      // A sale to the perch changes hands, so the collection's hook expires
+      // any brood on the way in. The receipt says so here, not on a Nest page.
+      expired: ev.expired.map((e) => e.id),
+      hookFailed: ev.hookFailed,
+      hash,
+    };
   }
 
   let last: Hex = '0x' as Hex;
   let paid = 0n;
   const burnt: TokenId[] = [];
+  const withheld: TokenId[] = [];
+  const expired: TokenId[] = [];
+  const hookFailed: TokenId[] = [];
   for (const id of ids) {
     const guarded = await requireChain();
     const quote = await client().readContract({
@@ -570,8 +600,12 @@ export async function sellToPerch(
     // The push route is one transaction per bird, so each has its own receipt
     // and its own chance of being the hundredth.
     burnt.push(...burntFrom(logs, c.ThePerch, c.AvianStock));
+    withheld.push(...withheldFrom(logs, c.ThePerch));
+    const ev = nestEvents(logs);
+    expired.push(...ev.expired.map((e) => e.id));
+    hookFailed.push(...ev.hookFailed);
   }
-  return { paid, burnt, hash: last };
+  return { paid, burnt, withheld, expired, hookFailed, hash: last };
 }
 
 export async function buyNext(count: number, on?: OnPhase) {
@@ -653,172 +687,213 @@ async function who(): Promise<Address> {
 }
 
 // ── the nest — HANDOVER section 5 ────────────────────────────────────
+//
+// BROODING IS NOT CUSTODIAL (2026-09-11). Nothing here moves a bird. A holder
+// burns AVIANS to brood birds they hold, rewards are delivered wherever
+// `deliveryOf` says on every settle, and the brood ends the moment the bird
+// changes hands. The one approval any of it needs is AVIANS to the Nest, for
+// the tier costs. There is no bird approval to the Nest and never a reason to
+// ask for one: `setApprovalForAll` with the Nest as operator is refused below
+// as a site bug.
+//
+// Every pre-flight reads the chain at send time — `ownerOf`, `isBrooding`,
+// `broodOf`, the allowance — never a cached list. "Expired" is the
+// contract's `isBrooding`, which also covers the documented fallback (a bird no
+// longer with its activator that the hook somehow missed); the stamp is not
+// consulted for any decision.
 
-export async function stake(
-  entries: { id: TokenId; tier: Tier }[],
-  o: { route?: 'batch' | 'push' } = {},
+export function nestEvents(logs: unknown[]): NestEvents {
+  const nest = (name: string) => parseEventLogs({
+    abi: theNestAbi as unknown as Abi, logs: logs as never, eventName: name as never,
+  }) as unknown as { args: Record<string, unknown> }[];
+  const stock = (name: string) => parseEventLogs({
+    abi: avianStockAbi as unknown as Abi, logs: logs as never, eventName: name as never,
+  }) as unknown as { args: Record<string, unknown> }[];
+  const n = (x: unknown) => Number(x as bigint);
+  const b = (x: unknown) => (x as bigint) ?? 0n;
+  return {
+    brooded: nest('Brooded').map((e) => ({
+      id: n(e.args.id), tier: n(e.args.tier) as Tier, paid: b(e.args.aviansPaid), toWallet: !!e.args.toWallet,
+    })),
+    upgraded: nest('Upgraded').map((e) => ({
+      id: n(e.args.id), fromTier: n(e.args.fromTier) as Tier, toTier: n(e.args.toTier) as Tier, paid: b(e.args.aviansPaid),
+    })),
+    redirected: nest('Redirected').map((e) => ({ id: n(e.args.id), toWallet: !!e.args.toWallet })),
+    expired: nest('Expired').map((e) => ({ id: n(e.args.id), activator: e.args.activator as Address, at: n(e.args.at) })),
+    settled: nest('Settled').map((e) => ({
+      id: n(e.args.id), token: e.args.token as Address, to: e.args.to as Address, amount: b(e.args.amount),
+    })),
+    expirySettled: nest('ExpirySettled').map((e) => ({
+      id: n(e.args.id), activator: e.args.activator as Address, token: e.args.token as Address,
+      toActivator: b(e.args.toActivator), returned: b(e.args.returned),
+    })),
+    returned: nest('RewardReturned').map((e) => ({ token: e.args.token as Address, amount: b(e.args.amount), folded: !!e.args.folded })),
+    held: nest('RewardHeld').map((e) => ({
+      id: n(e.args.id), beneficiary: e.args.beneficiary as Address, token: e.args.token as Address, amount: b(e.args.amount),
+    })),
+    paid: nest('RewardPaid').map((e) => ({ user: e.args.user as Address, token: e.args.token as Address, amount: b(e.args.amount) })),
+    hookFailed: stock('NestHookFailed').map((e) => n(e.args.tokenId)),
+  };
+}
+
+/** The sum of the tier costs, read from the Nest rather than assumed. */
+async function tierCosts(tiers: Tier[]): Promise<bigint[]> {
+  const c = contracts();
+  return client().multicall({
+    contracts: tiers.map((tier) => ({
+      address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'tierCost', args: [tier],
+    })) as never,
+    allowFailure: false,
+  }) as Promise<bigint[]>;
+}
+
+/** AVIANS balance and allowance to the Nest must both cover `burn`. */
+async function assertCanBurn(account: Address, burn: bigint) {
+  const c = contracts();
+  const [balance, allowance] = await Promise.all([
+    client().readContract({ address: c.Avians, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [account] }) as Promise<bigint>,
+    currentAllowance(account, c.TheNest),
+  ]);
+  if (balance < burn || allowance < burn) throw new ContractError('TransferFromFailed', { price: burn });
+}
+
+/**
+ * Brood the birds you hold, one tier each, choosing per bird where the
+ * rewards land: the bird's own wallet (`toWallet` false — the default, and it
+ * goes with the bird if sold) or yours. One `broodTo` for the batch.
+ *
+ * Pre-flight, all from the chain at send time: the caller holds every id; a
+ * bird that is brooding is refused unless the contract says its brood has
+ * expired (then `brood` settles it on the way, which is allowed); balance and
+ * allowance cover the sum of the tier costs. The burn total is what the button
+ * showed, read here again rather than trusted.
+ */
+export async function brood(
+  entries: { id: TokenId; tier: Tier; toWallet: boolean }[],
   on?: OnPhase,
 ) {
   if (entries.length === 0) throw new ContractError('EmptyList');
   for (const e of entries) if (![1, 2, 3].includes(e.tier)) throw new ContractError('InvalidTier');
   const c = contracts();
-  const route = o.route ?? (entries.length === 1 ? 'push' : 'batch');
 
-  /**
-   * The push route skips the BIRD approval, not the AVIANS one: the tier cost
-   * is pulled from the holder and burned either way. Without it the transaction
-   * fails with `TransferFromFailed` and no obvious reason.
-   */
   const preflight = async (g: Guarded) => {
-    const costs = await client().multicall({
-      contracts: entries.map((e) => ({
-        address: c.TheNest, abi: theNestAbi as unknown as Abi,
-        functionName: 'tierCost', args: [e.tier],
-      })) as never,
-      allowFailure: false,
-    }) as bigint[];
-    const burn = costs.reduce((a, b) => a + b, 0n);
-    const [balance, allowance] = await Promise.all([
-      client().readContract({ address: c.Avians, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [g.account] }) as Promise<bigint>,
-      currentAllowance(g.account, c.TheNest),
+    const ids = entries.map((e) => BigInt(e.id));
+    const [owners, live, costs] = await Promise.all([
+      client().multicall({
+        contracts: ids.map((id) => ({ address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'ownerOf', args: [id] })) as never,
+        allowFailure: true,
+      }) as Promise<{ status: string; result?: Address }[]>,
+      client().multicall({
+        contracts: ids.map((id) => ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'isBrooding', args: [id] })) as never,
+        allowFailure: false,
+      }) as Promise<boolean[]>,
+      tierCosts(entries.map((e) => e.tier)),
     ]);
-    if (balance < burn || allowance < burn) throw new ContractError('TransferFromFailed', { price: burn });
+    entries.forEach((e, i) => {
+      const owner = owners[i].status === 'success' ? owners[i].result : undefined;
+      if (!owner || owner.toLowerCase() !== g.account.toLowerCase()) {
+        throw new ContractError('NotTheOwner', { tokenId: e.id });
+      }
+      // Live ⇒ AlreadyBrooding. Expired-unsettled ⇒ allowed: brood settles it.
+      if (live[i]) throw new ContractError('AlreadyBrooding', { tokenId: e.id });
+    });
+    await assertCanBurn(g.account, costs.reduce((a, b) => a + b, 0n));
   };
 
-  if (route === 'batch') {
-    const { simulated, hash } = await run<bigint>({
-      where: 'sending birds to the nest', to: c.TheNest, abi: theNestAbi,
-      functionName: 'stake',
-      args: [entries.map((e) => BigInt(e.id)), entries.map((e) => e.tier)],
-    }, { on, preflight });
-    return { burned: simulated, hash };
-  }
-
-  let last: Hex = '0x' as Hex;
-  let burned = 0n;
-  for (const e of entries) {
-    const guarded = await requireChain();
-    await preflight(guarded);
-    // The push route's data must be exactly `abi.encode(uint8 tier)` — 32
-    // bytes. Anything else is `BadStakeData`.
-    const data = encodeAbiParameters([{ type: 'uint8' }], [e.tier]);
-    const plan = {
-      where: 'sending a bird to the nest', to: c.AvianStock, abi: avianStockAbi,
-      functionName: 'safeTransferFrom',
-      args: [guarded.account, c.TheNest, BigInt(e.id), data],
-    };
-    await simulate(plan, guarded.account);
-    // Read before the send, like the perch's quote. `tierCost` is a constant
-    // and will not revert, but a read after a landed transaction can still
-    // fail on the transport — and a throw here would report a bird that IS
-    // staked as one that never went through.
-    const cost = await client().readContract({
-      address: c.TheNest, abi: theNestAbi as unknown as Abi,
-      functionName: 'tierCost', args: [e.tier],
-    }) as bigint;
-    const { hash } = await sendAndWait(plan, await requireChain(), on);
-    last = hash;
-    burned += cost;
-  }
-  return { burned, hash: last };
-}
-
-export async function unstake(ids: TokenId[], on?: OnPhase) {
-  if (ids.length === 0) throw new ContractError('EmptyList');
-  const { hash } = await run({
-    where: 'bringing birds home', to: contracts().TheNest, abi: theNestAbi,
-    functionName: 'unstake', args: [ids.map((i) => BigInt(i))],
-  }, { on });
-  return { hash };
+  const { simulated, hash, logs } = await run<bigint>({
+    where: 'brooding', to: c.TheNest, abi: theNestAbi,
+    functionName: 'broodTo',
+    args: [entries.map((e) => BigInt(e.id)), entries.map((e) => e.tier), entries.map((e) => e.toWallet)],
+  }, { on, preflight });
+  return { paid: simulated, events: nestEvents(logs), hash };
 }
 
 /**
- * One named token. It REVERTS with `TransferFailed` (0x90b8ec18) when that
- * token will not move, which is the right answer for someone who asked for that
- * token specifically. `explain()` turns it into a sentence about the TOKEN —
- * "your rewards are safe and can be claimed later" — never about the person.
+ * Raise a brooding bird's tier, burning the difference. The activator only,
+ * on a brood the contract still calls live; a higher tier only. What has
+ * accrued is settled at the old weight in the same call.
+ */
+export async function upgrade(id: TokenId, newTier: Tier, on?: OnPhase) {
+  if (![1, 2, 3].includes(newTier)) throw new ContractError('InvalidTier');
+  const c = contracts();
+
+  const preflight = async (g: Guarded) => {
+    const [live, broodRow] = await Promise.all([
+      client().readContract({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'isBrooding', args: [BigInt(id)] }) as Promise<boolean>,
+      client().readContract({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'broodOf', args: [BigInt(id)] }) as Promise<readonly [Address, number, bigint, bigint]>,
+    ]);
+    const [activator, tier] = broodRow;
+    if (Number(tier) === 0) throw new ContractError('NotBrooding', { tokenId: id });
+    if (!live) throw new ContractError('BroodExpired', { tokenId: id });
+    if (activator.toLowerCase() !== g.account.toLowerCase()) throw new ContractError('NotTheOwner', { tokenId: id });
+    if (newTier <= Number(tier)) throw new ContractError('TierNotHigher', { tokenId: id });
+    const [from, to] = await tierCosts([Number(tier) as Tier, newTier]);
+    await assertCanBurn(g.account, to - from);
+  };
+
+  const { simulated, hash, logs } = await run<bigint>({
+    where: 'upgrading the brood', to: c.TheNest, abi: theNestAbi,
+    functionName: 'upgrade', args: [BigInt(id), newTier],
+  }, { on, preflight });
+  return { paid: simulated, events: nestEvents(logs), hash };
+}
+
+/**
+ * Change where a live brood delivers. What has accrued so far is settled to
+ * the OLD destination in the same call — the receipt shows that settle.
+ * Refused by the contract with `SameDelivery` if it already goes there; the
+ * screen never offers that option, and this pre-flight says so if it did.
+ */
+export async function redirect(id: TokenId, toWallet: boolean, on?: OnPhase) {
+  const c = contracts();
+  const preflight = async (g: Guarded) => {
+    const [live, broodRow, delivery] = await Promise.all([
+      client().readContract({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'isBrooding', args: [BigInt(id)] }) as Promise<boolean>,
+      client().readContract({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'broodOf', args: [BigInt(id)] }) as Promise<readonly [Address, number, bigint, bigint]>,
+      client().readContract({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName: 'deliveryOf', args: [BigInt(id)] }) as Promise<readonly [Address, boolean]>,
+    ]);
+    if (Number(broodRow[1]) === 0) throw new ContractError('NotBrooding', { tokenId: id });
+    if (!live) throw new ContractError('BroodExpired', { tokenId: id });
+    if (broodRow[0].toLowerCase() !== g.account.toLowerCase()) throw new ContractError('NotTheOwner', { tokenId: id });
+    if (delivery[1] === toWallet) throw new ContractError('SameDelivery', { tokenId: id });
+  };
+  const { hash, logs } = await run({
+    where: 'redirecting the rewards', to: c.TheNest, abi: theNestAbi,
+    functionName: 'redirect', args: [BigInt(id), toWallet],
+  }, { on, preflight });
+  return { events: nestEvents(logs), hash };
+}
+
+/**
+ * Deliver what these birds have accrued. ANYONE MAY CALL IT and nobody gains
+ * by it: a brooding bird's accrual can only reach its destination, an expired
+ * brood's can only reach its activator and the stream. The receipt is the
+ * answer — a `RewardHeld` inside a confirmed settle is a partial outcome and
+ * is reported as one, never as success.
+ */
+export async function settle(ids: TokenId[], on?: OnPhase) {
+  if (ids.length === 0) throw new ContractError('EmptyList');
+  const { hash, logs } = await run({
+    where: 'settling', to: contracts().TheNest, abi: theNestAbi,
+    functionName: 'settle', args: [ids.map((i) => BigInt(i))],
+  }, { on });
+  return { events: nestEvents(logs), hash };
+}
+
+/**
+ * Pay the caller what `claimable` holds for them in `token` — an expired
+ * brood's pre-sale share that their wallet refused when it was settled.
+ * Reverts `TransferFailed` if the token still will not move; the amount stays
+ * safe either way.
  */
 export async function claim(token: Address, on?: OnPhase) {
   const { simulated, hash, logs } = await run<bigint>({
     where: 'claiming that reward', to: contracts().TheNest, abi: theNestAbi,
     functionName: 'claim', args: [token],
   }, { on });
-
-  const paid = parseEventLogs({
-    abi: theNestAbi as unknown as Abi, logs: logs as never, eventName: 'RewardPaid' as never,
-  }) as unknown as { args: { token?: Address; amount?: bigint } }[];
-  const mine = paid.find((e) => e.args.token?.toLowerCase() === token.toLowerCase());
-  return { amount: mine?.args.amount ?? simulated, hash };
-}
-
-/**
- * EVERY reward token in one transaction — and THE ONE CALL WHERE A RECEIPT IS
- * NOT AN ANSWER.
- *
- * `claimAll` does not revert for a token that refuses to move. That token is
- * SKIPPED: its accrual is put back exactly where it was, every other token is
- * still paid, and the transaction SUCCEEDS with part of its intention
- * unfulfilled. So the outcome is read off the return value and the logs, never
- * off "it confirmed".
- *
- *   RewardPaid(user, token, amount)     -> paid
- *   RewardSkipped(user, token, amount)  -> skipped, and the amount is what is
- *                                          still waiting
- *   neither                             -> nothing was owed. NOT a failure.
- *
- * The token list comes from the simulation, because the array `claimAll`
- * iterates is `_snapshotTokens` — every token EVER listed — and that array has
- * no public getter. It can therefore be longer than `listedRewardTokens()`,
- * and nothing may index one against the other.
- */
-export async function claimAll(on?: OnPhase): Promise<ClaimAllResult & { hash: Hex }> {
-  const guarded = await requireChain();
-
-  let expected: ClaimAllResult;
-  try {
-    expected = await simulateClaimAll(guarded.account);
-  } catch (e) {
-    throw asContractError(e, { where: 'claiming your rewards' });
-  }
-
-  const plan = {
-    where: 'claiming your rewards', to: contracts().TheNest, abi: theNestAbi,
-    functionName: 'claimAll', args: [] as const,
-  };
-  const { hash, logs } = await sendAndWait(plan, await requireChain(), on);
-
-  const paidEvents = parseEventLogs({
-    abi: theNestAbi as unknown as Abi, logs: logs as never, eventName: 'RewardPaid' as never,
-  }) as unknown as { args: { user?: Address; token?: Address; amount?: bigint } }[];
-  const skippedEvents = parseEventLogs({
-    abi: theNestAbi as unknown as Abi, logs: logs as never, eventName: 'RewardSkipped' as never,
-  }) as unknown as { args: { user?: Address; token?: Address; amount?: bigint } }[];
-
-  const mine = (e: { args: { user?: Address } }) =>
-    e.args.user?.toLowerCase() === guarded.account.toLowerCase();
-
-  const paidBy = new Map<string, bigint>();
-  for (const e of paidEvents.filter(mine)) {
-    if (e.args.token) paidBy.set(e.args.token.toLowerCase(), e.args.amount ?? 0n);
-  }
-  const skippedBy = new Map<string, bigint>();
-  for (const e of skippedEvents.filter(mine)) {
-    if (e.args.token) skippedBy.set(e.args.token.toLowerCase(), e.args.amount ?? 0n);
-  }
-
-  // The logs are the authority: they are what actually happened. Anything the
-  // logs mention that the simulation did not is added rather than dropped.
-  const tokens = [...expected.tokens];
-  for (const key of [...paidBy.keys(), ...skippedBy.keys()]) {
-    if (!tokens.some((t) => t.toLowerCase() === key)) tokens.push(key as Address);
-  }
-
-  return {
-    tokens,
-    paid: tokens.map((t) => paidBy.get(t.toLowerCase()) ?? 0n),
-    skipped: tokens.map((t) => skippedBy.has(t.toLowerCase())),
-    hash,
-  };
+  const ev = nestEvents(logs);
+  const mine = ev.paid.find((e) => e.token.toLowerCase() === token.toLowerCase());
+  return { amount: mine?.amount ?? simulated, events: ev, hash };
 }
 
 // ── birds — HANDOVER section 8 ────────────────────────────────────────────
@@ -840,8 +915,142 @@ export async function transferBird(id: TokenId, to: Address, on?: OnPhase) {
     functionName: 'safeTransferFrom', args: [guarded.account, to, BigInt(id)],
   };
   await simulate(plan, guarded.account);
-  const { hash } = await sendAndWait(plan, await requireChain(), on);
-  return { hash };
+  const { hash, logs } = await sendAndWait(plan, await requireChain(), on);
+  // A transfer of a brooding bird ends its brood inside this very receipt: the
+  // collection calls the Nest, the Nest emits `Expired`. Decoded here so the
+  // transfer's own receipt can say it, and `NestHookFailed` with it — which
+  // must never appear, and is a warning if it does.
+  const ev = nestEvents(logs);
+  return { hash, expired: ev.expired.map((e) => e.id), hookFailed: ev.hookFailed };
+}
+
+// ── the sweeper — HANDOVER section 5, "Collecting from many birds at once" ──
+//
+// A satchel obeys only the bird's owner, so nothing can move its stock out
+// for them. The Sweeper is the one exception a holder can choose to make,
+// and the choice is made ON THE SATCHEL: `setPermissions` is AccountV3's,
+// sent to the bird's own wallet address, and it is the only call this file
+// ever sends to a satchel. The grant is keyed by the bird's current owner,
+// so it dies with a sale; the buyer grants afresh or not at all.
+//
+// `prepare` is anyone's and grants nothing. `sweep` is the holder's: a bird
+// the caller does not hold reverts the WHOLE call (`NotTheOwner` — a wrong
+// list), while a satchel that is not deployed or not granted, and a token
+// that will not move, are `SweepSkipped` rows on a receipt that succeeded.
+// The pre-flights read `ownerOf` from the chain at send time, never a list
+// drawn earlier.
+
+function sweeperOrThrow(): Address {
+  const s = sweeperAddress();
+  if (!s) throw new Error('a sweeper write on a deployment that has no Sweeper — the panel should not exist here. This is a site bug.');
+  return s;
+}
+
+/** The three Sweeper events, off a receipt. */
+export function sweepEvents(logs: unknown[]) {
+  const ev = (name: string) => parseEventLogs({
+    abi: sweeperAbi as unknown as Abi, logs: logs as never, eventName: name as never,
+  }) as unknown as { args: Record<string, unknown> }[];
+  const n = (x: unknown) => Number(x as bigint);
+  return {
+    swept: ev('Swept').map((e) => ({
+      id: n(e.args.id), token: e.args.token as Address, to: e.args.to as Address, amount: (e.args.amount as bigint) ?? 0n,
+    })),
+    skipped: ev('SweepSkipped').map((e) => ({
+      id: n(e.args.id),
+      token: (e.args.token as Address).toLowerCase() === ZERO_ADDRESS ? null : e.args.token as Address,
+      reason: (e.args.reason as Hex) ?? '0x',
+    })),
+    deployed: ev('SatchelDeployed').map((e) => n(e.args.id)),
+  };
+}
+
+/**
+ * Deploy the satchels of `ids` that are not deployed yet — one transaction
+ * for the batch. Anyone may send it and it grants nothing; the holder sends
+ * it here because a grant needs a deployed satchel to be made on.
+ */
+export async function prepareSatchels(ids: TokenId[], on?: OnPhase) {
+  if (ids.length === 0) throw new ContractError('EmptyList');
+  const { hash, logs } = await run({
+    where: 'deploying the satchels', to: sweeperOrThrow(), abi: sweeperAbi,
+    functionName: 'prepare', args: [ids.map((i) => BigInt(i))],
+  }, { on });
+  return { deployed: sweepEvents(logs).deployed, hash };
+}
+
+/**
+ * The holder's grant — or its revocation — made on the satchel itself:
+ * `setPermissions([sweeper], [enabled])`, sent to the bird's own wallet.
+ * One transaction per bird, the wallet signing each.
+ *
+ * The satchel address is the chain's (`status`), not derived, and it must
+ * be deployed — a call to an address with no code would "succeed" and grant
+ * nothing, so it is refused here as the site bug it would be. The holder
+ * check reads `ownerOf` at send time: a stranger's grant is AccountV3's
+ * `NotAuthorized`, and the pre-flight names it before the wallet opens.
+ */
+export async function grantSweeper(id: TokenId, enabled: boolean, on?: OnPhase) {
+  const sweeper = sweeperOrThrow();
+  const c = contracts();
+  const [satchel, deployed] = await client().readContract({
+    address: sweeper, abi: sweeperAbi as unknown as Abi, functionName: 'status', args: [BigInt(id)],
+  }) as readonly [Address, boolean, boolean];
+  if (!deployed) {
+    throw new Error(`granting on Avian #${id}: its satchel is not deployed, so there is nothing to send the grant to. Deploy it first. This is a site bug.`);
+  }
+  const preflight = async (g: Guarded) => {
+    const owner = await client().readContract({
+      address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'ownerOf', args: [BigInt(id)],
+    }).catch(() => null) as Address | null;
+    if (!owner || owner.toLowerCase() !== g.account.toLowerCase()) {
+      throw new ContractError('NotAuthorized', { tokenId: id, id });
+    }
+  };
+  const { hash } = await run({
+    where: enabled ? 'granting the sweeper on that satchel' : 'revoking the sweeper on that satchel',
+    to: satchel, abi: accountV3Abi, functionName: 'setPermissions', args: [[sweeper], [enabled]],
+  }, { on, preflight });
+  return { hash, satchel, granted: enabled };
+}
+
+/**
+ * Move every one of `tokens` out of the satchels of `ids` into the caller's
+ * wallet. The receipt is the answer: `Swept` per bird per token, summed per
+ * token into `totals`; `SweepSkipped` for a bird that was not ready or a
+ * token that would not move. Nothing skipped is lost — it is still in the
+ * bird.
+ */
+export async function sweep(ids: TokenId[], tokens: Address[], on?: OnPhase): Promise<SweepResult> {
+  if (ids.length === 0 || tokens.length === 0) throw new ContractError('EmptyList');
+  const c = contracts();
+  const preflight = async (g: Guarded) => {
+    // Every id's owner from the chain, now. A bird sold since the list was
+    // drawn would revert the whole call; caught here it is the same error,
+    // with the bird named, before anything is signed.
+    const owners = await client().multicall({
+      contracts: ids.map((id) => ({
+        address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'ownerOf', args: [BigInt(id)],
+      })) as never,
+      allowFailure: true,
+    }) as unknown as ({ status: 'success'; result: Address } | { status: 'failure' })[];
+    const wrong = ids.findIndex((_, i) => owners[i].status !== 'success'
+      || (owners[i] as { result: Address }).result.toLowerCase() !== g.account.toLowerCase());
+    if (wrong >= 0) throw new ContractError('NotTheOwner', { tokenId: ids[wrong], id: ids[wrong] });
+  };
+  const { hash, logs } = await run({
+    where: 'collecting from your birds', to: sweeperOrThrow(), abi: sweeperAbi,
+    functionName: 'sweep', args: [ids.map((i) => BigInt(i)), tokens],
+  }, { on, preflight });
+  const ev = sweepEvents(logs);
+  const totals = new Map<string, { token: Address; amount: Amount }>();
+  for (const s of ev.swept) {
+    const k = s.token.toLowerCase();
+    const t = totals.get(k) ?? { token: s.token, amount: 0n };
+    t.amount += s.amount;
+    totals.set(k, t);
+  }
+  return { swept: ev.swept, skipped: ev.skipped, totals: [...totals.values()], hash };
 }
 
 // ── the treasury ──────────────────────────────────────────────────────────

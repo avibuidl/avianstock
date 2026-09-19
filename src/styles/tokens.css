@@ -76,9 +76,26 @@
   --s5: 24px; --s6: 32px; --s7: 40px; --s8: 64px;
 
   --measure: 1200px;
-  --header-h: 72px;
+  /* The nav is a column on the left, 25 steps of the grid wide: the wordmark
+     row, the widest page label ("Trade AVIANS" with its icon, about 146px)
+     and the wallet chip on two lines all fit without wrapping, and the page
+     beside it gets the 24px the old 224px column was not using. Below the
+     breakpoint it is a drawer and a 56px strip holds the mark, the burger and
+     the wallet; `--header-h` is what the sticky things on the pages clear. */
+  --sidebar-w: 200px;
+  --header-h: 0px;
+
+  /* Two faces, named once. Geist for words, Geist Mono for figures, addresses,
+     the nav labels and the tags. See public/fonts/LICENSES.md. */
+  --font-sans: 'Geist', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Nothing is rounded, nothing bounces. */
   --radius: 0;
   --motion: 120ms;
+}
+
+/* The drawer breakpoint — the same 1280px the burger had. */
+@media (max-width: 1280px) {
+  :root { --header-h: 56px; }
 }

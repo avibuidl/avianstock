@@ -17,7 +17,9 @@
     "abis": "node scripts/build-abis.mjs",
     "manifest": "node scripts/make-manifest.mjs",
     "test": "node scripts/run-tests.mjs",
-    "check": "npm run build && npm run test && npm run check:art && node scripts/check-hygiene.mjs"
+    "check": "npm run build && npm run test && npm run check:art && node scripts/check-hygiene.mjs",
+    "check:release": "npm run check && node scripts/check-release.mjs --chain 4663",
+    "receipt": "node scripts/receipt.mjs"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

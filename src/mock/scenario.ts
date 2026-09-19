@@ -15,7 +15,13 @@ export type Scenario = {
   connection: 'no-wallet' | 'disconnected' | 'connecting' | 'wrong-network' | 'unknown-network' | 'connected';
   data: 'loading' | 'error' | 'empty' | 'populated';
 
-  launch: 'before' | 'window' | 'after';
+  /**
+   * 'before' is a launch three hours off, and stays three hours off: the
+   * fixture is relative to the read. 'imminent' (2026-09-19) is a launch
+   * twenty seconds after this scene was chosen, anchored, for watching the
+   * trade modal's countdown reach zero and its button open on the clock.
+   */
+  launch: 'before' | 'imminent' | 'window' | 'after';
   /** 0..300 — where we are inside First Light. */
   windowElapsed: number;
 
@@ -34,9 +40,22 @@ export type Scenario = {
    * `deposits` in the fixture, so "one away" really does make the sell card
    * name a bird and ask for a confirmation.
    */
-  burnClock: 'far' | 'near' | 'one-away';
-  roost: 'nothing-staked' | 'tier-1' | 'tier-2' | 'tier-3' | 'mixed';
+  burnClock: 'far' | 'near' | 'one-away' | 'below-floor';
+  /**
+   * What your birds carry. 'expired-unsettled' is a bird you BOUGHT whose
+   * previous holder's brood ended with the sale and nobody has settled;
+   * 'settled-claimable' is a held-back share of yours waiting for `claim`.
+   */
+  brood: 'none' | 'brooding' | 'brooding-to-wallet' | 'expired-unsettled' | 'settled-claimable' | 'mixed';
   rewards: 'none-listed' | 'accruing' | 'one-paused' | 'all-paused';
+  /**
+   * The Sweeper, on your satchels. 'some-granted' is two of them, with stock
+   * inside; 'all-swept' is every bird granted and every satchel emptied —
+   * the panel with nothing left to collect. A token that will be SKIPPED
+   * comes from `rewards` ('one-paused'), not from here: a paused token
+   * refuses the sweep the same way it refuses a settle.
+   */
+  sweeper: 'none-granted' | 'some-granted' | 'all-granted' | 'all-swept';
 
   /**
    * The Treasury card. Each value is one of the contract's guards failing, or
@@ -87,6 +106,28 @@ export type Scenario = {
   satchel: 'empty' | 'holds-tokens' | 'holds-birds';
   operatorWhitelist: 'applied' | 'missing';
 
+  /**
+   * The price ticker. Which tokens it shows comes from `rewards`
+   * ('none-listed' empties it, and the band is not drawn at all); this is the
+   * rest: one token whose pool is missing, and the no-motion rendering forced
+   * without touching the OS setting.
+   */
+  ticker: 'all' | 'one-missing' | 'reduced-motion';
+
+  /**
+   * The Roost (2026-09-18). 'ready': AVIANS waiting to be split and both legs
+   * deliverable; 'nest-held': the Nest's leg held ("nothing is brooding");
+   * 'too-soon': turned five hours ago, so the next turn is nineteen away.
+   */
+  roost: 'ready' | 'nest-held' | 'nest-held-brooding' | 'too-soon';
+  /** AVIANS staking: a stake with a live stream three and a half days in, or nothing staked. */
+  /**
+   * 'held-with-staker' (2026-09-19): the stakers' leg of an earlier turn is
+   * held at the Roost and the wallet has since staked, so the DELIVER button
+   * is live; 'held-nobody-staked': the same leg held with nobody staked yet.
+   */
+  staking: 'mid-week' | 'nothing-staked' | 'held-with-staker' | 'held-nobody-staked';
+
   /** Force the next write to fail with this. Cleared after one throw. */
   nextError: ErrorName | null;
 };
@@ -104,13 +145,17 @@ export const DEFAULT_SCENARIO: Scenario = {
   combo: 'available',
   perch: 'some',
   burnClock: 'far',
-  roost: 'mixed',
+  brood: 'mixed',
   rewards: 'one-paused',
+  sweeper: 'some-granted',
   treasury: 'flowing',
   admin: 'owner',
   swap: 'needs-approval',
   satchel: 'holds-birds',
   operatorWhitelist: 'applied',
+  ticker: 'all',
+  roost: 'ready',
+  staking: 'mid-week',
   nextError: null,
 };
 
@@ -145,18 +190,25 @@ export const PRESETS: Preset[] = [
   { group: 'The perch', name: 'The burn is three away', patch: { burnClock: 'near' } },
   { group: 'The perch', name: 'The next bird burns', patch: { burnClock: 'one-away' } },
 
-  { group: 'The nest', name: 'Nothing roosting', patch: { roost: 'nothing-staked', rewards: 'accruing' } },
-  { group: 'The nest', name: 'Roosting at tier 1', patch: { roost: 'tier-1', rewards: 'accruing' } },
-  { group: 'The nest', name: 'Roosting at tier 2', patch: { roost: 'tier-2', rewards: 'accruing' } },
-  { group: 'The nest', name: 'Roosting at tier 3', patch: { roost: 'tier-3', rewards: 'accruing' } },
-  { group: 'The nest', name: 'Nothing streams yet', patch: { roost: 'mixed', rewards: 'none-listed' } },
-  { group: 'The nest', name: 'One token paused', patch: { roost: 'mixed', rewards: 'one-paused' } },
-  { group: 'The nest', name: 'Every token paused', patch: { roost: 'mixed', rewards: 'all-paused' } },
+  { group: 'The nest', name: 'Nothing brooding', patch: { brood: 'none', rewards: 'accruing' } },
+  { group: 'The nest', name: 'Brooding, to the birds', patch: { brood: 'brooding', rewards: 'accruing' } },
+  { group: 'The nest', name: 'Brooding, one to your wallet', patch: { brood: 'brooding-to-wallet', rewards: 'accruing' } },
+  { group: 'The nest', name: 'A bought bird, brood expired, unsettled', patch: { brood: 'expired-unsettled', rewards: 'accruing' } },
+  { group: 'The nest', name: 'A held-back share to claim', patch: { brood: 'settled-claimable', rewards: 'accruing' } },
+  { group: 'The nest', name: 'Nothing streams yet', patch: { brood: 'mixed', rewards: 'none-listed' } },
+  { group: 'The nest', name: 'One token paused', patch: { brood: 'mixed', rewards: 'one-paused' } },
+  { group: 'The nest', name: 'Every token paused', patch: { brood: 'mixed', rewards: 'all-paused' } },
+  { group: 'The perch', name: 'Below the burn floor', patch: { burnClock: 'below-floor' } },
+
+  { group: 'Collecting', name: 'Nothing granted yet', patch: { sweeper: 'none-granted', rewards: 'accruing', satchel: 'holds-tokens' } },
+  { group: 'Collecting', name: 'Some granted, with stock to collect', patch: { sweeper: 'some-granted', rewards: 'accruing' } },
+  { group: 'Collecting', name: 'A token that will be skipped', patch: { sweeper: 'some-granted', rewards: 'one-paused' } },
+  { group: 'Collecting', name: 'Everything swept already', patch: { sweeper: 'all-swept', rewards: 'accruing' } },
 
   { group: 'The Treasury', name: 'Flowing', patch: { treasury: 'flowing' } },
   { group: 'The Treasury', name: 'Conversion disabled', patch: { treasury: 'disabled' } },
   { group: 'The Treasury', name: 'Cooling down', patch: { treasury: 'cooling-down' } },
-  { group: 'The Treasury', name: 'Nothing staked', patch: { treasury: 'nothing-staked' } },
+  { group: 'The Treasury', name: 'Nothing brooding', patch: { treasury: 'nothing-staked' } },
   { group: 'The Treasury', name: 'No reward tokens', patch: { treasury: 'no-rewards' } },
   { group: 'The Treasury', name: 'No targets set', patch: { treasury: 'no-targets' } },
   { group: 'The Treasury', name: 'Nothing convertible', patch: { treasury: 'nothing-convertible' } },
@@ -176,6 +228,7 @@ export const PRESETS: Preset[] = [
   { group: 'The owner', name: 'The lock has expired', patch: { admin: 'lock-expired' } },
 
   { group: 'Trading', name: 'Before trading opens', patch: { launch: 'before', swap: 'needs-approval' } },
+  { group: 'Trading', name: 'Opens in twenty seconds: the button opens on the clock', patch: { launch: 'imminent', swap: 'ready' } },
   { group: 'Trading', name: 'Second 3 of the window', patch: { launch: 'window', windowElapsed: 3, swap: 'ready' } },
   { group: 'Trading', name: 'Second 280 of the window', patch: { launch: 'window', windowElapsed: 280, swap: 'ready' } },
   { group: 'Trading', name: 'After the window', patch: { launch: 'after', swap: 'ready' } },
@@ -183,6 +236,21 @@ export const PRESETS: Preset[] = [
   { group: 'Trading', name: 'A sell needs Permit2', patch: { launch: 'after', swap: 'needs-permit2' } },
   { group: 'Trading', name: 'The quote fails', patch: { launch: 'after', swap: 'quote-fails' } },
   { group: 'Trading', name: 'No pool on this deployment', patch: { swap: 'no-pool' } },
+
+  { group: 'The ticker', name: 'Every listed token priced', patch: { ticker: 'all', rewards: 'accruing' } },
+  { group: 'The ticker', name: 'One token with no pool', patch: { ticker: 'one-missing', rewards: 'accruing' } },
+  { group: 'The ticker', name: 'No reward tokens listed — no band', patch: { ticker: 'all', rewards: 'none-listed' } },
+  { group: 'The ticker', name: 'Reduced motion', patch: { ticker: 'reduced-motion', rewards: 'accruing' } },
+
+  { group: 'The Roost', name: 'Ready to turn, both legs deliverable', patch: { roost: 'ready', staking: 'mid-week' } },
+  { group: 'The Roost', name: 'The Nest leg held — nothing is brooding', patch: { roost: 'nest-held', brood: 'none' } },
+  { group: 'The Roost', name: 'Too soon to turn', patch: { roost: 'too-soon' } },
+  { group: 'The Roost', name: 'Staked, mid-week stream', patch: { staking: 'mid-week' } },
+  { group: 'The Roost', name: 'Nothing staked', patch: { staking: 'nothing-staked' } },
+  { group: 'The Roost', name: 'A held stakers’ leg, and a staker present: DELIVER is live', patch: { staking: 'held-with-staker', roost: 'ready' } },
+  { group: 'The Roost', name: 'A held stakers’ leg, nobody staked yet', patch: { staking: 'held-nobody-staked', roost: 'ready' } },
+  { group: 'The Roost', name: 'A held brooding leg, with birds brooding: DELIVER on the nest', patch: { roost: 'nest-held-brooding', brood: 'mixed', rewards: 'accruing' } },
+  { group: 'The Roost', name: 'A brooding bird’s unsettled AVIANS ticking', patch: { brood: 'brooding', rewards: 'accruing' } },
 
   { group: 'Satchels', name: 'Empty satchel', patch: { satchel: 'empty' } },
   { group: 'Satchels', name: 'Holds tokens', patch: { satchel: 'holds-tokens' } },
@@ -194,7 +262,7 @@ export const PRESETS: Preset[] = [
   { group: 'Wallet', name: 'Unknown network (4902)', patch: { connection: 'unknown-network' } },
 
   { group: 'Data', name: 'Loading', patch: { data: 'loading' } },
-  { group: 'Data', name: 'Nothing here yet', patch: { data: 'empty', perch: 'empty', roost: 'nothing-staked' } },
+  { group: 'Data', name: 'Nothing here yet', patch: { data: 'empty', perch: 'empty', brood: 'none' } },
   { group: 'Data', name: 'Reads failing', patch: { data: 'error' } },
   { group: 'Data', name: 'Everything working', patch: { data: 'populated' } },
 ];

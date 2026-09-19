@@ -13,6 +13,7 @@ export type Route =
   | { name: 'bird'; id: number }
   | { name: 'perch' }
   | { name: 'nest' }
+  | { name: 'roost' }
   | { name: 'birds' }
   | { name: 'first-light' }
   | { name: 'docs' }
@@ -29,11 +30,11 @@ export function parse(hash: string): Route {
     case 'bird': return { name: 'bird', id: Number(arg) || 1 };
     case 'perch': return { name: 'perch' };
     case 'nest': return { name: 'nest' };
-    // The page has been called the roost and the incubator on the way to being
-    // the nest. Old links keep working rather than dropping someone on the
-    // landing page.
-    case 'incubator':
-    case 'roost': return { name: 'nest' };
+    // The Nest was once called the incubator; old links keep working rather
+    // than dropping someone on the landing page. (It was also briefly "the
+    // roost" — that name now belongs to the Roost, the fee splitter, below.)
+    case 'incubator': return { name: 'nest' };
+    case 'roost': return { name: 'roost' };
     case 'birds': return { name: 'birds' };
     case 'first-light': return { name: 'first-light' };
     case 'docs': return { name: 'docs' };

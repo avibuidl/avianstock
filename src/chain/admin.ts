@@ -14,7 +14,7 @@
 
 import type { Abi } from 'viem';
 import { client, pin, readMany, tryReadMany, type At } from './client';
-import { contracts, manifest } from './manifest';
+import { contracts, manifest, roostContracts } from './manifest';
 import { avianStockAbi, aviansAbi, positionManagerAbi, stateViewAbi } from './abis.generated';
 import {
   theNestAdminAbi,
@@ -23,9 +23,10 @@ import {
   thePerchAdminAbi,
   transferValidatorAdminAbi,
   treasuryAdminAbi,
+  theRoostAdminAbi,
 } from './abis.admin.generated';
 import { encodeAbiParameters, encodeFunctionData, isAddress, keccak256 } from 'viem';
-import { guard, proofFor, selectorToName, simulateClaimAll, tokenMeta } from './reads';
+import { guard, proofFor, selectorToName, tokenMeta } from './reads';
 import type {
   AdminContract, AdminPairRow, AdminRewardToken, AdminRoute, AdminState, AdminTargetRow,
   Address, AllowlistCheck, Amount, ForeignToken, Hex, RewardToken, TreasuryRow, V3Hop, V4Hop,
@@ -124,7 +125,7 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
     const erc20 = currencies.filter((x) => x !== ZERO_ADDRESS);
     const meta = await tokenMeta([...new Set([...erc20, ...listed])], a);
 
-    const [collectionReads, ammReads, nestReads, treasuryReads, balances, snapshotCount] =
+    const [collectionReads, ammReads, nestReads, treasuryReads, balances] =
       await Promise.all([
         readMany<unknown>([
           fac('mintOpen'), fac('freeMintOpen'), fac('price'), fac('MIN_PRICE'),
@@ -135,10 +136,14 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
           // salePrice 10,000 makes the answer the numerator itself, in bps.
           fac('royaltyInfo', [0n, 10_000n]),
         ], a),
-        readMany<unknown>([amm('feeRecipient')], a),
+        readMany<unknown>([amm('feeRecipient'), nest('costSink'),
+          { address: roostContracts().roost, abi: theRoostAdminAbi as unknown as Abi, functionName: 'adminClaimable', args: [] },
+          { address: roostContracts().roost, abi: theRoostAdminAbi as unknown as Abi, functionName: 'adminClaimed', args: [] },
+          { address: roostContracts().roost, abi: theRoostAdminAbi as unknown as Abi, functionName: 'admin', args: [] },
+        ], a),
         readMany<unknown>([
           nest('MAX_REWARD_TOKENS'), nest('MIN_DURATION'), nest('MAX_DURATION'),
-          nest('totalWeight'),
+          nest('totalWeight'), nest('rewardTokenCount'), nest('totalBrooding'),
         ], a),
         readMany<unknown>([
           tre('conversionConfig'), tre('targets'), tre('priceKeeper'), tre('maxKeeperDropBps'),
@@ -146,11 +151,6 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
           tre('MIN_PRICE_AGE'), tre('MAX_PRICE_AGE'), tre('MAX_TARGETS'), tre('MAX_HOPS'),
         ], a),
         balancesOf(currencies, c.Treasury, a),
-        // `_snapshotTokens` has no getter. `claimAll` RETURNS it, so a
-        // simulation is the only honest way to count what the cap counts —
-        // and it needs an account to simulate as. No account, no number: null,
-        // never a zero, because "we could not ask" is not "there are none".
-        who ? snapshotLength(who) : Promise.resolve(null),
       ]);
 
     const perCurrency = await readMany<bigint>(
@@ -274,13 +274,26 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
         ethHeld: collectionEth,
       },
       perch: { feeRecipient: ammReads[0] as Address },
+      roost: {
+        roost: roostContracts().roost,
+        costSink: ammReads[1] as Address,
+        adminClaimable: ammReads[2] as Amount,
+        adminClaimed: ammReads[3] as Amount,
+        admin: ammReads[4] as Address,
+      },
       nest: {
         rewards,
-        snapshotCount,
+        // What the 8-token cap counts is `_snapshotTokens` — every token EVER
+        // listed, retired ones included — and since `claimAll` went (2026-09-11)
+        // nothing returns it. The listed count is what can be read; the
+        // contract names the ever-listed count itself if a listing is refused
+        // (`TooManyRewardTokens(listed, max)`).
+        listedCount: num(nestReads[4]),
         maxRewardTokens: num(nestReads[0]),
         minDuration: num(nestReads[1]),
         maxDuration: num(nestReads[2]),
         totalWeight: nestReads[3] as bigint,
+        totalBrooding: num(nestReads[5]),
       },
       treasury: {
         rows,
@@ -485,22 +498,6 @@ async function balancesOf(currencies: Address[], holder: Address, a: At): Promis
   ]);
   const byToken = new Map(erc20.map((t, i) => [t.toLowerCase(), values[i]]));
   return currencies.map((x) => (x === ZERO_ADDRESS ? native : byToken.get(x.toLowerCase())!));
-}
-
-/**
- * How many tokens the 8-token cap actually counts.
- *
- * A simulation, because `_snapshotTokens` is private and `claimAll` returning
- * it is the only way to see it. A failure here is reported as "we could not
- * ask" — null — and the panel says so rather than drawing a zero.
- */
-async function snapshotLength(who: Address): Promise<number | null> {
-  try {
-    const { tokens } = await simulateClaimAll(who);
-    return tokens.length;
-  } catch {
-    return null;
-  }
 }
 
 // ── the sweeps, and a token nobody vetted ─────────────────────────────────

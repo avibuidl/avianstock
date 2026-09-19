@@ -21,13 +21,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { Box, Note, Tag } from './Primitives';
-import { useTx } from './Tx';
+import { useTx, type FixHandlers } from './Tx';
 import {
   avians, formatAvians, formatBps, formatCountdown, formatEth, parseAvians,
 } from '../lib/format';
+import { poolPhase } from '../lib/pool-phase';
 import {
   CAP_MARGIN_BPS, approveAviansForPermit2, approvePermit2ForRouter, overCap,
-  quoteSwap, swap, useNow, useSwapState,
+  quoteSwap, swap, useNow, useSwapState, ContractError, explain,
   type Amount, type OnPhase, type SwapQuote, type SwapState,
 } from '../mock';
 import s from './TradeModal.module.css';
@@ -39,7 +40,15 @@ const DEFAULT_SLIPPAGE_BPS = 50;
 type Direction = 'buy' | 'sell';
 
 export function TradeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const state = useSwapState();
+  const tx = useTx();
+  // Read once at page load, as it always was, so the modal opens on figures
+  // it already has, with nothing to wait for; polled only while it is open,
+  // and not during a transaction. Opening it asks for a fresh read, and the
+  // last one stays on screen until that lands. `readAt` is the wall clock at
+  // the read, which with `chainNow` is the skew the modal's clock runs on.
+  const state = useSwapState({ paused: !open || tx.busy });
+  const { reload } = state;
+  useEffect(() => { if (open) reload(); }, [open, reload]);
   const [direction, setDirection] = useState<Direction>('buy');
   const [typed, setTyped] = useState('');
   const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_SLIPPAGE_BPS);
@@ -74,20 +83,12 @@ export function TradeModal({ open, onClose }: { open: boolean; onClose: () => vo
           </button>
         </div>
 
-        {state.loading && !state.data ? (
-          <p className="small dim" style={{ marginTop: 16 }}>Reading the pool…</p>
-        ) : state.error || !state.data ? (
-          <div style={{ marginTop: 16 }}>
-            <Box tone="bad">
-              <Note tone="bad"><strong className="strong">The pool could not be read.</strong></Note>
-              <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 10 }} onClick={state.reload}>
-                Try again
-              </button>
-            </Box>
-          </div>
-        ) : (
+        {/* The first read has not landed: nothing, rather than a notice. */}
+        {state.data ? (
           <Body
             state={state.data}
+            readAt={state.readAt ?? Math.floor(Date.now() / 1000)}
+            reload={reload}
             direction={direction}
             setDirection={(d) => { setDirection(d); setTyped(''); }}
             typed={typed}
@@ -95,7 +96,16 @@ export function TradeModal({ open, onClose }: { open: boolean; onClose: () => vo
             slippageBps={slippageBps}
             setSlippageBps={setSlippageBps}
           />
-        )}
+        ) : state.error ? (
+          <div style={{ marginTop: 16 }}>
+            <Box tone="bad">
+              <Note tone="bad"><strong className="strong">The pool could not be read.</strong></Note>
+              <button type="button" className="btn btn--ghost btn--small" style={{ marginTop: 10 }} onClick={reload}>
+                Try again
+              </button>
+            </Box>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -104,9 +114,12 @@ export function TradeModal({ open, onClose }: { open: boolean; onClose: () => vo
 // ── the body ──────────────────────────────────────────────────────────────
 
 function Body({
-  state, direction, setDirection, typed, setTyped, slippageBps, setSlippageBps,
+  state, readAt, reload, direction, setDirection, typed, setTyped, slippageBps, setSlippageBps,
 }: {
   state: SwapState;
+  /** Wall clock, seconds, when `state` was read. */
+  readAt: number;
+  reload: () => void;
   direction: Direction;
   setDirection: (d: Direction) => void;
   typed: string;
@@ -115,11 +128,32 @@ function Body({
   setSlippageBps: (v: number) => void;
 }) {
   const tx = useTx();
-  const now = useNow(1000);
+  const wall = useNow(1000);
+  // THE CHAIN'S CLOCK. `state.chainNow` is the block timestamp the state was
+  // read at and `readAt` the wall clock at that moment; the difference is the
+  // skew, and every second shown here is the wall clock corrected by it. On
+  // the launch dry run the fork ran eleven minutes ahead of the machine and
+  // the banner counted a window that had already closed.
+  const now = wall + (state.chainNow - readAt);
   const buy = direction === 'buy';
 
-  const inWindow = state.isLaunched && now < state.windowEndsAt;
+  // Launched, on the clock, not on the last read: `isLaunched` on chain is
+  // `block.timestamp >= LAUNCH_AT` and this is the same test on the same
+  // clock, so the button opens the second the countdown ends rather than at
+  // the next read. The five-minute window after it is the buyer's to wait out
+  // or not: the fee line says what a buy pays now.
+  const phase = poolPhase(state, now);
+  const launched = phase !== 'before';
+  const inWindow = phase === 'window';
   const secondsLeft = Math.max(0, state.windowEndsAt - now);
+
+  // The moment the pool opens: read it again, so the fee and `isLaunched`
+  // are the chain's, and the quote below is asked again.
+  const wasLaunched = useRef(launched);
+  useEffect(() => {
+    if (launched && !wasLaunched.current) reload();
+    wasLaunched.current = launched;
+  }, [launched, reload]);
 
   const amountIn = useMemo<Amount | null>(() => {
     if (typed.trim() === '') return null;
@@ -131,25 +165,26 @@ function Body({
 
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
-  const [quoteFailed, setQuoteFailed] = useState(false);
+  /** The quote's refusal, decoded — `BuyTooLarge` inside the window is the one worth reading. */
+  const [quoteFailed, setQuoteFailed] = useState<unknown>(null);
 
   // Re-quote on every change, and once a second inside the launch window where
   // the fee decays. The timer stops when the window ends: after that the fee is
   // flat and a request per second would ask the same question again.
   const requote = useCallback(async () => {
-    if (amountIn === null || amountIn === 0n) { setQuote(null); setQuoteFailed(false); return; }
+    if (amountIn === null || amountIn === 0n) { setQuote(null); setQuoteFailed(null); return; }
     setQuoting(true);
     try {
       setQuote(await quoteSwap(direction, amountIn, slippageBps));
-      setQuoteFailed(false);
-    } catch {
+      setQuoteFailed(null);
+    } catch (e) {
       setQuote(null);
-      setQuoteFailed(true);
+      setQuoteFailed(e ?? new Error('the quote failed'));
     }
     setQuoting(false);
   }, [amountIn, direction, slippageBps]);
 
-  useEffect(() => { void requote(); }, [requote]);
+  useEffect(() => { void requote(); }, [requote, launched]);
   useEffect(() => {
     if (!inWindow || amountIn === null) return undefined;
     const t = setInterval(() => { void requote(); }, 1000);
@@ -165,13 +200,43 @@ function Body({
   const [busy, setBusy] = useState<string | null>(null);
   const blocked = !!busy || tx.busy;
 
+  // The drawer's fixes this modal owns. The handler runs later than the
+  // render that made it, so what it needs is read through refs.
+  const latest = useRef({ amountIn, needsErc20, needsPermit2, requote });
+  latest.current = { amountIn, needsErc20, needsPermit2, requote };
+  const onFix: FixHandlers = {
+    // "Split it": the buy crossed the opening window's per-transaction cap.
+    // Half the amount, re-quoted; the button is theirs to press again. Any
+    // other retry (the quote moved, the deadline passed) is the drawer's re-run.
+    retry: (_amount, error) => {
+      const l = latest.current;
+      if (error instanceof ContractError && error.errorName === 'BuyTooLarge' && l.amountIn !== null) {
+        setTyped(buy ? formatEth(l.amountIn / 2n, 6) : formatAvians(l.amountIn / 2n));
+        return true;
+      }
+      if (error instanceof ContractError && (error.errorName === 'V4TooLittleReceived' || error.errorName === 'PartialFill')) {
+        void l.requote();
+        return true;
+      }
+      return false;
+    },
+    // A sell refused for want of an allowance: the step that is outstanding.
+    approve: () => {
+      const l = latest.current;
+      if (l.amountIn === null) return false;
+      if (l.needsErc20) { void go('erc20', 'Approving AVIANS to Permit2', (on) => approveAviansForPermit2(l.amountIn!, on), () => 'Approved. One more step, then the swap.'); return true; }
+      if (l.needsPermit2) { void go('permit2', 'Allowing the router to spend through Permit2', (on) => approvePermit2ForRouter(l.amountIn!, on), () => 'Allowed. The swap can go through now.'); return true; }
+      return false;
+    },
+  };
+
   const go = async (
     key: string, label: string,
     fn: (on: OnPhase) => Promise<unknown>,
     outcome?: (r: unknown) => string,
   ) => {
     setBusy(key);
-    await tx.run(label, fn, { outcome });
+    await tx.run(label, fn, { outcome, onFix });
     setBusy(null);
   };
 
@@ -181,9 +246,9 @@ function Body({
   return (
     <>
       {/* Not tradeable at all yet: a countdown, not an error. */}
-      {!state.isLaunched ? (
+      {!launched ? (
         <p className={s.state}>
-          <Icon name="clock" size={12} /> Trading opens in{' '}
+          <Icon name="clock" size={12} /> The pool opens in{' '}
           <span className="mono">{formatCountdown(state.launchAt - now)}</span>
         </p>
       ) : null}
@@ -231,7 +296,7 @@ function Body({
         </span>
       </div>
 
-      {short ? <p className={s.bad}>Insufficient balance</p> : null}
+      {short ? <p className={s.bad}>More than you have.</p> : null}
       {typed !== '' && amountIn === null ? <p className={s.bad}>Not a number.</p> : null}
 
       <div className={s.slippage}>
@@ -268,12 +333,19 @@ function Body({
       {quoteFailed ? (
         <div className={s.result}>
           <div className="row">
-            <span className="small" style={{ color: 'var(--refusal)' }}>That quote failed.</span>
+            <span className="small" style={{ color: 'var(--refusal)' }}>
+              {quoteFailed instanceof ContractError && quoteFailed.errorName !== 'Unknown'
+                ? explain(quoteFailed).title
+                : 'The pool did not answer.'}
+            </span>
             <span className="spacer" />
             <button type="button" className="btn btn--ghost btn--small" onClick={() => void requote()}>
               Again
             </button>
           </div>
+          {quoteFailed instanceof ContractError && quoteFailed.errorName !== 'Unknown' ? (
+            <p className="tiny dim" style={{ marginTop: 6 }}>{explain(quoteFailed).sentence}</p>
+          ) : null}
         </div>
       ) : quote ? (
         <div className={s.result}>
@@ -296,8 +368,9 @@ function Body({
 
       {cap.over ? (
         <p className={s.bad}>
-          Over the {avians(state.maxBuyPerTx)} one transaction may buy in the opening window.
-          Refused {formatBps(CAP_MARGIN_BPS)} under it, because the figure above is an estimate.
+          More than the {avians(state.maxBuyPerTx)} one transaction may buy during the opening
+          window. The site stops {formatBps(CAP_MARGIN_BPS)} short of the cap, because the figure
+          above is an estimate.
         </p>
       ) : null}
 
@@ -311,7 +384,7 @@ function Body({
             disabled={blocked || amountIn === null || !needsErc20}
             onClick={() => go('erc20', 'Approving AVIANS to Permit2',
               (on) => approveAviansForPermit2(amountIn!, on),
-              () => 'Approved. One more step before the swap.')}
+              () => 'Approved. One more step, then the swap.')}
           />
           <StepRow
             n={2}
@@ -332,7 +405,7 @@ function Body({
         style={{ marginTop: 14 }}
         disabled={
           blocked || !quote || short || cap.over || needsErc20 || needsPermit2
-          || !state.isLaunched || amountIn === null
+          || !launched || amountIn === null
         }
         onClick={() => go(
           'swap',
@@ -344,7 +417,7 @@ function Body({
         )}
       >
         {busy === 'swap' ? 'Swapping…'
-          : !state.isLaunched ? 'Trading has not opened'
+          : !launched ? 'The pool has not opened'
             : buy ? 'Buy AVIANS' : 'Sell AVIANS'}
       </button>
     </>

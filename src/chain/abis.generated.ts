@@ -459,6 +459,19 @@ export const avianStockAbi = [
   },
   {
     "type": "function",
+    "name": "NEST",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "WALLET_LIMIT",
     "inputs": [],
     "outputs": [
@@ -1067,6 +1080,30 @@ export const avianStockAbi = [
   },
   {
     "type": "function",
+    "name": "ownersOf",
+    "inputs": [
+      {
+        "name": "start",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stop",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "owners",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "paidRemaining",
     "inputs": [],
     "outputs": [
@@ -1313,6 +1350,35 @@ export const avianStockAbi = [
   },
   {
     "type": "function",
+    "name": "tokensOfOwnerIn",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "start",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stop",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "totalMinted",
     "inputs": [],
     "outputs": [
@@ -1463,6 +1529,19 @@ export const avianStockAbi = [
         "type": "uint48",
         "indexed": false,
         "internalType": "uint48"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NestHookFailed",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -2145,7 +2224,7 @@ export const thePerchAbi = [
   },
   {
     "type": "function",
-    "name": "BURN_SHARE_BPS",
+    "name": "BURN_FLOOR",
     "inputs": [],
     "outputs": [
       {
@@ -2217,6 +2296,19 @@ export const thePerchAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "burnsActive",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -2539,6 +2631,57 @@ export const thePerchAbi = [
   },
   {
     "type": "event",
+    "name": "BurnWithheld",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "deposit",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "living",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeTaken",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Registered",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Sold",
     "inputs": [
       {
@@ -2773,7 +2916,7 @@ export const theNestAbi = [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract IERC721"
+        "internalType": "contract IAvianStockForNest"
       }
     ],
     "stateMutability": "view"
@@ -2845,6 +2988,163 @@ export const theNestAbi = [
   },
   {
     "type": "function",
+    "name": "brood",
+    "inputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "tiers",
+        "type": "uint8[]",
+        "internalType": "uint8[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "paid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "broodOf",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "activator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "activatedAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiredAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "broodTo",
+    "inputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "tiers",
+        "type": "uint8[]",
+        "internalType": "uint8[]"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool[]",
+        "internalType": "bool[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "paid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "checkpointAt",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "i",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct TheNest.Checkpoint",
+        "components": [
+          {
+            "name": "rpt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "time",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "finish",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "weight",
+            "type": "uint24",
+            "internalType": "uint24"
+          },
+          {
+            "name": "rate",
+            "type": "uint152",
+            "internalType": "uint152"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "checkpointCount",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "claim",
     "inputs": [
       {
@@ -2864,30 +3164,7 @@ export const theNestAbi = [
   },
   {
     "type": "function",
-    "name": "claimAll",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "tokens",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "paid",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      },
-      {
-        "name": "skipped",
-        "type": "bool[]",
-        "internalType": "bool[]"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "claimedBy",
+    "name": "claimable",
     "inputs": [
       {
         "name": "",
@@ -2911,12 +3188,67 @@ export const theNestAbi = [
   },
   {
     "type": "function",
+    "name": "costSink",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deliveryOf",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "donate",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "earned",
     "inputs": [
       {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "token",
@@ -2948,6 +3280,25 @@ export const theNestAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -3018,6 +3369,40 @@ export const theNestAbi = [
   },
   {
     "type": "function",
+    "name": "pending",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "toDestination",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toActivator",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "returned",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pendingOwner",
     "inputs": [],
     "outputs": [
@@ -3028,6 +3413,24 @@ export const theNestAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "redirect",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -3106,6 +3509,30 @@ export const theNestAbi = [
   },
   {
     "type": "function",
+    "name": "rewardPerTokenAt",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "t",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "rewardTokenCount",
     "inputs": [],
     "outputs": [
@@ -3119,137 +3546,16 @@ export const theNestAbi = [
   },
   {
     "type": "function",
-    "name": "stake",
+    "name": "settle",
     "inputs": [
       {
         "name": "ids",
         "type": "uint256[]",
         "internalType": "uint256[]"
-      },
-      {
-        "name": "tiers",
-        "type": "uint8[]",
-        "internalType": "uint8[]"
       }
     ],
-    "outputs": [
-      {
-        "name": "burned",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "stakeOf",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "tier",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "stakedCountOf",
-    "inputs": [
-      {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "stakedIdsOf",
-    "inputs": [
-      {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "stakedIdsOf",
-    "inputs": [
-      {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "offset",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "limit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "page",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "stakerOf",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -3272,7 +3578,20 @@ export const theNestAbi = [
   },
   {
     "type": "function",
-    "name": "totalBurned",
+    "name": "totalBrooding",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalForwarded",
     "inputs": [],
     "outputs": [
       {
@@ -3323,8 +3642,14 @@ export const theNestAbi = [
   },
   {
     "type": "function",
-    "name": "totalStaked",
-    "inputs": [],
+    "name": "totalReturned",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -3349,15 +3674,26 @@ export const theNestAbi = [
   },
   {
     "type": "function",
-    "name": "unstake",
+    "name": "upgrade",
     "inputs": [
       {
-        "name": "ids",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "newTier",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "paid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -3384,9 +3720,9 @@ export const theNestAbi = [
     "name": "weightOf",
     "inputs": [
       {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -3397,6 +3733,267 @@ export const theNestAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BirdRescued",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BroodClosed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Brooded",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "aviansPaid",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Expired",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "at",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ExpirySettled",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "toActivator",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "returned",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Redirected",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardAdded",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "duration",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "periodFinish",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardDonated",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "donor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "periodFinish",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardHeld",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "beneficiary",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -3425,18 +4022,49 @@ export const theNestAbi = [
   },
   {
     "type": "event",
-    "name": "RewardSkipped",
+    "name": "RewardReturned",
     "inputs": [
       {
-        "name": "user",
+        "name": "token",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "folded",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Settled",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "token",
         "type": "address",
         "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -3450,14 +4078,8 @@ export const theNestAbi = [
   },
   {
     "type": "event",
-    "name": "Staked",
+    "name": "Upgraded",
     "inputs": [
-      {
-        "name": "staker",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
       {
         "name": "id",
         "type": "uint256",
@@ -3465,13 +4087,25 @@ export const theNestAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "tier",
+        "name": "activator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "fromTier",
         "type": "uint8",
         "indexed": false,
         "internalType": "uint8"
       },
       {
-        "name": "aviansBurned",
+        "name": "toTier",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "aviansPaid",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -3480,29 +4114,20 @@ export const theNestAbi = [
     "anonymous": false
   },
   {
-    "type": "event",
-    "name": "Unstaked",
+    "type": "error",
+    "name": "AlreadyBrooding",
     "inputs": [
-      {
-        "name": "staker",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
       {
         "name": "id",
         "type": "uint256",
-        "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "tier",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
+        "name": "activator",
+        "type": "address",
+        "internalType": "address"
       }
-    ],
-    "anonymous": false
+    ]
   },
   {
     "type": "error",
@@ -3517,26 +4142,10 @@ export const theNestAbi = [
   },
   {
     "type": "error",
-    "name": "AlreadyStaked",
+    "name": "BroodExpired",
     "inputs": [
       {
         "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "BadStakeData",
-    "inputs": [
-      {
-        "name": "length",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -3581,6 +4190,17 @@ export const theNestAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidCostSink",
+    "inputs": [
+      {
+        "name": "sink",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidRewardToken",
     "inputs": [
       {
@@ -3616,11 +4236,6 @@ export const theNestAbi = [
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "MintIsNotAStake",
-    "inputs": []
   },
   {
     "type": "error",
@@ -3694,48 +4309,32 @@ export const theNestAbi = [
   },
   {
     "type": "error",
+    "name": "NotBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotHeldHere",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotListed",
     "inputs": [
       {
         "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotOwnedByStaking",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotStaked",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotStranded",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
         "type": "address",
         "internalType": "address"
       }
@@ -3754,7 +4353,7 @@ export const theNestAbi = [
   },
   {
     "type": "error",
-    "name": "NotTheStaker",
+    "name": "NotTheOwner",
     "inputs": [
       {
         "name": "id",
@@ -3762,7 +4361,7 @@ export const theNestAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "staker",
+        "name": "holder",
         "type": "address",
         "internalType": "address"
       },
@@ -3775,7 +4374,7 @@ export const theNestAbi = [
   },
   {
     "type": "error",
-    "name": "NothingStaked",
+    "name": "NothingBrooding",
     "inputs": []
   },
   {
@@ -3807,22 +4406,6 @@ export const theNestAbi = [
   },
   {
     "type": "error",
-    "name": "PushMustComeFromTheHolder",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "from",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "Reentrancy",
     "inputs": []
   },
@@ -3849,7 +4432,7 @@ export const theNestAbi = [
   },
   {
     "type": "error",
-    "name": "RewardRateZero",
+    "name": "RewardRateOutOfRange",
     "inputs": [
       {
         "name": "amount",
@@ -3860,6 +4443,43 @@ export const theNestAbi = [
         "name": "duration",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SameDelivery",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TierNotHigher",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "current",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "given",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ]
   },
@@ -3908,6 +4528,1082 @@ export const theNestAbi = [
   {
     "type": "error",
     "name": "ZeroProbe",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/TheRoost.sol/TheRoost.json`. */
+export const theRoostAbi = [
+  {
+    "type": "function",
+    "name": "ADMIN_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "AVIANS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract Avians"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "BURN_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "LEG_NEST",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "LEG_STAKING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_INTERVAL",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "NEST",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract TheNest"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "NEST_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "STAKING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract AviansStaking"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "STAKING_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "admin",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "adminClaimable",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "adminClaimed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "allocated",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "burned",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cumulativeIn",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deliverHeld",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "stakingMoved",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "nestMoved",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "distribute",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "inflow",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "lastDistribution",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nestHeld",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nestReady",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ready",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nextDistributionAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakingHeld",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakingReady",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ready",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "toNest",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "toStaking",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unallocated",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "AdminClaimed",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Allocated",
+    "inputs": [
+      {
+        "name": "inflow",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toStaking",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toNest",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toBurn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toAdmin",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Burned",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Delivered",
+    "inputs": [
+      {
+        "name": "leg",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Held",
+    "inputs": [
+      {
+        "name": "leg",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CannotRescue",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotAContract",
+    "inputs": [
+      {
+        "name": "a",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheAdmin",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingDeliverable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingHeld",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToClaim",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToDistribute",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Reentrancy",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TooSoon",
+    "inputs": [
+      {
+        "name": "nextAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WiringMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/AviansStaking.sol/AviansStaking.json`. */
+export const aviansStakingAbi = [
+  {
+    "type": "function",
+    "name": "AVIANS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ROOST",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "STREAM",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "accounted",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "paid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "earned",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "escrowed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "exit",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "paid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "periodFinish",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "remainingReward",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rewardRate",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stake",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "stakedOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalNotified",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalPaid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalStaked",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "undelivered",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "RewardAdded",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "periodFinish",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardPaid",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Staked",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Withdrawn",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InsufficientStake",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "staked",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "wanted",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotAContract",
+    "inputs": [
+      {
+        "name": "a",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheRoost",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingStaked",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Reentrancy",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RewardNotBacked",
+    "inputs": [
+      {
+        "name": "held",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "owed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RewardRateOutOfRange",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
     "inputs": []
   },
   {
@@ -4016,6 +5712,32 @@ export const treasuryAbi = [
         "name": "",
         "type": "address",
         "internalType": "contract TheNest"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "V3_FACTORY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IUniswapV3Factory"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "WETH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IWETH9"
       }
     ],
     "stateMutability": "view"
@@ -4291,6 +6013,129 @@ export const treasuryAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "v3RouteOf",
+    "inputs": [
+      {
+        "name": "currency",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct Treasury.V3Hop[]",
+        "components": [
+          {
+            "name": "pool",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "tokenOut",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "AdminClaimed",
+    "inputs": [
+      {
+        "name": "currency",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Converted",
+    "inputs": [
+      {
+        "name": "currency",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "targets_",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Streamed",
+    "inputs": [
+      {
+        "name": "currency",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "target",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountOut",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "error",
@@ -5884,70 +7729,358 @@ export const liquidityVaultAbi = [
   }
 ] as const;
 
-/** From `contracts/out/AvianLens.sol/AvianLens.json`. */
-export const avianLensAbi = [
+/** From `contracts/out/Sweeper.sol/Sweeper.json`. */
+export const sweeperAbi = [
   {
     "type": "function",
-    "name": "ownersOf",
-    "inputs": [
-      {
-        "name": "collection",
-        "type": "address",
-        "internalType": "contract IOwnerOf"
-      },
-      {
-        "name": "start",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "stop",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "COLLECTION",
+    "inputs": [],
     "outputs": [
       {
-        "name": "owners",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "",
+        "type": "address",
+        "internalType": "contract IAvianStockForSweep"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "tokensOfOwnerIn",
+    "name": "prepare",
     "inputs": [
-      {
-        "name": "collection",
-        "type": "address",
-        "internalType": "contract IOwnerOf"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "start",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "stop",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
       {
         "name": "ids",
         "type": "uint256[]",
         "internalType": "uint256[]"
       }
     ],
+    "outputs": [
+      {
+        "name": "deployed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "status",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "satchel",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "deployed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "granted",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "sweep",
+    "inputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "totals",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sweepable",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ready",
+        "type": "bool[]",
+        "internalType": "bool[]"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[][]",
+        "internalType": "uint256[][]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "SatchelDeployed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "satchel",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SweepSkipped",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Swept",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "EmptyList",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAContract",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwner",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Reentrancy",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/IERC6551Account.sol/IERC6551Account.json`. */
+export const accountV3Abi = [
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "permissions",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setPermissions",
+    "inputs": [
+      {
+        "name": "callers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "permissions_",
+        "type": "bool[]",
+        "internalType": "bool[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnershipCycle",
+    "inputs": []
   },
   {
     "type": "error",
@@ -6467,6 +8600,220 @@ export const stateViewAbi = [
   }
 ] as const;
 
+/** From `contracts/out/IUniswapV3.sol/IUniswapV3Factory.json`. */
+export const uniswapV3FactoryAbi = [
+  {
+    "type": "function",
+    "name": "getPool",
+    "inputs": [
+      {
+        "name": "tokenA",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenB",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "fee",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pool",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
+/** From `contracts/out/IUniswapV3.sol/IUniswapV3Pool.json`. */
+export const uniswapV3PoolAbi = [
+  {
+    "type": "function",
+    "name": "fee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "liquidity",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "slot0",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "sqrtPriceX96",
+        "type": "uint160",
+        "internalType": "uint160"
+      },
+      {
+        "name": "tick",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "observationIndex",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "observationCardinality",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "observationCardinalityNext",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "feeProtocol",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "unlocked",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "token0",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "token1",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "CreatorTokenTransferValidator__CallerMustBeWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFromFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrappedError",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "details",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+] as const;
+
 /** From `contracts/out/IV4Quoter.sol/IV4Quoter.json`. */
 export const v4QuoterAbi = [
   {
@@ -6939,6 +9286,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NothingToDistribute",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "WeightsMustSumToBps",
     "inputs": [
       {
@@ -6971,6 +9323,27 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NotTheOwner",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotAllowlisted",
     "inputs": []
   },
@@ -6998,6 +9371,17 @@ export const errorAbi = [
         "name": "caller",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RewardRateOutOfRange",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -7099,6 +9483,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NothingDeliverable",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -7118,6 +9507,11 @@ export const errorAbi = [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
+    "inputs": []
   },
   {
     "type": "error",
@@ -7250,6 +9644,17 @@ export const errorAbi = [
     "type": "error",
     "name": "ConversionDisabled",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCostSink",
+    "inputs": [
+      {
+        "name": "sink",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -7410,35 +9815,8 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "NotStranded",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "RendererLocked",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotOwnedByStaking",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -7510,6 +9888,22 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NothingBrooding",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BroodExpired",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SignatureDeadlineExpired",
     "inputs": []
   },
@@ -7558,6 +9952,11 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "TransactionDeadlinePassed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotListed",
     "inputs": [
       {
@@ -7582,6 +9981,17 @@ export const errorAbi = [
     "type": "error",
     "name": "EmptyList",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnexpectedRevertBytes",
+    "inputs": [
+      {
+        "name": "revertData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",
@@ -7628,6 +10038,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NotTheRoost",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "Permit2Failed",
     "inputs": []
   },
@@ -7662,17 +10083,6 @@ export const errorAbi = [
     "type": "error",
     "name": "FreeAllocationAlreadyReleased",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotStaked",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -7713,6 +10123,33 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "NotBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheAdmin",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidRewardToken",
     "inputs": [
       {
@@ -7726,6 +10163,27 @@ export const errorAbi = [
     "type": "error",
     "name": "TransferFromFailed",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingHeld",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WiringMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -8020,22 +10478,6 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "RewardRateZero",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "duration",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "DonationIsZero",
     "inputs": [
       {
@@ -8110,7 +10552,33 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "InsufficientStake",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "staked",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "wanted",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "PoolCorrupt",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToClaim",
     "inputs": []
   },
   {
@@ -8147,11 +10615,6 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "MintIsNotAStake",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NothingClaimable",
     "inputs": [
       {
@@ -8163,7 +10626,7 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "AlreadyStaked",
+    "name": "TierNotHigher",
     "inputs": [
       {
         "name": "id",
@@ -8171,9 +10634,14 @@ export const errorAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
+        "name": "current",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "given",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ]
   },
@@ -8262,6 +10730,38 @@ export const errorAbi = [
       },
       {
         "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RewardRateOutOfRange",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "duration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AlreadyBrooding",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "activator",
         "type": "address",
         "internalType": "address"
       }
@@ -8414,6 +10914,11 @@ export const errorAbi = [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "OwnershipCycle",
+    "inputs": []
   },
   {
     "type": "error",
@@ -8634,6 +11139,22 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "RewardNotBacked",
+    "inputs": [
+      {
+        "name": "held",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "owed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "WrongLaunchPrice",
     "inputs": [
       {
@@ -8751,22 +11272,6 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "PushMustComeFromTheHolder",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "from",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ZeroAddress",
     "inputs": []
   },
@@ -8790,6 +11295,22 @@ export const errorAbi = [
     "type": "error",
     "name": "InvalidPermit",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SameDelivery",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWallet",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ]
   },
   {
     "type": "error",
@@ -8849,6 +11370,17 @@ export const errorAbi = [
       },
       {
         "name": "denominator",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotHeldHere",
+    "inputs": [
+      {
+        "name": "id",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -8925,6 +11457,17 @@ export const errorAbi = [
   },
   {
     "type": "error",
+    "name": "TooSoon",
+    "inputs": [
+      {
+        "name": "nextAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ModifyLiquidityNotificationReverted",
     "inputs": [
       {
@@ -8941,24 +11484,8 @@ export const errorAbi = [
   },
   {
     "type": "error",
-    "name": "NotTheStaker",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "caller",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
+    "name": "NotAuthorized",
+    "inputs": []
   },
   {
     "type": "error",
@@ -9049,17 +11576,6 @@ export const errorAbi = [
     "type": "error",
     "name": "TransferValidatorIsThisContract",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "BadStakeData",
-    "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -9172,12 +11688,15 @@ export const errorAbi = [
 /** selector -> the error's canonical signature, for the bug-report detail line. */
 export const ERROR_SIGNATURES: Record<string, string> = {
   "0x00f6b210": "NothingToRescue()",
+  "0x01663f24": "NothingToDistribute()",
   "0x01972183": "WeightsMustSumToBps(uint256,uint256)",
   "0x0404bf2f": "MaxPerCallTooHigh(uint16,uint16)",
+  "0x04987a21": "NotTheOwner(uint256,address,address)",
   "0x06fb10a9": "NotAllowlisted()",
   "0x084cff68": "FreeAllocationReleaseTooEarly(uint256)",
   "0x0a85dc29": "HookNotImplemented()",
   "0x0ca968d8": "NotApproved(address)",
+  "0x0e9a283d": "RewardRateOutOfRange(uint256)",
   "0x0f47a04d": "NotConverting()",
   "0x0fc4ccd9": "ConversionProducedNothing(address)",
   "0x116bae71": "MintIsNotASale()",
@@ -9189,8 +11708,10 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x19cd4595": "AlreadyListed(address)",
   "0x1a15a3cc": "PermitExpired()",
   "0x1c85340d": "OnlyTraitMarket(address)",
+  "0x1e1b399d": "NothingDeliverable()",
   "0x1e4fbdf7": "OwnableInvalidOwner(address)",
   "0x1eaf226f": "NotAFunder(address)",
+  "0x1f2a2005": "ZeroAmount()",
   "0x1f8ecfbc": "SlippageBpsTooHigh(uint16,uint16)",
   "0x1fb09b80": "NonceAlreadyUsed()",
   "0x237e6c28": "NotSubscribed()",
@@ -9204,6 +11725,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x2dc086ac": "RendererNotAContract(address)",
   "0x2e14391a": "RouteDoesNotReachTarget(address,address)",
   "0x2efe214b": "ConversionDisabled()",
+  "0x3194d7ff": "InvalidCostSink(address)",
   "0x324f14ae": "Permit2ApproveFailed()",
   "0x3459f07d": "NoTransferValidator()",
   "0x374eb812": "NothingTraded()",
@@ -9220,9 +11742,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x47187192": "CreatorTokenTransferValidator__ReceiverMustNotHaveCode()",
   "0x48479173": "BadTraitIndex(uint8,uint8)",
   "0x48ba0889": "NotThePositionManager(address)",
-  "0x48f11ed9": "NotStranded(uint256,address)",
   "0x4a7b75a1": "RendererLocked()",
-  "0x4ddaafc4": "NotOwnedByStaking(uint256)",
   "0x4e67a6a1": "TransferValidatorNotAContract(address)",
   "0x4e680cb0": "CreatorTokenTransferValidator__CallerDoesNotOwnList()",
   "0x52df9fe5": "SoldOut()",
@@ -9230,25 +11750,33 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x54cd9435": "TotalSupplyQueryFailed()",
   "0x589ed34b": "MintClosed()",
   "0x589f4f38": "TransferToOwnAccount(uint256,address)",
+  "0x59d25160": "NothingBrooding()",
+  "0x5a8371a8": "BroodExpired(uint256)",
   "0x5a9165ff": "SignatureDeadlineExpired()",
   "0x5ace9841": "NotOwnedByPool(uint256)",
   "0x5b08ba18": "ERC721InvalidOperator(address)",
   "0x5b67df31": "NoSurplusToRestream(address,uint256,uint256)",
+  "0x5bf6f916": "TransactionDeadlinePassed()",
   "0x5d35c429": "NotListed(address)",
   "0x60ed58fa": "NeverListed(address)",
   "0x615fd3c0": "EmptyList()",
+  "0x6190b2b0": "UnexpectedRevertBytes(bytes)",
   "0x6220b674": "NotThePoolManager(address)",
   "0x64283d7b": "ERC721IncorrectOwner(address,uint256,address)",
   "0x64a0ae92": "ERC721InvalidReceiver(address)",
+  "0x65ff83ed": "NotTheRoost(address)",
   "0x6b836e6b": "Permit2Failed()",
   "0x6dad0108": "InvalidLaunchPrice(uint160)",
   "0x6f483d09": "ERC2981InvalidDefaultRoyalty(uint256,uint256)",
   "0x710bbce4": "FreeAllocationAlreadyReleased()",
-  "0x7148839c": "NotStaked(uint256)",
   "0x734adc72": "FloorPriceStale(address,address,uint256,uint256)",
   "0x73c6ac6e": "ERC721InvalidSender(address)",
+  "0x77a5d833": "NotBrooding(uint256)",
+  "0x79164ff3": "NotTheAdmin(address,address)",
   "0x79260369": "InvalidRewardToken(address)",
   "0x7939f424": "TransferFromFailed()",
+  "0x7a17debd": "NothingHeld()",
+  "0x7bf8e5a7": "WiringMismatch(address,address)",
   "0x7c402b21": "NoCodeSubscriber()",
   "0x7c946ed7": "ZeroValue()",
   "0x7dcfb5c6": "ZeroSplitPart(address,uint16,uint256)",
@@ -9276,25 +11804,27 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0x8c4d55ec": "SlippageTooHigh(address,uint256,uint256)",
   "0x8d4799be": "NotLaunched(uint256)",
   "0x8daa1b2c": "CannotRescue(address)",
-  "0x8f05a83c": "RewardRateZero(uint256,uint256)",
   "0x8fa1a1fe": "DonationIsZero(address)",
   "0x90b8ec18": "TransferFailed()",
   "0x90be9828": "NoFloorPrice(address,address)",
   "0x90bfb865": "WrappedError(address,bytes4,bytes,bytes)",
   "0x92d23c87": "NotTheLauncher(address,address)",
+  "0x936d426d": "InsufficientStake(address,uint256,uint256)",
   "0x94824491": "PoolCorrupt()",
+  "0x969bf728": "NothingToClaim()",
   "0x969f0852": "ERC2981InvalidTokenRoyaltyReceiver(uint256,address)",
   "0x96b3de23": "Permit2LockdownFailed()",
   "0x96dca305": "NotThePriceKeeper(address)",
-  "0x977fa84a": "MintIsNotAStake()",
   "0x9837a149": "NothingClaimable(address)",
-  "0x9a077ff1": "AlreadyStaked(uint256,address)",
+  "0x9bc44343": "TierNotHigher(uint256,uint8,uint8)",
   "0x9c32f6c9": "RegistryMismatch(uint8,uint8)",
   "0x9da6f2bd": "NothingToConvert(address,uint256,uint256)",
   "0x9fe54dd8": "RouteTooLong(uint256,uint256)",
   "0x9fe7bfd9": "NothingStaked()",
   "0xa172870c": "IntervalTooShort(uint32,uint256)",
   "0xa17cfa12": "NotTheV3Pool(address,address)",
+  "0xa19500b1": "RewardRateOutOfRange(uint256,uint256)",
+  "0xa19c72a6": "AlreadyBrooding(uint256,address)",
   "0xa48e684e": "TransferValidatorIsAvians()",
   "0xa7091309": "SameBird(uint256)",
   "0xa9fbf51f": "ERC721InvalidApprover(address)",
@@ -9308,6 +11838,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xb26960e4": "RendererRendersNothing()",
   "0xb435202d": "NotAListedRewardToken(address)",
   "0xb6d9900a": "ERC2981InvalidDefaultRoyaltyReceiver(address)",
+  "0xb79e3f3f": "OwnershipCycle()",
   "0xb8eaf7a1": "RescueFailed()",
   "0xb9a73952": "BadDeployment(string)",
   "0xb9b3b6b9": "InsufficientPool(uint256,uint256)",
@@ -9324,6 +11855,7 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xc2d842bf": "CoolingDown(uint256,uint256)",
   "0xc2e5347d": "EmptyBatch()",
   "0xc5842270": "FloorPriceDropTooLarge(address,address,uint256,uint256,uint16)",
+  "0xc5e48038": "RewardNotBacked(uint256,uint256)",
   "0xc67a66fa": "WrongLaunchPrice(uint160,uint160)",
   "0xc888aaa1": "BuyTooLarge(uint256,uint256)",
   "0xcd00c028": "TransferValidatorMismatch(address,address)",
@@ -9335,23 +11867,25 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xd6e7da92": "PriceBelowFloor(uint256,uint256)",
   "0xd73e63af": "CreatorTokenTransferValidator__TokenIsSoulbound()",
   "0xd81b2f2e": "AllowanceExpired(uint256)",
-  "0xd8db2dcb": "PushMustComeFromTheHolder(address,address)",
   "0xd92e233d": "ZeroAddress()",
   "0xda9c3382": "OnlyThePerch(address)",
   "0xdca1603a": "InvalidTrait()",
   "0xddafbaef": "InvalidPermit()",
+  "0xddb79825": "SameDelivery(uint256,bool)",
   "0xde9f2dbd": "ConfigureDataTooShort()",
   "0xdf098a09": "NoLiveStream(address,uint256)",
   "0xdfc8cc23": "StreamDurationOutOfRange(uint32,uint256,uint256)",
   "0xdfd1fc1b": "ERC2981InvalidTokenRoyalty(uint256,uint256,uint256)",
+  "0xe4ba6974": "NotHeldHere(uint256)",
   "0xe4e866a9": "InvalidCategory(uint8)",
   "0xe5cfe957": "TotalSupplyOverflow()",
   "0xe602809f": "UnlockNotLater(uint256,uint256)",
   "0xe7b5a518": "V3NotConfigured()",
   "0xe7db0ee4": "PartialFill(int256,int256)",
   "0xe846175e": "TooManyTargets(uint256,uint256)",
+  "0xe86f59ea": "TooSoon(uint256)",
   "0xe94f10e2": "ModifyLiquidityNotificationReverted(address,bytes)",
-  "0xea179c1c": "NotTheStaker(uint256,address,address)",
+  "0xea8e4eb5": "NotAuthorized()",
   "0xed43c3a6": "GasLimitTooLow()",
   "0xee8e351e": "DuplicateTarget(address)",
   "0xef28f901": "CreatorTokenTransferValidator__CallerMustBeWhitelisted()",
@@ -9363,7 +11897,6 @@ export const ERROR_SIGNATURES: Record<string, string> = {
   "0xf7ec5b7f": "TransferValidatorLocked()",
   "0xf80a23ec": "InvalidFeeRecipient(address)",
   "0xf85e8912": "TransferValidatorIsThisContract()",
-  "0xf8e2cc5e": "BadStakeData(uint256)",
   "0xf8e51b81": "NothingToStream(address,uint256,uint256)",
   "0xf9067066": "AllowanceOverflow()",
   "0xf96fb071": "InsufficientAllowance(uint256)",
@@ -9377,12 +11910,15 @@ export const ERROR_SIGNATURES: Record<string, string> = {
 /** Where each one came from, so a surprise selector can be traced. */
 export const ERROR_SOURCES: Record<string, string> = {
   "0x00f6b210": "AvianStock.sol/AvianStock.json",
+  "0x01663f24": "TheRoost.sol/TheRoost.json",
   "0x01972183": "Treasury.sol/Treasury.json",
   "0x0404bf2f": "Treasury.sol/Treasury.json",
+  "0x04987a21": "TheNest.sol/TheNest.json",
   "0x06fb10a9": "AvianStock.sol/AvianStock.json",
   "0x084cff68": "AvianStock.sol/AvianStock.json",
   "0x0a85dc29": "AviansHook.sol/AviansHook.json",
   "0x0ca968d8": "IPositionManager.sol/IPositionManager.json",
+  "0x0e9a283d": "AviansStaking.sol/AviansStaking.json",
   "0x0f47a04d": "Treasury.sol/Treasury.json",
   "0x0fc4ccd9": "Treasury.sol/Treasury.json",
   "0x116bae71": "ThePerch.sol/ThePerch.json",
@@ -9394,8 +11930,10 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x19cd4595": "TheNest.sol/TheNest.json",
   "0x1a15a3cc": "Avians.sol/Avians.json",
   "0x1c85340d": "AvianStock.sol/AvianStock.json",
+  "0x1e1b399d": "TheRoost.sol/TheRoost.json",
   "0x1e4fbdf7": "AvianStock.sol/AvianStock.json",
   "0x1eaf226f": "TheNest.sol/TheNest.json",
+  "0x1f2a2005": "AviansStaking.sol/AviansStaking.json",
   "0x1f8ecfbc": "Treasury.sol/Treasury.json",
   "0x1fb09b80": "IPositionManager.sol/IPositionManager.json",
   "0x237e6c28": "IPositionManager.sol/IPositionManager.json",
@@ -9409,6 +11947,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x2dc086ac": "AvianStock.sol/AvianStock.json",
   "0x2e14391a": "Treasury.sol/Treasury.json",
   "0x2efe214b": "Treasury.sol/Treasury.json",
+  "0x3194d7ff": "TheNest.sol/TheNest.json",
   "0x324f14ae": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x3459f07d": "AvianStock.sol/AvianStock.json",
   "0x374eb812": "AviansHook.sol/AviansHook.json",
@@ -9425,9 +11964,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x47187192": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0x48479173": "TraitRegistry.sol/TraitRegistry.json",
   "0x48ba0889": "LiquidityVault.sol/LiquidityVault.json",
-  "0x48f11ed9": "TheNest.sol/TheNest.json",
   "0x4a7b75a1": "AvianStock.sol/AvianStock.json",
-  "0x4ddaafc4": "TheNest.sol/TheNest.json",
   "0x4e67a6a1": "AvianStock.sol/AvianStock.json",
   "0x4e680cb0": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0x52df9fe5": "AvianStock.sol/AvianStock.json",
@@ -9435,25 +11972,33 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x54cd9435": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x589ed34b": "AvianStock.sol/AvianStock.json",
   "0x589f4f38": "AvianStock.sol/AvianStock.json",
+  "0x59d25160": "TheNest.sol/TheNest.json",
+  "0x5a8371a8": "TheNest.sol/TheNest.json",
   "0x5a9165ff": "IPositionManager.sol/IPositionManager.json",
   "0x5ace9841": "ThePerch.sol/ThePerch.json",
   "0x5b08ba18": "AvianStock.sol/AvianStock.json",
   "0x5b67df31": "TheNest.sol/TheNest.json",
+  "0x5bf6f916": "universal-router/contracts/interfaces/IUniversalRouter.sol (upstream, not vendored)",
   "0x5d35c429": "TheNest.sol/TheNest.json",
   "0x60ed58fa": "TheNest.sol/TheNest.json",
   "0x615fd3c0": "ThePerch.sol/ThePerch.json",
+  "0x6190b2b0": "../contracts/lib/v4-periphery/src/libraries/QuoterRevert.sol (source)",
   "0x6220b674": "Treasury.sol/Treasury.json",
   "0x64283d7b": "AvianStock.sol/AvianStock.json",
   "0x64a0ae92": "AvianStock.sol/AvianStock.json",
+  "0x65ff83ed": "AviansStaking.sol/AviansStaking.json",
   "0x6b836e6b": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x6dad0108": "AviansHook.sol/AviansHook.json",
   "0x6f483d09": "AvianStock.sol/AvianStock.json",
   "0x710bbce4": "AvianStock.sol/AvianStock.json",
-  "0x7148839c": "TheNest.sol/TheNest.json",
   "0x734adc72": "Treasury.sol/Treasury.json",
   "0x73c6ac6e": "AvianStock.sol/AvianStock.json",
+  "0x77a5d833": "TheNest.sol/TheNest.json",
+  "0x79164ff3": "TheRoost.sol/TheRoost.json",
   "0x79260369": "TheNest.sol/TheNest.json",
   "0x7939f424": "SafeTransferLib.sol/SafeTransferLib.json",
+  "0x7a17debd": "TheRoost.sol/TheRoost.json",
+  "0x7bf8e5a7": "TheRoost.sol/TheRoost.json",
   "0x7c402b21": "IPositionManager.sol/IPositionManager.json",
   "0x7c946ed7": "AvianStock.sol/AvianStock.json",
   "0x7dcfb5c6": "Treasury.sol/Treasury.json",
@@ -9481,25 +12026,27 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0x8c4d55ec": "Treasury.sol/Treasury.json",
   "0x8d4799be": "AviansHook.sol/AviansHook.json",
   "0x8daa1b2c": "ThePerch.sol/ThePerch.json",
-  "0x8f05a83c": "TheNest.sol/TheNest.json",
   "0x8fa1a1fe": "TheNest.sol/TheNest.json",
   "0x90b8ec18": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x90be9828": "Treasury.sol/Treasury.json",
   "0x90bfb865": "CustomRevert.sol/CustomRevert.json",
   "0x92d23c87": "LiquidityVault.sol/LiquidityVault.json",
+  "0x936d426d": "AviansStaking.sol/AviansStaking.json",
   "0x94824491": "ThePerch.sol/ThePerch.json",
+  "0x969bf728": "TheRoost.sol/TheRoost.json",
   "0x969f0852": "AvianStock.sol/AvianStock.json",
   "0x96b3de23": "SafeTransferLib.sol/SafeTransferLib.json",
   "0x96dca305": "Treasury.sol/Treasury.json",
-  "0x977fa84a": "TheNest.sol/TheNest.json",
   "0x9837a149": "Treasury.sol/Treasury.json",
-  "0x9a077ff1": "TheNest.sol/TheNest.json",
+  "0x9bc44343": "TheNest.sol/TheNest.json",
   "0x9c32f6c9": "AvianStock.sol/AvianStock.json",
   "0x9da6f2bd": "Treasury.sol/Treasury.json",
   "0x9fe54dd8": "Treasury.sol/Treasury.json",
-  "0x9fe7bfd9": "TheNest.sol/TheNest.json",
+  "0x9fe7bfd9": "AviansStaking.sol/AviansStaking.json",
   "0xa172870c": "Treasury.sol/Treasury.json",
   "0xa17cfa12": "Treasury.sol/Treasury.json",
+  "0xa19500b1": "TheNest.sol/TheNest.json",
+  "0xa19c72a6": "TheNest.sol/TheNest.json",
   "0xa48e684e": "AvianStock.sol/AvianStock.json",
   "0xa7091309": "AvianStock.sol/AvianStock.json",
   "0xa9fbf51f": "AvianStock.sol/AvianStock.json",
@@ -9513,6 +12060,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xb26960e4": "AvianStock.sol/AvianStock.json",
   "0xb435202d": "Treasury.sol/Treasury.json",
   "0xb6d9900a": "AvianStock.sol/AvianStock.json",
+  "0xb79e3f3f": "IERC6551Account.sol/IERC6551Account.json",
   "0xb8eaf7a1": "AvianStock.sol/AvianStock.json",
   "0xb9a73952": "TraitRegistry.sol/TraitRegistry.json",
   "0xb9b3b6b9": "ThePerch.sol/ThePerch.json",
@@ -9529,6 +12077,7 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xc2d842bf": "Treasury.sol/Treasury.json",
   "0xc2e5347d": "AvianStock.sol/AvianStock.json",
   "0xc5842270": "Treasury.sol/Treasury.json",
+  "0xc5e48038": "AviansStaking.sol/AviansStaking.json",
   "0xc67a66fa": "AviansHook.sol/AviansHook.json",
   "0xc888aaa1": "AviansHook.sol/AviansHook.json",
   "0xcd00c028": "AvianStock.sol/AvianStock.json",
@@ -9540,23 +12089,25 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xd6e7da92": "AvianStock.sol/AvianStock.json",
   "0xd73e63af": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
   "0xd81b2f2e": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
-  "0xd8db2dcb": "TheNest.sol/TheNest.json",
   "0xd92e233d": "Avians.sol/Avians.json",
   "0xda9c3382": "AvianStock.sol/AvianStock.json",
   "0xdca1603a": "AvianStock.sol/AvianStock.json",
   "0xddafbaef": "Avians.sol/Avians.json",
+  "0xddb79825": "TheNest.sol/TheNest.json",
   "0xde9f2dbd": "AvianStock.sol/AvianStock.json",
   "0xdf098a09": "TheNest.sol/TheNest.json",
   "0xdfc8cc23": "Treasury.sol/Treasury.json",
   "0xdfd1fc1b": "AvianStock.sol/AvianStock.json",
+  "0xe4ba6974": "TheNest.sol/TheNest.json",
   "0xe4e866a9": "AvianStock.sol/AvianStock.json",
   "0xe5cfe957": "Avians.sol/Avians.json",
   "0xe602809f": "LiquidityVault.sol/LiquidityVault.json",
   "0xe7b5a518": "Treasury.sol/Treasury.json",
   "0xe7db0ee4": "AviansHook.sol/AviansHook.json",
   "0xe846175e": "Treasury.sol/Treasury.json",
+  "0xe86f59ea": "TheRoost.sol/TheRoost.json",
   "0xe94f10e2": "IPositionManager.sol/IPositionManager.json",
-  "0xea179c1c": "TheNest.sol/TheNest.json",
+  "0xea8e4eb5": "IERC6551Account.sol/IERC6551Account.json",
   "0xed43c3a6": "IPositionManager.sol/IPositionManager.json",
   "0xee8e351e": "Treasury.sol/Treasury.json",
   "0xef28f901": "ICreatorTokenTransferValidator.sol/ICreatorTokenTransferValidator.json",
@@ -9568,7 +12119,6 @@ export const ERROR_SOURCES: Record<string, string> = {
   "0xf7ec5b7f": "AvianStock.sol/AvianStock.json",
   "0xf80a23ec": "ThePerch.sol/ThePerch.json",
   "0xf85e8912": "AvianStock.sol/AvianStock.json",
-  "0xf8e2cc5e": "TheNest.sol/TheNest.json",
   "0xf8e51b81": "Treasury.sol/Treasury.json",
   "0xf9067066": "Avians.sol/Avians.json",
   "0xf96fb071": "IAllowanceTransfer.sol/IAllowanceTransfer.json",
@@ -9584,13 +12134,18 @@ export const GENERATED_FROM = [
   "AvianStock.sol/AvianStock.json",
   "ThePerch.sol/ThePerch.json",
   "TheNest.sol/TheNest.json",
+  "TheRoost.sol/TheRoost.json",
+  "AviansStaking.sol/AviansStaking.json",
   "Treasury.sol/Treasury.json",
   "AviansHook.sol/AviansHook.json",
   "TraitRegistry.sol/TraitRegistry.json",
   "LiquidityVault.sol/LiquidityVault.json",
-  "AvianLens.sol/AvianLens.json",
+  "Sweeper.sol/Sweeper.json",
+  "IERC6551Account.sol/IERC6551Account.json",
   "IPositionManager.sol/IPositionManager.json",
   "IStateView.sol/IStateView.json",
+  "IUniswapV3.sol/IUniswapV3Factory.json",
+  "IUniswapV3.sol/IUniswapV3Pool.json",
   "IV4Quoter.sol/IV4Quoter.json",
   "IUniversalRouter.sol/IUniversalRouter.json",
   "IAllowanceTransfer.sol/IAllowanceTransfer.json",

@@ -1,12 +1,13 @@
 // The fake world, derived from the scenario — plus a small mutable overlay so
 // that what you do in a session sticks: an approval you grant stays granted, a
-// bird you mint appears in your birds, a bird you roost moves.
+// bird you mint appears in your birds, a bird you brood starts earning.
 //
 // Every constant here that a contract owns is marked. The wiring agent deletes
 // the file; the constants come back from the chain.
 
 import type {
-  Address, Amount, Bird, RewardStream, RewardToken, SatchelHolding, Tier, TokenId, TraitIndices,
+  Address, Amount, Bird, BroodSummary, RewardStream, RewardToken, SatchelHolding, Tier, TokenId,
+  TraitIndices,
 } from './types';
 import { packCombo } from '../art/render';
 import { COUNTS } from '../art/traits';
@@ -33,6 +34,10 @@ export const MAX_EXTRA_FEE_BPS = 2400;
 export const MAX_BUY_PER_TX = e18(50_000_000);
 /** `ThePerch.BURN_EVERY`: one bird in this many deposits is burnt. */
 export const BURN_EVERY = 100;
+/** `BURN_FLOOR`: the real deployment's 2,222. The burn stops at this many living birds. */
+export const BURN_FLOOR = 2222;
+/** Somebody else: the previous holder of a bird whose brood expired when you bought it. */
+export const NOT_YOU: Address = '0x00000000000000000000000000000000000000A1';
 export const LOCK_SECONDS = 365 * 86400;
 export const AVIANS_SUPPLY = e18(1_000_000_000);
 export const POOL_AVIANS = e18(800_000_000);
@@ -51,6 +56,7 @@ export const ADDRESSES: Record<string, Address> = {
   Launcher: '0x77c2b0Ae4519dF3c8a2e6104Bb95Dd7e1f09b415',
   AviansHook: '0x3fA1e08C25B7d94610eF3a02Dc8B7159e4a0Cc88',
   LiquidityVault: '0x5B2e91Df0aC48317eE6a05Bd91cF7a4038e12b60',
+  Sweeper: '0x0c19E4f0A28d7b3C6e5aF21b9D843e07c5B16A92',
 };
 
 /** Measured on chain 4663 — HANDOVER section 10. These are real. */
@@ -65,12 +71,21 @@ export const THIRD_PARTY: Record<string, Address> = {
   Permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
 };
 
-export const REWARD_TOKENS: RewardToken[] = [
+/** The stock tokens: the Treasury's conversion targets, and the ticker's band. */
+export const STOCK_REWARD_TOKENS: RewardToken[] = [
   { address: '0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC', symbol: 'NVDA', decimals: 18 },
   { address: '0x117cc2133c37B721F49dE2A7a74833232B3B4C0C', symbol: 'SPY', decimals: 18 },
   { address: '0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa', symbol: 'SPCX', decimals: 18 },
   { address: '0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9', symbol: 'AAPL', decimals: 18 },
 ];
+/**
+ * AVIANS is a listed reward token on the Nest since 2026-09-18: the Roost
+ * streams 30% of every fee to brooding birds through it. Not a Treasury
+ * target (nothing converts into it — the Roost delivers it), and not on the
+ * ticker. The Nest's listing is the five, in this order.
+ */
+export const AVIANS_REWARD: RewardToken = { address: ADDRESSES.Avians, symbol: 'AVIANS', decimals: 18 };
+export const REWARD_TOKENS: RewardToken[] = [...STOCK_REWARD_TOKENS, AVIANS_REWARD];
 
 /**
  * The Treasury's conversion split, in basis points, one per REWARD_TOKENS entry.
@@ -142,14 +157,26 @@ export function satchelAddressOf(id: TokenId): Address {
 
 type Overlay = {
   approvals: Partial<{
-    aviansToCollection: Amount; aviansToStaking: Amount; aviansToPerch: Amount;
-    birdsToPerch: boolean; birdsToRoost: boolean;
+    aviansToCollection: Amount; aviansToNest: Amount; aviansToPerch: Amount;
+    birdsToPerch: boolean;
   }>;
   minted: TokenId[];
   freeClaimed: boolean;
   spent: Amount;
-  staked: Map<TokenId, Tier>;
-  unstaked: Set<TokenId>;
+  /**
+   * Broods this session set, changed, expired or cleared. A key with a null
+   * value is a brood the session CLOSED (settled after expiry), overriding the
+   * scenario's plan for that id.
+   */
+  broods: Map<TokenId, MockBrood | null>;
+  /**
+   * Reward delivered this session, by destination address then token symbol.
+   * A settle moves a bird's unsettled accrual here; the panel reads it back as
+   * the destination's balance.
+   */
+  delivered: Map<string, Map<string, Amount>>;
+  /** Unsettled accrual paid down by a settle this session, per bird per token. */
+  settledUpTo: Map<TokenId, Map<string, Amount>>;
   soldToPerch: TokenId[];
   boughtFromPerch: TokenId[];
   claimed: Set<string>;
@@ -184,22 +211,47 @@ type Overlay = {
   burnt: TokenId[];
   /** The vault's fees were collected this session, so nothing is pending. */
   feesCollected: boolean;
+  /** Satchels `prepare` deployed this session. */
+  satchelsDeployed: Set<TokenId>;
+  /** The Sweeper's grant, made or revoked this session, per bird. */
+  sweeperGrants: Map<TokenId, boolean>;
+  /** Reward a sweep moved OUT of a satchel this session, by satchel then symbol. */
+  sweptFrom: Map<string, Map<string, Amount>>;
 };
 
 const emptyOverlay = (): Overlay => ({
   approvals: {}, minted: [], freeClaimed: false, spent: 0n,
-  staked: new Map(), unstaked: new Set(), soldToPerch: [], boughtFromPerch: [],
+  broods: new Map(), delivered: new Map(), settledUpTo: new Map(),
+  soldToPerch: [], boughtFromPerch: [],
   claimed: new Set(), transferredAway: new Set(),
   price: null, royaltyBps: null, conversionMinInterval: null,
   permit2Approved: null, permit2Router: null,
   swappedAvians: 0n, swappedEth: 0n, deposits: 0, burnt: [],
   feesCollected: false,
+  satchelsDeployed: new Set(), sweeperGrants: new Map(), sweptFrom: new Map(),
 });
+
+/**
+ * A brood as the mock keeps it. `unsettled` is per token symbol and is what
+ * `earned` answers; a settle moves it to `overlay.delivered`.
+ */
+export type MockBrood = {
+  activator: Address;
+  tier: Tier;
+  activatedAt: number;
+  /** 0 while live. */
+  expiredAt: number;
+  toWallet: boolean;
+};
 
 export let overlay: Overlay = emptyOverlay();
 
 /** A scenario change is a different world; the session's edits do not carry. */
 subscribeScenario(() => { overlay = emptyOverlay(); });
+
+/** When the scene was chosen: the 'imminent' launch is twenty seconds after it. */
+let chosenAt = Math.floor(Date.now() / 1000);
+subscribeScenario(() => { chosenAt = Math.floor(Date.now() / 1000); });
 
 export function resetOverlay() { overlay = emptyOverlay(); }
 
@@ -240,6 +292,8 @@ export function world(s: Scenario = scenario()) {
   // rather than stored, exactly as the contract derives it, so the two cannot
   // drift and "one away" means one away.
   const untilBurn = s.burnClock === 'one-away' ? 1 : s.burnClock === 'near' ? 3 : 42;
+  // 'below-floor' keeps the count running (deposits still count) with nothing
+  // to count down to, which is exactly the contract's reading of it.
   const deposits = 300 - untilBurn + overlay.deposits;
 
   const avians = afterSpending + overlay.swappedAvians > 0n
@@ -248,7 +302,7 @@ export function world(s: Scenario = scenario()) {
   const approvals = {
     aviansToCollection: overlay.approvals.aviansToCollection
       ?? { none: 0n, partial: e18(50_000), sufficient: PRICE }[s.approvals],
-    aviansToStaking: overlay.approvals.aviansToStaking
+    aviansToNest: overlay.approvals.aviansToNest
       ?? { none: 0n, partial: 0n, sufficient: e18(200_000) }[s.approvals],
     // The perch's BUY price is 110,000 and the named price 115,000, so
     // "sufficient" has to cover the dearer of the two or the ready state is
@@ -256,56 +310,132 @@ export function world(s: Scenario = scenario()) {
     aviansToPerch: overlay.approvals.aviansToPerch
       ?? { none: 0n, partial: e18(50_000), sufficient: e18(115_000) }[s.approvals],
     birdsToPerch: overlay.approvals.birdsToPerch ?? s.approvals === 'sufficient',
-    birdsToRoost: overlay.approvals.birdsToRoost ?? s.approvals === 'sufficient',
   };
 
-  // ── your birds ──────────────────────────────────────────────────────────
-  const roostPlan: [TokenId, Tier][] = blank ? [] : {
-    'nothing-staked': [] as [TokenId, Tier][],
-    'tier-1': [[902, 1]] as [TokenId, Tier][],
-    'tier-2': [[902, 2], [1118, 2]] as [TokenId, Tier][],
-    'tier-3': [[902, 3], [1118, 3], [1447, 3]] as [TokenId, Tier][],
-    mixed: [[902, 3], [1118, 2], [1447, 1]] as [TokenId, Tier][],
-  }[s.roost];
-
-  const staked = new Map<TokenId, Tier>(roostPlan);
-  for (const id of overlay.unstaked) staked.delete(id);
-  for (const [id, tier] of overlay.staked) staked.set(id, tier);
-
-  const heldIdsBase = blank ? [] : [1204, 1377, 1562, 1588];
+  // ── your birds, and their broods ────────────────────────────────────
+  //
+  // NOTHING LEAVES THE WALLET TO BROOD. Every bird below is held by YOU; the
+  // scenario decides which of them carry a brood, and of what kind. An
+  // "expired" brood is one whose activator is somebody else — the bird was
+  // bought after its previous holder brooded it, and the split is theirs.
+  const heldIdsBase = blank ? [] : [902, 1118, 1204, 1377, 1447, 1562, 1588];
   const walletIds = [
     ...heldIdsBase,
     ...overlay.minted,
     ...overlay.boughtFromPerch,
-    ...[...overlay.unstaked],
   ]
-    .filter((id) => !staked.has(id))
     .filter((id) => !overlay.soldToPerch.includes(id))
     .filter((id) => !overlay.transferredAway.has(id));
 
-  const satchelHolds: SatchelHolding[] = blank || s.satchel === 'empty' ? []
-    : s.satchel === 'holds-tokens'
-      ? [{ kind: 'erc20', symbol: 'NVDA', decimals: 18, amount: 12408800000000000000n },
-        { kind: 'eth', amount: 31000000000000000n }]
-      : [{ kind: 'avian', id: 311 }, { kind: 'avian', id: 977 },
-        { kind: 'erc20', symbol: 'NVDA', decimals: 18, amount: 12408800000000000000n },
-        { kind: 'eth', amount: 31000000000000000n }];
-
   const now = Math.floor(Date.now() / 1000);
   const since: Record<number, number> = { 902: now - 14 * 86400, 1118: now - 6 * 86400, 1447: now - 2 * 86400 };
+  const live = (id: TokenId, tier: Tier, toWallet = false): [TokenId, MockBrood] =>
+    [id, { activator: YOU, tier, activatedAt: since[id] ?? now - 3600, expiredAt: 0, toWallet }];
+  const expiredOf = (id: TokenId, tier: Tier): [TokenId, MockBrood] =>
+    [id, { activator: NOT_YOU, tier, activatedAt: now - 9 * 86400, expiredAt: now - 2 * 86400, toWallet: false }];
+
+  const broodPlan: [TokenId, MockBrood][] = blank ? [] : {
+    none: [] as [TokenId, MockBrood][],
+    brooding: [live(902, 3), live(1118, 2)],
+    'brooding-to-wallet': [live(902, 3, true), live(1118, 2)],
+    'expired-unsettled': [live(902, 3), expiredOf(1118, 2)],
+    'settled-claimable': [live(902, 3)],
+    mixed: [live(902, 3), live(1118, 2, true), expiredOf(1447, 1)],
+  }[s.brood];
+
+  const broods = new Map<TokenId, MockBrood>(broodPlan);
+  for (const [id, b] of overlay.broods) {
+    if (b === null) broods.delete(id);
+    else broods.set(id, b);
+  }
+  // A bird that left the wallet this session took its brood with it, expired.
+  for (const id of [...overlay.soldToPerch, ...overlay.transferredAway]) broods.delete(id);
+
+  const listed = s.rewards === 'none-listed' ? [] : REWARD_TOKENS;
+  const pausedSymbols = s.rewards === 'all-paused' ? ['NVDA', 'SPY', 'SPCX', 'AAPL']
+    : s.rewards === 'one-paused' ? ['AAPL'] : [];
+  // Per-token accrual per unit of weight since a brood's last settle. Small,
+  // so the split reads as figures rather than as noise.
+  const perWeight = [41_200_000_000_000_00n, 118_300_000_000_000_00n, 6_700_000_000_000_00n, 93_100_000_000_000_00n, 2_750_000_000_000_000_000n];
+
+  // The 1204 fixture: two birds and some ETH inside. Its NVDA is a reward
+  // balance now, and comes from `satchelBalanceOf` with everything else's.
+  const satchelHolds: SatchelHolding[] = blank || s.satchel === 'empty' ? []
+    : s.satchel === 'holds-tokens'
+      ? [{ kind: 'eth', amount: 31000000000000000n }]
+      : [{ kind: 'avian', id: 311 }, { kind: 'avian', id: 977 },
+        { kind: 'eth', amount: 31000000000000000n }];
+
+  /** What a settle has delivered to an address, this session, in a token. */
+  const deliveredTo = (address: Address, symbol: string): Amount =>
+    overlay.delivered.get(address.toLowerCase())?.get(symbol) ?? 0n;
+
+  // ── the sweeper ─────────────────────────────────────────────────────
+  //
+  // Which satchels are deployed, which have granted, and what each holds.
+  // A grant needs a deployed satchel, so the scenario's grants deploy theirs.
+  const grantPlan: TokenId[] = blank ? [] : {
+    'none-granted': [] as TokenId[],
+    'some-granted': [902, 1204],
+    'all-granted': walletIds,
+    'all-swept': walletIds,
+  }[s.sweeper];
+  const satchelDeployed = (id: TokenId): boolean =>
+    id === 1204 || id % 3 === 0 || grantPlan.includes(id) || overlay.satchelsDeployed.has(id);
+  /** The CURRENT holder's grant: this session's word, else the scenario's. Never without a deployment. */
+  const sweeperGranted = (id: TokenId): boolean =>
+    satchelDeployed(id) && (overlay.sweeperGrants.get(id) ?? grantPlan.includes(id));
+
+  /**
+   * A satchel's balance in a reward token: what earlier settles left there
+   * (the fixture — two settles' worth for a satchel-delivery brood, plus the
+   * 1204 fixture's NVDA), plus this session's settles, less what a sweep
+   * moved out. 'all-swept' is the fixture with the satchels emptied.
+   */
+  function satchelBalanceOf(id: TokenId, symbol: string): Amount {
+    const satchel = satchelAddressOf(id);
+    const i = REWARD_TOKENS.findIndex((t) => t.symbol === symbol);
+    let base = 0n;
+    if (!blank && s.sweeper !== 'all-swept' && i >= 0 && listed.length) {
+      const b = broods.get(id);
+      if (b && !b.toWallet) base += perWeight[i] * TIER_WEIGHT[b.tier] * 2n;
+      if (id === 1204 && s.satchel !== 'empty' && symbol === 'NVDA') base += 12408800000000000000n;
+    }
+    const gross = base + deliveredTo(satchel, symbol);
+    const out = overlay.sweptFrom.get(satchel.toLowerCase())?.get(symbol) ?? 0n;
+    return gross > out ? gross - out : 0n;
+  }
+
+  /** Your own wallet's balance in a reward token: a fixture's NVDA, plus what settles and sweeps delivered. */
+  const walletRewardBalanceOf = (symbol: string): Amount =>
+    (symbol === 'NVDA' && !blank ? 3_100_000_000_000_000_000n : 0n) + deliveredTo(YOU, symbol);
+
+  function broodSummary(id: TokenId): BroodSummary | null {
+    const b = broods.get(id);
+    if (!b) return null;
+    return {
+      activator: b.activator, tier: b.tier, activatedAt: b.activatedAt, expiredAt: b.expiredAt,
+      live: b.expiredAt === 0,
+      delivery: { to: b.toWallet ? b.activator : satchelAddressOf(id), toWallet: b.toWallet },
+    };
+  }
 
   function makeBird(id: TokenId, where: Bird['location']): Bird {
     const traits = traitsForId(id);
     const nested = id === 1204 ? satchelHolds : [];
+    const satchel = satchelAddressOf(id);
+    // Settled reward sits in the satchel like anything else in it.
+    const settledHere: SatchelHolding[] = REWARD_TOKENS
+      .map((t) => ({ kind: 'erc20' as const, symbol: t.symbol, decimals: t.decimals, amount: satchelBalanceOf(id, t.symbol) }))
+      .filter((h) => h.amount > 0n);
     return {
       id, traits, combo: packCombo(traits), location: where,
-      satchel: { address: satchelAddressOf(id), deployed: id === 1204 || id % 3 === 0, holds: nested },
+      satchel: { address: satchel, deployed: satchelDeployed(id), holds: [...nested, ...settledHere] },
+      brood: broodSummary(id),
     };
   }
 
   const yourBirds = walletIds.map((id) => makeBird(id, { where: 'wallet', owner: YOU }));
-  const roosting = [...staked].map(([id, tier]) =>
-    makeBird(id, { where: 'roost', staker: YOU, tier, since: since[id] ?? now - 3600 }));
 
   // ── the perch ───────────────────────────────────────────────────────────
   const poolCount = blank ? 0 : { empty: 0, some: 37, full: 214 }[s.perch];
@@ -325,42 +455,57 @@ export function world(s: Scenario = scenario()) {
   // A property of the contract: never less than what it must hold.
   const aviansHeld = backingRequired + e18(5_562_400);
 
-  // ── the roost ───────────────────────────────────────────────────────────
-  const yourWeight = [...staked.values()].reduce((a, t) => a + TIER_WEIGHT[t], 0n);
-  const totalWeight = blank ? 0n : 4182n + yourWeight;
-  const totalStaked = blank ? 0 : 611 + staked.size;
+  // ── the nest ────────────────────────────────────────────────────────────
+  const yourWeight = [...broods.values()]
+    .filter((b) => b.activator === YOU && b.expiredAt === 0)
+    .reduce((a, b) => a + TIER_WEIGHT[b.tier], 0n);
+  const totalWeight = blank ? 0n : 4182n + [...broods.values()].reduce((a, b) => a + TIER_WEIGHT[b.tier], 0n);
+  const totalBrooding = blank ? 0 : 611 + broods.size;
 
-  const listed = s.rewards === 'none-listed' ? [] : REWARD_TOKENS;
-  const pausedSymbols = s.rewards === 'all-paused' ? ['NVDA', 'SPY', 'SPCX', 'AAPL']
-    : s.rewards === 'one-paused' ? ['AAPL'] : [];
-  const earnedBase = [41_200_000_000_000_00n, 118_300_000_000_000_00n, 6_700_000_000_000_00n, 93_100_000_000_000_00n];
-  const streams = listed.map((token, i) => ({
+  // A live stream of 2,000 tokens a day per token, three days in, as the
+  // chain keeps it: base units per second scaled by 1e18. A bird's share
+  // (weight / totalWeight) visibly ticks between reads on the brood screen.
+  const streams: RewardStream[] = listed.map((token, i) => ({
     token,
-    earned: overlay.claimed.has(token.symbol) ? 0n
-      : yourWeight === 0n ? 0n : earnedBase[i] * yourWeight,
-    rate: e18(1) / 86400n,
-    periodFinish: now + 5 * 86400,
-    claimedByYou: overlay.claimed.has(token.symbol) ? earnedBase[i] * yourWeight : 0n,
-    totalPaid: earnedBase[i] * 3200n,
-    transferable: !pausedSymbols.includes(token.symbol),
+    rate: (e18(2_000) * e18(1)) / 86400n,
+    periodFinish: now + 4 * 86400,
+    escrowed: perWeight[i] * 12_000n,
+    totalPaid: perWeight[i] * 3200n,
+    totalReturned: perWeight[i] * 140n,
   }));
 
-  // The whole point of the batch's third array: this token is not in `listed`,
-  // so `claimAll` returns one more row than the panel streams.
-  const retiredBase = 27_400_000_000_000_00n;
-  const retiredClaimed = overlay.claimed.has(RETIRED_REWARD_TOKENS[0].symbol);
-  const retired: RewardStream[] = (blank || listed.length === 0 || yourWeight === 0n) ? [] : [{
-    token: RETIRED_REWARD_TOKENS[0],
-    earned: retiredClaimed ? 0n : retiredBase * yourWeight,
-    rate: 0n,
-    periodFinish: now - 21 * 86400,
-    claimedByYou: retiredClaimed ? retiredBase * yourWeight : 0n,
-    totalPaid: retiredBase * 1900n,
-    transferable: s.rewards !== 'all-paused',
-  }];
+  /** `earned(id, token)` — what a settle would move for this bird, in total. */
+  function unsettledOf(id: TokenId, symbol: string): Amount {
+    const b = broods.get(id);
+    if (!b || listed.length === 0) return 0n;
+    const i = listed.findIndex((t) => t.symbol === symbol);
+    if (i < 0) return 0n;
+    const gross = perWeight[i] * TIER_WEIGHT[b.tier];
+    const paid = overlay.settledUpTo.get(id)?.get(symbol) ?? 0n;
+    return gross > paid ? gross - paid : 0n;
+  }
+
+  // An expired brood's split: the pre-expiry share is, in this mock, two
+  // thirds of the accrual — the chain reads the curve; the mock reads a ratio.
+  function pendingOf(id: TokenId, symbol: string): { toDestination: Amount; toActivator: Amount; returned: Amount } {
+    const b = broods.get(id);
+    const total = unsettledOf(id, symbol);
+    if (!b || total === 0n) return { toDestination: 0n, toActivator: 0n, returned: 0n };
+    if (b.expiredAt === 0) return { toDestination: total, toActivator: 0n, returned: 0n };
+    const pre = (total * 2n) / 3n;
+    return { toDestination: 0n, toActivator: pre, returned: total - pre };
+  }
+
+  // A held-back share: the wallet refused a delivery at an earlier settle.
+  const claimable = new Map<string, Amount>();
+  if (!blank && (s.brood === 'settled-claimable' || s.brood === 'mixed') && listed.length) {
+    const sym = s.brood === 'mixed' ? 'AAPL' : 'NVDA';
+    if (!overlay.claimed.has(sym)) claimable.set(sym, perWeight[listed.findIndex((t) => t.symbol === sym)] * 5n);
+  }
 
   // ── First Light ─────────────────────────────────────────────────────────
   const launchAt = s.launch === 'before' ? now + 11560
+    : s.launch === 'imminent' ? chosenAt + 20
     : s.launch === 'window' ? now - s.windowElapsed
       : now - 9 * 86400;
 
@@ -383,29 +528,32 @@ export function world(s: Scenario = scenario()) {
       eth: 148_000_000_000_000_000n + overlay.swappedEth > 0n
         ? 148_000_000_000_000_000n + overlay.swappedEth : 0n,
       avians,
-      mintedBy: (s.paidMint === 'wallet-cap' ? WALLET_LIMIT : heldIdsBase.length + roostPlan.length)
+      mintedBy: (s.paidMint === 'wallet-cap' ? WALLET_LIMIT : heldIdsBase.length)
         + overlay.minted.length,
       freeClaimed, isAllowlisted,
       proof: isAllowlisted ? (Array.from({ length: 12 }, (_, i) =>
         ('0x' + (i + 3).toString(16).padStart(2, '0').repeat(32)) as `0x${string}`)) : null,
       approvals,
     },
-    yourBirds, roosting, staked,
+    yourBirds, broods, listed, pausedSymbols,
+    unsettledOf, pendingOf, deliveredTo, claimable,
+    satchelDeployed, sweeperGranted, satchelBalanceOf, walletRewardBalanceOf,
     perch: {
       base: PERCH_BASE, sell: PERCH_SELL, buyNext: PERCH_BUY_NEXT, buyNamed: PERCH_BUY_NAMED,
       poolSize: poolIds.length, lowestId: poolIds[0] ?? null, heldIds: poolIds,
       backingRequired, aviansHeld,
       operatorWhitelisted: s.operatorWhitelist === 'applied',
       burnEvery: BURN_EVERY,
+      burnFloor: BURN_FLOOR,
+      // Below the floor the burn is off: the countdown reads 0 and a
+      // hundredth deposit is withheld. Derived exactly as the contract does.
+      burnsActive: s.burnClock !== 'below-floor',
       deposits,
-      // Derived, exactly as the contract derives it, so the countdown and the
-      // count can never disagree.
-      depositsUntilNextBurn: BURN_EVERY - (deposits % BURN_EVERY),
+      depositsUntilNextBurn: s.burnClock === 'below-floor' ? 0 : BURN_EVERY - (deposits % BURN_EVERY),
     },
-    roost: {
-      tierCost: TIER_COST, totalWeight, yourWeight, totalStaked,
-      totalBurned: e18(8_415_000), staked: roosting, listed, streams, retired,
-      operatorWhitelisted: s.operatorWhitelist === 'applied',
+    nest: {
+      tierCost: TIER_COST, totalWeight, yourWeight, totalBrooding,
+      totalForwarded: e18(8_415_000), listed, streams,
     },
     launch: {
       launchAt, isLaunched: now >= launchAt,

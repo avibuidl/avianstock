@@ -8,7 +8,7 @@
   padding: var(--s6) var(--s5) var(--s8);
 }
 
-/* The contents list follows you down the page — a reference page is read out
+/* The contents list follows you down the page: a reference page is read out
    of order, not top to bottom. */
 .toc { position: sticky; top: calc(var(--header-h) + var(--s4)); }
 .tocItem {
@@ -20,7 +20,7 @@
   border-left: 2px solid var(--line);
   color: var(--text-dim);
   padding: var(--s2) var(--s3);
-  font-size: 13px;
+  font-size: 13.5px;
   cursor: pointer;
 }
 .tocItem:hover { color: var(--text); border-left-color: var(--line-strong); }
@@ -30,6 +30,18 @@
 .sec:first-of-type { border-top: 0; padding-top: 0; }
 
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s7); }
+
+/* The numbers, in four groups. One hairline closes each group; the rows
+   inside it are separated by space, not by rules. */
+.group { margin-top: var(--s6); padding-bottom: var(--s5); border-bottom: 1px solid var(--line); }
+.numbers { margin: var(--s3) 0 0; }
+.numberRow {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--s2) var(--s5);
+  padding: 6px 0;
+}
+.numberRow dd { margin: 0; font-family: var(--font-mono); color: var(--text-strong); font-weight: 500; }
 
 .money {
   display: grid;
@@ -57,6 +69,10 @@
 }
 .step:first-child { border-top: 0; }
 
+/* Two prose tables: every cell in the body face, left-aligned, nothing mono. */
+:global(.table).powers td, :global(.table).powers td:last-child, :global(.table).words td, :global(.table).words td:last-child { text-align: left; font-family: var(--font-sans); font-size: 13.5px; color: var(--text); }
+:global(.table).powers td:first-child { color: var(--text-strong); font-weight: 600; }
+
 @media (max-width: 1080px) {
   .wrap { grid-template-columns: minmax(0, 1fr); gap: var(--s5); padding: var(--s5) var(--s4) var(--s7); }
   .toc { position: static; display: flex; flex-wrap: wrap; gap: var(--s1); }
@@ -66,6 +82,7 @@
 }
 
 @media (max-width: 720px) {
+  .numberRow { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 0; }
   .money { grid-template-columns: minmax(0, 1fr); }
   .rules { grid-template-columns: minmax(0, 1fr); }
   .facts { grid-template-columns: minmax(0, 1fr); }

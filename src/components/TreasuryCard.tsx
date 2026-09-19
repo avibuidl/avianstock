@@ -1,4 +1,5 @@
-// The Treasury card.
+// The Treasury card. On the nest, where the streams come from; it was on
+// Contracts until 2026-09-18.
 //
 // Two figures people confuse for each other, and one button anybody may press.
 //
@@ -62,7 +63,7 @@ function blockedBecause(t: TreasuryState, now: number): { short: string; long: s
   if (!t.conversion.enabled) {
     return {
       short: 'Not switched on yet',
-      long: 'Conversion is off at deployment. The owner turns it on once the pool and the streams are running — income is still arriving in the meantime.',
+      long: 'Conversion is off at deployment. The owner turns it on once the pool and the streams are running. Income still arrives in the meantime.',
     };
   }
   if (t.conversion.nextAllowedAt > now) {
@@ -77,13 +78,13 @@ function blockedBecause(t: TreasuryState, now: number): { short: string; long: s
   if (t.totalWeight === 0n) {
     return {
       short: 'Nothing is brooding',
-      long: 'A stream cannot start while nobody has sent a bird to the nest, so there is nobody to convert this income for yet.',
+      long: 'A stream cannot start while no bird is brooding, so there is nobody to convert this income for yet.',
     };
   }
   if (t.rewardTokenCount === 0) {
     return {
       short: 'No reward tokens yet',
-      long: 'No reward token has passed the incubator’s transferability gate, so a conversion would have nowhere to send anything.',
+      long: 'No reward token is listed on the nest yet, so a conversion would have nowhere to send anything.',
     };
   }
   if (t.targetCount === 0) {
@@ -131,63 +132,83 @@ export function TreasuryCard() {
   const doConvert = async (row: TreasuryRow) => {
     setBusy(`convert:${row.symbol}`);
     await tx.run(`Converting ${row.symbol} into rewards`, (on) => convertAndStream(row.currency, on), {
-      outcome: () => `Converted and streamed to the nest. Anyone could have pressed that.`,
+      outcome: () => `Converted and streamed to the nest.`,
     });
     setBusy(null);
   };
 
   return (
-    <section className="panel" aria-labelledby="tre-h">
-      <h3 id="tre-h" style={{ fontSize: 20 }}>The Treasury</h3>
-      <p className="small dim" style={{ marginTop: 8 }}>
-        Where the project&rsquo;s income lands: the pool&rsquo;s 1% in ETH, and marketplace
-        royalties.
-      </p>
+    <section className="panel treasury" aria-labelledby="tre-h">
+      <div>
+        <h3 id="tre-h" style={{ fontSize: 20 }}>The Treasury</h3>
+        <p className="small dim" style={{ marginTop: 8 }}>
+          Where the project&rsquo;s ETH income lands: the pool&rsquo;s fee and marketplace
+          royalties. It is converted to reward tokens for the nest.
+        </p>
 
-      {treasury.loading && !t ? (
-        <div style={{ marginTop: 16 }}><PanelSkeleton lines={4} /></div>
-      ) : treasury.error ? (
-        <div style={{ marginTop: 16 }}>
-          <ErrorState title="That read failed." onRetry={treasury.reload} />
-        </div>
-      ) : (
-        <>
-          <div className="scroll-x" style={{ marginTop: 16 }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Currency</th>
-                  <th className="right">Received, total</th>
-                  <th className="right">Balance now</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((r) => (
-                  <tr key={r.symbol}>
-                    <td>{r.symbol}</td>
-                    <td className="num">{money(r, r.cumulativeIn)}</td>
-                    <td className="num">{money(r, r.balance)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {treasury.loading && !t ? (
+          <div style={{ marginTop: 16 }}><PanelSkeleton lines={4} /></div>
+        ) : treasury.error ? (
+          <div style={{ marginTop: 16 }}>
+            <ErrorState title="The Treasury could not be read." onRetry={treasury.reload} />
           </div>
+        ) : (
+          <>
+            <div className="scroll-x" style={{ marginTop: 16 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Currency</th>
+                    <th className="right">Received, total</th>
+                    <th className="right">Balance now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((r) => (
+                    <tr key={r.symbol}>
+                      <td>{r.symbol}</td>
+                      <td className="num">{money(r, r.cumulativeIn)}</td>
+                      <td className="num">{money(r, r.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <p className="tiny dim" style={{ marginTop: 14 }}>
-            Received is everything that has ever arrived. Balance is what is here now. The
-            difference has been claimed or converted.
-          </p>
+            <p className="tiny dim" style={{ marginTop: 14 }}>
+              Received is everything that has ever arrived. Balance is what is here now. The
+              difference has been claimed or converted.
+            </p>
 
-          {/*
-            The action lives BELOW the table, not in a fourth column.
-            Measured at 375px: five columns needed 471px inside a 294px window,
-            which put the buttons 177px off-screen behind a sideways scroll —
-            a button nobody can see. Out here it is the full width of the card
-            at every size, and the table is left as three columns of pure
-            figures, which is what a table is for.
-          */}
-          {shown.some((r) => r.convertible > 0n) ? (
-            <div className="stack" style={{ marginTop: 16, gap: 10 }}>
+            {empty.length > 0 ? (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                style={{ marginTop: 12 }}
+                aria-expanded={showEmpty}
+                onClick={() => setShowEmpty((v) => !v)}
+              >
+                {showEmpty
+                  ? `Hide ${empty.length} ${empty.length === 1 ? 'currency' : 'currencies'} with nothing in them`
+                  : `Show ${empty.length} ${empty.length === 1 ? 'currency that has' : 'currencies that have'} never received anything`}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {/*
+        The action, in its own column beside the figures on a wide screen and
+        under them on a phone. It is not a fourth column of the table:
+        measured at 375px, five columns needed 471px inside a 294px window,
+        which put the buttons 177px off-screen behind a sideways scroll. Out
+        here the button is the full width of its column at every size, and
+        the table is left as three columns of pure figures.
+      */}
+      <div className="treasury__side">
+        {t ? (
+          shown.some((r) => r.convertible > 0n) ? (
+            <div className="stack" style={{ gap: 10 }}>
               {shown.filter((r) => r.convertible > 0n).map((r) => (
                 <div key={r.symbol} className="inset">
                   <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -205,50 +226,41 @@ export function TreasuryCard() {
                   <p className="tiny dim" style={{ margin: '8px 0 0' }}>
                     {blocked
                       ? blocked.short
-                      : `${money(r, r.convertible)} available to convert — anyone can press this.`}
+                      : `${money(r, r.convertible)} available to convert. Anyone may press this.`}
                   </p>
                 </div>
               ))}
             </div>
-          ) : null}
-
-          {empty.length > 0 ? (
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
-              style={{ marginTop: 12 }}
-              aria-expanded={showEmpty}
-              onClick={() => setShowEmpty((v) => !v)}
-            >
-              {showEmpty
-                ? `Hide ${empty.length} ${empty.length === 1 ? 'currency' : 'currencies'} with nothing in them`
-                : `${empty.length} ${empty.length === 1 ? 'currency has' : 'currencies have'} never received anything — show ${empty.length === 1 ? 'it' : 'them'}`}
-            </button>
-          ) : null}
-
-          {blocked ? (
-            <div style={{ marginTop: 14 }}>
-              <Note tone="info">
-                <strong className="strong">{blocked.short}.</strong> {blocked.long}
-              </Note>
+          ) : (
+            <div className="inset">
+              <span className="strong">Nothing to convert right now.</span>
+              <p className="tiny dim" style={{ margin: '8px 0 0' }}>
+                The button appears here once ETH has arrived.
+              </p>
             </div>
-          ) : null}
-        </>
-      )}
+          )
+        ) : null}
 
-      {/*
-        A FLOOR, not the setting. The note above this one states the interval
-        that is actually configured, read live, and the two read as though they
-        disagreed when the owner set three days — so this one now says which
-        kind of fact it is. `MIN_INTERVAL_FLOOR` is one day and is a constant,
-        so "at most once a day" is true whatever the owner does.
-      */}
-      <p className="tiny dim" style={{ marginTop: 14 }}>
-        Income is converted into reward tokens and streamed to the nest, and{' '}
-        <strong className="strong">anyone at all can pull the trigger</strong> — on one clock shared
-        by every currency, and at most once a day however the owner sets it. That last part is a
-        floor in the contract, not a setting.
-      </p>
+        {blocked ? (
+          <div style={{ marginTop: 14 }}>
+            <Note tone="info">
+              <strong className="strong">{blocked.short}.</strong> {blocked.long}
+            </Note>
+          </div>
+        ) : null}
+
+        {/*
+          A FLOOR, not the setting. The note above this one states the interval
+          that is actually configured, read live, and the two read as though they
+          disagreed when the owner set three days; so this one says which kind of
+          fact it is. `MIN_INTERVAL_FLOOR` is one day and is a constant, so "at
+          most once a day" is true whatever the owner does.
+        */}
+        <p className="tiny dim" style={{ marginTop: 14 }}>
+          Anyone may trigger a conversion, at most once a day. That limit is in the contract, not a
+          setting.
+        </p>
+      </div>
     </section>
   );
 }

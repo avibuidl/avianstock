@@ -36,7 +36,7 @@ export function Note({ tone = 'info', children }: { tone?: Tone; children: React
 export function Box({ tone, title, children }: { tone?: Tone; title?: string; children: ReactNode }) {
   return (
     <div className={tone ? `box box--${tone === 'hot' ? 'warn' : tone}` : 'box'}>
-      {title ? <p className="eyebrow" style={{ margin: '0 0 8px' }}>{title}</p> : null}
+      {title ? <h4 style={{ margin: '0 0 8px' }}>{title}</h4> : null}
       {children}
     </div>
   );
@@ -54,12 +54,12 @@ export function StockDisclaimer({
 }: { compact?: boolean; alsoCovers?: string[] }) {
   return (
     <Box title="Disclosure">
-      <p className={compact ? 'tiny italic' : 'small italic'} style={{ margin: 0 }}>
-        NVDA, SPY, SPCX and AAPL are tokenized stock products issued and controlled by Robinhood —
-        not stocks, shares, dividends or equity. Avian Stock has no relationship with Robinhood,
-        NVIDIA, SpaceX, Apple or S&amp;P. The stream can be zero: it depends on income arriving, on
-        pools other people provide, and on an issuer we don&rsquo;t control. Your bird comes home
-        either way.
+      <p className={compact ? 'tiny' : 'small'} style={{ margin: 0 }}>
+        NVDA, SPY, SPCX and AAPL are tokenized stock products issued and controlled by Robinhood.
+        They are not stocks, shares, dividends or equity. Avian Stock has no relationship with
+        Robinhood, NVIDIA, SpaceX, Apple or S&amp;P. The stream can be zero: it depends on income
+        arriving, on pools other people provide, and on an issuer we do not control. Your bird
+        never leaves your wallet to brood, whatever the reward tokens are doing.
         {alsoCovers.length > 0 ? (
           <>
             {' '}
@@ -105,7 +105,7 @@ export function Swatch({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      aria-label={taken ? `${label} — this combination is taken` : label}
+      aria-label={taken ? `${label}. This combination is taken.` : label}
       title={label}
       className={`swatch${selected ? ' swatch--on' : ''}${taken ? ' swatch--taken' : ''}`}
     >
@@ -139,6 +139,15 @@ export function Address({ value, long = false }: { value: string; long?: boolean
 
 export function Count({ value }: { value: number }) {
   return <span className="num">{formatCount(value)}</span>;
+}
+
+/**
+ * An amount that has not been read yet. A dash here used to mean both "not
+ * read" and "nothing"; a zero would be a claim. A short block in the
+ * skeleton's colour, with the words for a screen reader.
+ */
+export function Unread() {
+  return <span className="unread"><span className="sr-only">not read yet</span></span>;
 }
 
 // ── loading, empty, error ─────────────────────────────────────────────────

@@ -25,11 +25,46 @@ export function formatReward(v: bigint, decimals: number, places = 4): string {
   const unit = 10n ** BigInt(decimals);
   const whole = v / unit;
   const frac = ((v % unit) * 10n ** BigInt(places)) / unit;   // truncating division
+  // A non-zero amount must never read as zero. The first hour of a stream on
+  // launch day is a few millionths of a token — "0.0000 unsettled" beside "has
+  // rewards accrued" is a contradiction on screen (seen on the dry run). When
+  // the requested places truncate everything away, widen to the first four
+  // significant digits, up to the token's own precision.
+  if (v > 0n && whole === 0n && frac === 0n && places < decimals) {
+    let wide = places;
+    while (wide < decimals && ((v % unit) * 10n ** BigInt(wide)) / unit < 1000n) wide += 1;
+    const wideFrac = ((v % unit) * 10n ** BigInt(wide)) / unit;
+    return `0.${wideFrac.toString().padStart(wide, '0')}`;
+  }
   return `${group(whole.toString())}.${frac.toString().padStart(places, '0')}`;
 }
 
 export function formatEth(v: bigint, places = 4): string {
   return formatReward(v, 18, places);
+}
+
+/**
+ * A price, to at most `sig` significant figures. Truncated, never rounded, and
+ * never through `Number`: 0.0859638 ETH -> "0.085963", 11.6328 -> "11.632",
+ * 123456 -> "123,456". The ticker's numbers are these.
+ */
+export function formatPrice(v: bigint, decimals = 18, sig = 5): string {
+  if (v <= 0n) return '0';
+  const unit = 10n ** BigInt(decimals);
+  const whole = v / unit;
+  if (whole > 0n) {
+    const places = Math.max(0, sig - whole.toString().length); /* count */
+    if (places === 0) return group(whole.toString());
+    const frac = ((v % unit) * 10n ** BigInt(places)) / unit;
+    return `${group(whole.toString())}.${frac.toString().padStart(places, '0')}`;
+  }
+  // Below one: skip the leading zeros, then take `sig` digits, within the
+  // token's own precision.
+  let lead = 0; /* count */
+  while (lead < decimals && (v * 10n ** BigInt(lead + 1)) / unit === 0n) lead += 1;
+  const places = Math.min(decimals, lead + sig); /* count */
+  const frac = (v * 10n ** BigInt(places)) / unit;
+  return `0.${frac.toString().padStart(places, '0')}`;
 }
 
 /** A typed figure back to base units. Never via Number. */
@@ -87,6 +122,12 @@ export function formatSince(seconds: number): string {
   return 'just now';
 }
 
+/** "40 s" / "3 minutes" / "2 hours" — how long ago a read landed, for a stale panel's title. */
+export function formatAgo(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return s < 60 ? `${s} s` : formatSince(s);
+}
+
 /** "365 days" — the lock is always in days, because the contract says days. */
 export function formatDays(seconds: number): string {
   return `${formatCount(Math.floor(seconds / 86400))} days`;
@@ -106,25 +147,28 @@ export function formatDays(seconds: number): string {
  *                       fixed. A page that quietly omitted it would be reading
  *                       the chain and still lying.
  */
-export function rewardSplitLine(r: RewardSplit | undefined): string {
-  if (!r) return '—';
-  if (r.listed.length === 0) return 'None listed yet — nothing streams';
+export function rewardSplitLine(r: RewardSplit | undefined, avians?: string): string {
+  if (!r) return 'not read yet';
+  if (r.listed.length === 0) return 'None listed yet; nothing streams';
 
   const listed = new Set(r.listed.map((t) => t.address.toLowerCase()));
   const orphaned = r.parts.filter((p) => !listed.has(p.address.toLowerCase()));
 
   if (r.parts.length === 0) {
-    return `${r.listed.map((t) => t.symbol).join(', ')} — listed, but no split is set, so nothing converts yet`;
+    return `${r.listed.map((t) => t.symbol).join(', ')}: listed, but no split is set, so nothing converts yet`;
   }
 
   const weight = new Map(r.parts.map((p) => [p.address.toLowerCase(), p.weightBps]));
   const shares = r.listed.map((t) => {
     const bps = weight.get(t.address.toLowerCase());
+    // AVIANS is listed since 2026-09-18 but is no conversion target: the Roost
+    // delivers it. "No share" would read as a fault; it is the design.
+    if (bps === undefined && avians && t.address.toLowerCase() === avians.toLowerCase()) return `${t.symbol} from the Roost`;
     return bps === undefined ? `${t.symbol} (no share)` : `${t.symbol} ${formatBps(bps)}`;
   });
 
   return orphaned.length === 0 ? shares.join(', ')
-    : `${shares.join(', ')} — and ${orphaned.length} target${orphaned.length === 1 ? ' is' : 's are'} no longer listed, so conversions revert`;
+    : `${shares.join(', ')}; ${orphaned.length} target${orphaned.length === 1 ? ' is' : 's are'} no longer listed, so conversions revert`;
 }
 
 /**

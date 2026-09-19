@@ -4,7 +4,7 @@
 // so this countdown is built from the refusal itself.
 
 import { Icon } from '../components/Icon';
-import { Box, ErrorState, Note, PanelSkeleton, Tag } from '../components/Primitives';
+import { ErrorState, PanelSkeleton, Tag } from '../components/Primitives';
 import { avians, formatBps, formatCountdown, formatDays } from '../lib/format';
 import { buyFeeBpsAt, useLaunch, useNow, useVault } from '../mock';
 
@@ -21,7 +21,7 @@ export function FirstLight() {
   if (launch.error || !l) {
     return (
       <div className="page page--wide">
-        <ErrorState title="That read failed." detail="We could not reach the pool's hook."
+        <ErrorState title="The pool could not be read." detail="Try again in a moment."
           onRetry={launch.reload} />
       </div>
     );
@@ -36,13 +36,15 @@ export function FirstLight() {
     <div className="page page--wide">
       <div className="row row--wrap" style={{ gap: 16, alignItems: 'flex-end' }}>
         <div>
-          <p className="eyebrow">First Light</p>
-          <h2>The first five minutes.</h2>
+          <h2>First Light</h2>
+          <p className="lede" style={{ marginTop: 8 }}>
+            The pool&rsquo;s first five minutes: a buy fee that starts at 25% and falls to 1%.
+          </p>
         </div>
         <span className="spacer" />
         {before ? <Tag><Icon name="clock" size={11} /> Not launched</Tag>
-          : inWindow ? <Tag tone="hot">Window running · {formatCountdown(leftInWindow)} left</Tag>
-            : <Tag tone="ok">Settled · 1% both ways</Tag>}
+          : inWindow ? <Tag tone="hot">Window running, {formatCountdown(leftInWindow)} left</Tag>
+            : <Tag tone="ok">Window over</Tag>}
       </div>
 
       <div className="fl-grid">
@@ -50,9 +52,9 @@ export function FirstLight() {
           <h3 id="fee-h" className="sr-only">The buy fee</h3>
           <div className="row row--wrap" style={{ gap: 24, alignItems: 'flex-end' }}>
             <div>
-              <p className="eyebrow" style={{ margin: 0 }}>
+              <span className="label">
                 {before ? 'Buy fee at the first second' : inWindow ? 'Buy fee right now' : 'Buy fee'}
-              </p>
+              </span>
               <div className="num" style={{ fontSize: 64, lineHeight: 1, color: inWindow ? 'var(--attention)' : 'var(--chalk)', marginTop: 8 }}>
                 {formatBps(bps)}
               </div>
@@ -70,11 +72,11 @@ export function FirstLight() {
               ) : (
                 <p className="small" style={{ margin: 0 }}>The window is over. This is the standing fee.</p>
               )}
-              <p className="tiny dim" style={{ marginTop: 4 }}>Taken on the ETH side, both directions.</p>
+              <p className="tiny dim" style={{ marginTop: 4 }}>Taken on the ETH side of the swap.</p>
             </div>
             <span className="spacer" />
             <div style={{ textAlign: 'right', paddingBottom: 8 }}>
-              <p className="eyebrow" style={{ margin: 0 }}>Selling</p>
+              <span className="label">Sell fee</span>
               <div className="num" style={{ fontSize: 24 }}>{formatBps(l.sellFeeBps)}</div>
               <p className="tiny dim" style={{ margin: '2px 0 0' }}>flat, in and out of the window</p>
             </div>
@@ -85,9 +87,9 @@ export function FirstLight() {
           </div>
 
           <p className="tiny dim" style={{ marginTop: 12 }}>
-            It starts at 24% on top of the standing 1% — {formatBps(l.feeBps + l.maxExtraFeeBps)} at
-            the first second — and falls linearly to {formatBps(l.feeBps)} at the last. Nobody can
-            change either end. The hook that enforces it has no owner and no settings.
+            {formatBps(l.feeBps + l.maxExtraFeeBps)} at the first second, falling in a straight
+            line to {formatBps(l.feeBps)} at the last. Nobody can change either end: the contract
+            that enforces it has no owner and no settings.
           </p>
         </section>
 
@@ -96,19 +98,9 @@ export function FirstLight() {
             <h3 id="cap-h" style={{ fontSize: 20 }}>The per-transaction cap</h3>
             <div className="num" style={{ fontSize: 28, marginTop: 12 }}>{avians(l.maxBuyPerTx)}</div>
             <p className="small" style={{ marginTop: 8 }}>
-              No single transaction may buy more than that while the window is running. The cap is
-              per <em>transaction</em>, not per swap — several swaps bundled into one router call are
-              added together.
+              No single transaction may buy more than that while the window is running. Several
+              swaps bundled into one transaction count together.
             </p>
-            <div style={{ marginTop: 14 }}>
-              <Box>
-                <p className="tiny" style={{ margin: 0 }}>
-                  The contract cannot tell us how much a transaction has already used — that counter
-                  lives in transient storage and is gone at the end of the transaction. So we add up
-                  what you are about to bundle and keep it under the cap ourselves.
-                </p>
-              </Box>
-            </div>
           </section>
 
           <section className="panel" aria-labelledby="get-h">
@@ -118,8 +110,7 @@ export function FirstLight() {
               {inWindow ? <Tag tone="hot">{formatBps(bps)} right now</Tag> : null}
             </div>
             <p className="small" style={{ marginTop: 8 }}>
-              Buying AVIANS mints nothing. They are two different acts: get the token first, compose
-              a bird second.
+              Buying AVIANS mints nothing. Get the token first, then compose a bird.
             </p>
             <a
               className="btn btn--ghost btn--wide"
@@ -131,8 +122,7 @@ export function FirstLight() {
               Open the pool <Icon name="ext" size={14} />
             </a>
             <p className="tiny dim" style={{ marginTop: 12 }}>
-              The 1% is a property of <em>this</em> pool, not a tax on the token. Anyone can open a
-              pool without it, and a router will take whichever is cheaper.
+              The fee belongs to this pool, not to the token. Anyone can open a pool without it.
             </p>
           </section>
 
@@ -140,7 +130,7 @@ export function FirstLight() {
             <div className="row">
               <h3 id="vault-h" style={{ fontSize: 20 }}>The Vault</h3>
               <span className="spacer" />
-              {vault.data?.isLocked ? <Tag tone="ok"><Icon name="lock" size={11} /> Locked</Tag> : <Tag>Unknown</Tag>}
+              {vault.data?.isLocked ? <Tag tone="ok"><Icon name="lock" size={11} /> Locked</Tag> : null}
             </div>
             {vault.loading && !vault.data ? (
               <div style={{ marginTop: 14 }}><PanelSkeleton lines={3} /></div>
@@ -166,14 +156,10 @@ export function FirstLight() {
             <Tag><Icon name="clock" size={11} /> Not launched</Tag>
           </div>
           <div className="num" style={{ fontSize: 40, marginTop: 14 }}>
-            {before ? formatCountdown(l.launchAt - now) : '—'}
+            {before ? formatCountdown(l.launchAt - now) : 'Open'}
           </div>
           <p className="small" style={{ marginTop: 10 }}>
-            Every swap reverts until the launch time, and the revert carries the timestamp — this
-            countdown is built from the contract&rsquo;s own refusal.
-          </p>
-          <p className="tiny dim" style={{ marginTop: 10 }}>
-            We won&rsquo;t post a date we might have to move.
+            Every swap reverts until the launch time. The countdown is read from the contract.
           </p>
         </section>
 
@@ -184,10 +170,10 @@ export function FirstLight() {
             <Tag tone="ok">Settled</Tag>
           </div>
           <div className="num" style={{ fontSize: 40, marginTop: 14 }}>
-            1% <span className="dim" style={{ fontSize: 18 }}>both ways</span>
+            {formatBps(l.feeBps)} <span className="dim" style={{ fontSize: 18 }}>on buys, {formatBps(l.sellFeeBps)} on sells</span>
           </div>
           <p className="small" style={{ marginTop: 10 }}>
-            No extra fee, no cap, forever. There is no key that can change any of it.
+            No extra fee, no cap, forever. No key can change any of it.
           </p>
           <p className="tiny dim" style={{ marginTop: 10 }}>
             A swap either fills completely or reverts. There are no partial fills.
@@ -195,14 +181,7 @@ export function FirstLight() {
         </section>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <Note tone="info">
-          <span className="small">
-            Two more things worth knowing during the window: the fee is on the ETH side of the swap,
-            and a swap that would move nothing is refused rather than filled at zero.
-          </span>
-        </Note>
-      </div>
+
     </div>
   );
 }
@@ -224,7 +203,7 @@ function FeeCurve({ launchAt, now, windowSeconds }: { launchAt: number; now: num
       {[0, 500, 1000, 1500, 2000, 2500].map((b) => (
         <g key={b}>
           <line x1={pad.l} y1={y(b)} x2={W - pad.r} y2={y(b)} stroke="var(--slate)" strokeWidth={1} />
-          <text x={pad.l - 10} y={y(b) + 4} fill="var(--ash)" fontSize={10} textAnchor="end" fontFamily="JetBrains Mono, monospace">
+          <text x={pad.l - 10} y={y(b) + 4} fill="var(--ash)" fontSize={10} textAnchor="end" fontFamily="Geist Mono, monospace">
             {b / 100}%
           </text>
         </g>
@@ -235,14 +214,14 @@ function FeeCurve({ launchAt, now, windowSeconds }: { launchAt: number; now: num
         <>
           <line x1={x(elapsed)} y1={pad.t} x2={x(elapsed)} y2={y(0)} stroke="var(--amber)" strokeWidth={1} strokeDasharray="3 3" />
           <rect x={x(elapsed) - 4} y={y(buyFeeBpsAt(now, launchAt)) - 4} width={8} height={8} fill="var(--amber)" />
-          <text x={x(elapsed) + 12} y={y(buyFeeBpsAt(now, launchAt)) - 10} fill="var(--amber)" fontSize={12} fontFamily="JetBrains Mono, monospace">
-            now · {formatBps(buyFeeBpsAt(now, launchAt))}
+          <text x={x(elapsed) + 12} y={y(buyFeeBpsAt(now, launchAt)) - 10} fill="var(--amber)" fontSize={12} fontFamily="Geist Mono, monospace">
+            now {formatBps(buyFeeBpsAt(now, launchAt))}
           </text>
         </>
       ) : null}
       <line x1={pad.l} y1={y(0)} x2={W - pad.r} y2={y(0)} stroke="var(--steel)" strokeWidth={1} />
       {[0, 60, 120, 180, 240, 300].map((t) => (
-        <text key={t} x={x(t)} y={H - 12} fill="var(--ash)" fontSize={10} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+        <text key={t} x={x(t)} y={H - 12} fill="var(--ash)" fontSize={10} textAnchor="middle" fontFamily="Geist Mono, monospace">
           {t}s
         </text>
       ))}

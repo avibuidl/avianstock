@@ -1,5 +1,5 @@
 {
-  "default": "testnet-46630",
+  "default": "mock",
   "deployments": [
     {
       "id": "mock",

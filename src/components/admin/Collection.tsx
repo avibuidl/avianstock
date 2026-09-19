@@ -257,7 +257,7 @@ function AllowlistControl({
         {/*
           IS THIS ADDRESS ON THE LIST? Four reads off the collection with the
           proof the deployment's proofs file holds for it, or none: the manual
-          mapping, `isAllowlisted`, `freeClaimed`, and `freeMintStatus` — the
+          mapping, `isAllowlisted`, `freeClaimed`, and `freeMintStatus`: the
           last decoded to its error name, because that is exactly what the
           collector would be told at the door.
         */}
@@ -286,7 +286,7 @@ function AllowlistControl({
             ) : (
               <>
                 <p className="small" style={{ margin: 0 }}>
-                  <Addr value={answer.address} />{' — '}
+                  <Addr value={answer.address} />{': '}
                   <strong className="strong">
                     {answer.verdict === 'claimed' ? 'already claimed a free bird'
                       : answer.verdict === 'manual' ? 'on the list by the manual door'
@@ -294,15 +294,15 @@ function AllowlistControl({
                           : 'not on the list'}
                   </strong>
                   {answer.verdict === 'merkle' || answer.proofLength > 0
-                    ? <span className="dim"> · proof of {answer.proofLength} from the proofs file</span>
+                    ? <span className="dim">, proof of {answer.proofLength} from the proofs file</span>
                     : answer.verdict === 'not-listed'
-                      ? <span className="dim"> · no proof on file, checked with none</span>
+                      ? <span className="dim">, no proof on file, checked with none</span>
                       : null}
                 </p>
                 <p className="tiny dim" style={{ margin: '6px 0 0' }}>
                   {answer.freeMintStatus === null
-                    ? 'freeMintStatus: 0 — the free door would admit this address right now.'
-                    : `freeMintStatus: ${answer.freeMintStatus} — what the collector would be told.`}
+                    ? 'freeMintStatus: 0: the free door would admit this address right now.'
+                    : `freeMintStatus: ${answer.freeMintStatus}: what the collector would be told.`}
                 </p>
               </>
             )}
@@ -424,7 +424,7 @@ function RendererControl({
                 word: 'lock',
                 consequence: <>
                   The art can never be re-pointed. <span className="mono">{c.renderer}</span> becomes
-                  the renderer for every bird, forever — and if it is the wrong address, or it
+                  the renderer for every bird, forever: and if it is the wrong address, or it
                   breaks later, there is no way to replace it.
                 </>,
               },
@@ -451,7 +451,7 @@ function ValidatorControl({
         <Addr value={c.transferValidator} />
         {c.transferValidatorLocked ? <> <Tag tone="ok"><Icon name="lock" size={11} /> locked</Tag></> : null}
       </>}
-      note="Enforcement. It decides which operators may move a bird, which is what makes the batch routes work — or not."
+      note="Enforcement. It decides which operators may move a bird, which is what makes the batch routes work: or not."
     >
       {c.transferValidatorLocked ? (
         <p className="tiny dim" style={{ marginTop: 10 }}>
@@ -567,7 +567,7 @@ function ValidatorConfig({
       now={admin.collection.transferValidator ? 'through the collection' : 'no validator set'}
       note={<>
         The collection forwards thirteen validator configuration selectors and refuses everything
-        else. These eight are composed from the fields below — there is no free-text calldata field
+        else. These eight are composed from the fields below: there is no free-text calldata field
         on this page, and there will not be one.
       </>}
     >
@@ -630,7 +630,7 @@ function ValidatorConfig({
             label: 'Send it',
             disabled: !op || !admin.collection.transferValidator,
             run: (on) => configureTransferValidator(op!, on),
-            outcome: () => `${chosen.label} — sent.`,
+            outcome: () => `${chosen.label}: sent.`,
           }}
         />
       </div>
@@ -638,10 +638,10 @@ function ValidatorConfig({
       <div style={{ marginTop: 14 }}>
         <Box title="What is deliberately not here">
           <p className="tiny dim" style={{ margin: 0 }}>
-            The other five forwardable selectors are list ownership —{' '}
+            The other five forwardable selectors are list ownership ({' '}
             <span className="mono">createListCopy</span>,{' '}
             <span className="mono">reassignOwnershipOfList</span>,{' '}
-            <span className="mono">renounceOwnershipOfList</span> — and per-account freezing.
+            <span className="mono">renounceOwnershipOfList</span>) and per-account freezing.
             Governance and punishment, both rare and both close to irreversible. They stay in{' '}
             <span className="mono">ConfigureEnforcement.s.sol</span>, where a second person sees
             them before they are sent.

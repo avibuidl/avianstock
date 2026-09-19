@@ -18,15 +18,15 @@
     ]
   },
   "contracts": {
-    "Avians": "0x7e3fb76dcb313505344581b213423226ebb64263",
-    "TraitRegistry": "0xef474b391c2a1b86dafb55992cc324c7d2b95ef4",
-    "BirdRenderer": "0x176467a448ee00918568ab969b12e76e96cf5634",
-    "TheNest": "0xa18e95fa3f5d91c80d8bab17615f73bcdafa92df",
-    "Treasury": "0xeea834d05ca0f6be5ed9cd8a2665ec776b7ec5fd",
-    "ThePerch": "0x54b612510ccf26d77df6d7b5b513aa0200d7469a",
-    "AvianStock": "0x028bde64f22271c80e3204201a3f4997392e57b7",
-    "AviansHook": "0x2da72199d057cfebc0b9901087d099b56e2120cc",
-    "LiquidityVault": "0xb2b56c1cdd19c577210d3f7d0615f41819b69e2e"
+    "Avians": "0xae9c597e6c3e2e7f54425528a3113fce5e11cb80",
+    "TraitRegistry": "0xc48e1934b540fdbba301b63123c2d4f3c1848af3",
+    "BirdRenderer": "0x89dafb547f01840fbcffe9a57bad76dd85ee5989",
+    "TheNest": "0xeadc5ce9b84d09fcb25be3339ef458bc457fff8f",
+    "Treasury": "0x133b18d9130655f6f02ecc5ae4f255cc88e22e87",
+    "ThePerch": "0x322709b7ba834441cec6de0f5a3a93c031022bc6",
+    "AvianStock": "0xf45e93cc501edba262d94fe1c1bf82b74d5cb152",
+    "AviansHook": "0x44f7dee7e115fd20d76af3d3463716099f1160cc",
+    "LiquidityVault": "0x9e2bd31c5103dbb4a13cef5a4208bab92e44a6aa"
   },
   "thirdParty": {
     "PoolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
@@ -37,11 +37,13 @@
     "StateView": "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b"
   },
   "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
-  "lens": "0x0aa91c20a4d78596c7e20c0ba39a44b67eae5718",
-  "startBlock": 116262794,
+  "sweeper": "0x6c75d97f1e1dd8db0efb7a95ed3161254312d5c0",
+  "aviansStaking": "0x63a6c9de7d5c3448f7a0b95c7b3570c3461ceb67",
+  "roost": "0xbe99bb771876d7952e28f481fca2956e2e913cdc",
+  "startBlock": 121665563,
   "allowlistProofs": null,
   "generated": {
-    "at": "2026-09-11T12:31:16.374Z",
-    "from": "../contracts/broadcast/Deploy.s.sol/46630/run-latest.json + ../contracts/broadcast/DeployLaunch.s.sol/46630/run-latest.json"
+    "at": "2026-09-19T11:47:45.631Z",
+    "from": "../contracts/broadcast/Deploy.s.sol/46630/run-latest.json + ../contracts/broadcast/DeployLaunch.s.sol/46630/run-latest.json + ../contracts/broadcast/DeploySweeper.s.sol/46630/run-latest.json"
   }
 }

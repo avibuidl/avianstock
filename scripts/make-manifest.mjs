@@ -3,7 +3,9 @@
 // HANDOVER section 10: the addresses come out of
 //   contracts/broadcast/Deploy.s.sol/<chainId>/run-latest.json
 // and the pool's three out of the matching DeployLaunch.s.sol run. "Do not
-// hard-code them from a testnet run."
+// hard-code them from a testnet run." The token alone may come out of
+//   contracts/broadcast/DeployAvians.s.sol/<chainId>/run-latest.json
+// instead, when it went on chain first (MAINNET-RUNBOOK step 0).
 //
 // This script is that instruction, mechanised — and it does one more thing
 // before it writes: it asks the CHAIN the same cross-check questions the site
@@ -16,8 +18,16 @@
 //     --label "Robinhood Chain" --rpc https://rpc.mainnet.chain.robinhood.com
 //
 //   --explorer <url>      default https://robinhoodchain.blockscout.com
-//   --proofs <path>       e.g. ./deployments/proofs/mainnet-4663.json
-//   --lens <address>      the AvianLens; default: read from DeployLens.s.sol's broadcast
+//   --proofs <path>       the allowlist toolkit's proofs.json (ALLOWLIST.md §3).
+//                         Copied into public/deployments/proofs/<id>.json so the
+//                         site can SERVE it; the manifest records the served path.
+//   --default             make this deployment the index's default. Since
+//                         2026-09-19 the site opens on mainnet if configured,
+//                         else the newest chain deployment, else the mock, and
+//                         reads the default only as a tie-break; a chain manifest
+//                         written over a "mock" or missing default becomes the
+//                         default on its own. A testnet never displaces a
+//                         mainnet default, flag or no flag.
 //   --broadcast <dir>     default ../contracts/broadcast
 //   --dry-run             print it, write nothing
 //   --skip-verify         write without asking the chain (say why in the PR)
@@ -50,12 +60,56 @@ const proofs = flag('proofs', null);
 const broadcastDir = resolve(root, flag('broadcast', join('..', 'contracts', 'broadcast')));
 const dryRun = has('dry-run');
 const skipVerify = has('skip-verify');
+const makeDefault = has('default');
 
 const rel = (p) => relative(root, p).split('\\').join('/');
 const die = (...lines) => { console.error(lines.join('\n')); process.exit(1); };
 
 if (!Number.isInteger(chainId) || chainId <= 0) die('--chain <id> is required, and must be a positive integer.');
 if (!id) die('--id <slug> is required. It becomes the filename and must match the manifest\'s id.');
+if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) die(`--id must be a lowercase slug (letters, digits, dashes), got ${JSON.stringify(id)}`);
+/**
+ * A `local-*` id is PER-MACHINE: a fork somebody started themselves, whose
+ * addresses exist nowhere else. The file is written and gitignored, and the
+ * index is left alone — an index entry for it would point every other clone
+ * at a file nobody else has. The site loads such an id straight from
+ * `?d=<id>` (see `loadManifest` in src/chain/manifest.ts).
+ */
+const isLocal = id.startsWith('local-');
+if (isLocal && makeDefault) die('--default makes no sense for a local-* manifest: it is never in the index.');
+
+/**
+ * THE PROOFS FILE IS SERVED, NOT REFERENCED. `allowlistProofs` is a URL the
+ * site fetches relative to its own page, so a filesystem path such as
+ * `../build/allowlist/proofs.json` would be a 404 on the host and every
+ * Merkle-listed wallet would read NotAllowlisted. The file is copied under
+ * `public/deployments/proofs/` and the manifest names THAT path. A file
+ * already under `public/` is referenced where it is. Either way it is read
+ * and checked first: an object of address -> bytes32[] and nothing else.
+ */
+const publicDir = join(root, 'public');
+let proofsServed = null;      // the path the manifest records
+let proofsSource = null;      // where the bytes come from, for the copy
+let proofsCount = 0;
+if (proofs !== null) {
+  const source = resolve(process.cwd(), proofs);
+  if (!existsSync(source)) die(`--proofs ${proofs}: no such file (resolved to ${source}).`);
+  let parsed;
+  try { parsed = JSON.parse(readFileSync(source, 'utf8')); } catch (e) { die(`--proofs ${proofs} is not valid JSON: ${e.message}`); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) die(`--proofs ${proofs}: expected an object of address -> proof[]`);
+  for (const [address, proof] of Object.entries(parsed)) {
+    if (!isAddress(address)) die(`--proofs ${proofs}: ${address} is not an address`);
+    if (!Array.isArray(proof) || !proof.every((p) => /^0x[0-9a-fA-F]{64}$/.test(p))) die(`--proofs ${proofs}: the proof for ${address} is not an array of bytes32`);
+    proofsCount++;
+  }
+  const relToPublic = relative(publicDir, source).split('\\').join('/');
+  if (!relToPublic.startsWith('..') && !relToPublic.startsWith('/')) {
+    proofsServed = `./${relToPublic}`;
+  } else {
+    proofsSource = source;
+    proofsServed = `./deployments/proofs/${id}.json`;
+  }
+}
 if (!rpc) die('--rpc <url> is required: the manifest carries the network, not just the addresses.');
 if (!/^https?:\/\//.test(rpc)) die(`--rpc must be http or https, got ${rpc}`);
 
@@ -63,6 +117,13 @@ if (!/^https?:\/\//.test(rpc)) die(`--rpc must be http or https, got ${rpc}`);
 
 /** HANDOVER section 10's creation order, and where each one is deployed. */
 const FROM_DEPLOY = ['Avians', 'TraitRegistry', 'BirdRenderer', 'TheNest', 'Treasury', 'ThePerch', 'AvianStock'];
+/**
+ * The two the Roost added on 2026-09-18, created between the Treasury and the
+ * Perch in the same run. They are manifest fields of their own (`aviansStaking`,
+ * `roost`), required and never null: the Nest sends every tier cost to the
+ * Roost and the Perch every fee, so a deployment without them is the old one.
+ */
+const ROOST_PAIR = { aviansStaking: 'AviansStaking', roost: 'TheRoost' };
 const FROM_LAUNCH = ['AviansHook', 'LiquidityVault'];
 
 function readRun(script) {
@@ -111,21 +172,65 @@ if (!deploy.run) {
     'Run script/Deploy.s.sol with --broadcast against this chain first.',
   );
 }
+/**
+ * THE TOKEN MAY HAVE GONE FIRST. MAINNET-RUNBOOK step 0: `DeployAvians.s.sol`
+ * puts AVIANS on chain by itself, days or weeks early, so the address can be
+ * published; step 1's `Deploy.s.sol` then reuses it through AVIARY_AVIANS and
+ * its broadcast has no Avians CREATE at all. So the token comes from the
+ * DeployAvians broadcast when there is one and from Deploy's otherwise. Both
+ * with a token, and a different one each, is the runbook's own warning made
+ * real — step 1 ran without AVIARY_AVIANS exported and minted a second AVIANS
+ * — and is refused rather than chosen between. The cross-check below
+ * (`token.AVIANS() == Avians`) is what catches a wrong pairing either way.
+ */
+const early = readRun('DeployAvians.s.sol');
 const launch = readRun('DeployLaunch.s.sol');
-// The lens is stateless and may have been deployed by any key at any time;
-// a flag names one deployed earlier, the broadcast file names one deployed now.
-const lensRun = readRun('DeployLens.s.sol');
-const lens = flag('lens', lensRun.run ? (creates(lensRun.run, lensRun.path).get('AvianLens') ?? null) : null);
-if (lens !== null && !isAddress(lens)) die(`--lens: ${lens} is not an address.`);
+// (The lens of 2026-09-11 is gone: "who holds what" is the collection's own.)
+// The Sweeper (2026-09-12) is its own script, deployable by any key at any
+// time after the collection, so it is its own broadcast — and its own field,
+// null until that broadcast exists. The site hides the whole feature on null.
+const sweeperRun = readRun('DeploySweeper.s.sol');
 
 const deployed = creates(deploy.run, deploy.path);
+const earlyCreates = early.run ? creates(early.run, early.path) : new Map();
+const aviansEarly = earlyCreates.get('Avians') ?? null;
+if (early.run && !aviansEarly) {
+  die(`${early.path} exists but has no CREATE for Avians. Re-run DeployAvians.s.sol, or delete that broadcast.`);
+}
+const aviansHere = deployed.get('Avians') ?? null;
+if (aviansEarly && aviansHere && aviansEarly.toLowerCase() !== aviansHere.toLowerCase()) {
+  die(
+    `Two AVIANS tokens: ${early.path} put ${aviansEarly} on chain, and ${deploy.path} then created another at ${aviansHere}.`,
+    'Deploy.s.sol reuses the early token only when AVIARY_AVIANS is exported in the terminal that runs it',
+    '(MAINNET-RUNBOOK step 0); without it, the collection is wired to the second token and the address',
+    'already published is one nothing uses. Which of the two this deployment means is not the generator\'s',
+    'call. Nothing was written.',
+  );
+}
+const avians = aviansEarly ?? aviansHere;
+if (!avians) {
+  die(
+    `${deploy.path} has no CREATE for Avians, and there is no ${early.path} to take the token from.`,
+    'This deployment is incomplete.',
+  );
+}
 const launched = launch.run ? creates(launch.run, launch.path) : new Map();
+const sweeper = sweeperRun.run ? (creates(sweeperRun.run, sweeperRun.path).get('Sweeper') ?? null) : null;
+if (sweeperRun.run && !sweeper) {
+  die(`${sweeperRun.path} exists but has no CREATE for Sweeper. Re-run DeploySweeper.s.sol, or delete that broadcast.`);
+}
 
 const contracts = {};
 for (const name of FROM_DEPLOY) {
-  const address = deployed.get(name);
+  const address = name === 'Avians' ? avians : deployed.get(name);
   if (!address) die(`${deploy.path} has no CREATE for ${name}. This deployment is incomplete.`);
   contracts[name] = address;
+}
+const roostPair = {};
+for (const [field, name] of Object.entries(ROOST_PAIR)) {
+  const address = deployed.get(name);
+  if (!address) die(`${deploy.path} has no CREATE for ${name}. This deployment predates the Roost (2026-09-18); redeploy.`);
+  roostPair[field] = address;
 }
 for (const name of FROM_LAUNCH) {
   // Null as a PAIR: an explicit "this deployment has no pool yet", which the
@@ -148,6 +253,10 @@ const startBlock = Number(
 
 for (const [name, address] of Object.entries(contracts)) {
   if (address !== null && !isAddress(address)) die(`${name}: ${address} is not an address.`);
+}
+if (sweeper !== null && !isAddress(sweeper)) die(`Sweeper: ${sweeper} is not an address.`);
+for (const [field, address] of Object.entries(roostPair)) {
+  if (!isAddress(address)) die(`${field}: ${address} is not an address.`);
 }
 
 // ── multicall3, if this chain has one at the canonical address ────────────
@@ -233,16 +342,19 @@ const manifest = {
   contracts,
   thirdParty,
   multicall3,
-  // HANDOVER section 9: who holds what, as a read. null = the site falls
-  // back to the transfer-log scan, which is slow on this chain.
-  lens,
+  // HANDOVER section 5, "Collecting from many birds at once". Null = not
+  // deployed on this chain yet; the site then shows no sweep panel at all.
+  sweeper,
+  // The Roost and its first leg. Required: see ROOST_PAIR.
+  aviansStaking: roostPair.aviansStaking,
+  roost: roostPair.roost,
   startBlock,
-  allowlistProofs: proofs,
+  allowlistProofs: proofsServed,
   generated: {
     at: new Date().toISOString(),
     // Relative to the dapp folder, never the machine's absolute path: this
     // file is published with the site.
-    from: `${rel(deploy.path)}${launch.run ? ` + ${rel(launch.path)}` : ''}`,
+    from: `${aviansEarly ? `${rel(early.path)} + ` : ''}${rel(deploy.path)}${launch.run ? ` + ${rel(launch.path)}` : ''}${sweeperRun.run ? ` + ${rel(sweeperRun.path)}` : ''}`,
   },
 };
 
@@ -251,6 +363,8 @@ const manifest = {
 const SELECTORS = [
   ['token.AVIANS() == Avians', 'AvianStock', 'AVIANS', 'Avians'],
   ['token.MINT_SINK() == ThePerch', 'AvianStock', 'MINT_SINK', 'ThePerch'],
+  // The collection tells the Nest about every transfer through this immutable.
+  ['token.NEST() == TheNest', 'AvianStock', 'NEST', 'TheNest'],
   ['token.registry() == TraitRegistry', 'AvianStock', 'registry', 'TraitRegistry'],
   ['amm.nft() == AvianStock', 'ThePerch', 'nft', 'AvianStock'],
   ['amm.avians() == Avians', 'ThePerch', 'avians', 'Avians'],
@@ -260,7 +374,23 @@ const SELECTORS = [
   ['treasury.AVIANS() == Avians', 'Treasury', 'AVIANS', 'Avians'],
   ['hook.AVIANS() == Avians', 'AviansHook', 'AVIANS', 'Avians'],
   ['hook.TREASURY() == Treasury', 'AviansHook', 'TREASURY', 'Treasury'],
+  // The Sweeper's one immutable. A sweeper built for another collection
+  // would read every satchel of the wrong birds.
+  ['sweeper.COLLECTION() == AvianStock', 'Sweeper', 'COLLECTION', 'AvianStock'],
+  // The Roost (2026-09-18): bound to this Nest and this staking contract at
+  // construction, and the Nest's cost sink bound to it. The Perch's
+  // `feeRecipient` is the Roost by default but owner-settable, so it is
+  // checked below as a WARNING rather than here as a refusal.
+  ['roost.NEST() == TheNest', 'TheRoost', 'NEST', 'TheNest'],
+  ['roost.STAKING() == AviansStaking', 'TheRoost', 'STAKING', 'AviansStaking'],
+  ['roost.AVIANS() == Avians', 'TheRoost', 'AVIANS', 'Avians'],
+  ['aviansStaking.ROOST() == TheRoost', 'AviansStaking', 'ROOST', 'TheRoost'],
+  ['aviansStaking.AVIANS() == Avians', 'AviansStaking', 'AVIANS', 'Avians'],
+  ['nest.costSink() == TheRoost', 'TheNest', 'costSink', 'TheRoost'],
 ];
+
+/** Every address the cross-check can name: the seven, the pool pair, the Sweeper, the Roost pair. */
+const named = { ...contracts, Sweeper: sweeper, AviansStaking: roostPair.aviansStaking, TheRoost: roostPair.roost };
 
 async function readAddress(target, fn) {
   const data = encodeFunctionData({
@@ -280,9 +410,9 @@ if (!skipVerify) {
 
   const failures = [];
   for (const [claim, holder, fn, expectName] of SELECTORS) {
-    const target = contracts[holder];
-    const expect = contracts[expectName];
-    if (!target || !expect) continue;                 // no pool on this deployment
+    const target = named[holder];
+    const expect = named[expectName];
+    if (!target || !expect) continue;                 // no pool, or no sweeper, on this deployment
     try {
       const actual = await readAddress(target, fn);
       if (actual.toLowerCase() !== expect.toLowerCase()) {
@@ -292,10 +422,22 @@ if (!skipVerify) {
       failures.push(`  ${claim}\n      the call failed: ${e.message}`);
     }
   }
-  for (const [name, address] of Object.entries(contracts)) {
+  for (const [name, address] of Object.entries(named)) {
     if (!address) continue;
     const code = await client.getCode({ address }).catch(() => undefined);
     if (!code || code === '0x') failures.push(`  there is contract code at ${name}\n      ${address} has none`);
+  }
+
+  // Where the Perch's fees go. Every fee, whole, to the Roost by default —
+  // but the owner may point it elsewhere, so a difference is said, not refused.
+  try {
+    const recipient = await readAddress(contracts.ThePerch, 'feeRecipient');
+    if (recipient.toLowerCase() !== roostPair.roost.toLowerCase()) {
+      console.warn(`  WARNING: perch.feeRecipient() is ${recipient}, not the Roost (${roostPair.roost}). The Perch's fees are going somewhere else; the site says so on the admin panel.`);
+    }
+  } catch (e) {
+    failures.push(`  perch.feeRecipient() is readable
+      the call failed: ${e.message}`);
   }
 
   if (failures.length) {
@@ -323,26 +465,76 @@ if (dryRun) {
 const dir = join(root, 'public', 'deployments');
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, `${id}.json`), json);
+if (proofsSource) {
+  mkdirSync(join(dir, 'proofs'), { recursive: true });
+  writeFileSync(join(dir, 'proofs', `${id}.json`), readFileSync(proofsSource));
+}
+
+const MAINNET_CHAIN_ID = 4663;
+
+/** The chain id a manifest in the index describes, or null when its file will not read. */
+function indexedChainId(entry) {
+  try { return JSON.parse(readFileSync(join(dir, entry.file), 'utf8'))?.network?.chainId ?? null; } catch { return null; }
+}
 
 const indexPath = join(dir, 'index.json');
-const index = existsSync(indexPath)
-  ? JSON.parse(readFileSync(indexPath, 'utf8'))
-  : { default: id, deployments: [] };
-index.deployments = index.deployments.filter((d) => d.id !== id);
-index.deployments.push({ id, label: manifest.label, file: `./${id}.json` });
-index.deployments.sort((a, b) => a.id.localeCompare(b.id));
-if (!index.deployments.some((d) => d.id === index.default)) index.default = id;
-writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+let indexLine = '';
+if (!isLocal) {
+  const index = existsSync(indexPath)
+    ? JSON.parse(readFileSync(indexPath, 'utf8'))
+    : { default: id, deployments: [] };
+  // Appended, never sorted: the site treats the last chain entry as the
+  // newest, and a re-run of an id moves it to the end, which is when it was
+  // written.
+  index.deployments = index.deployments.filter((d) => d.id !== id);
+  index.deployments.push({ id, label: manifest.label, file: `./${id}.json` });
+
+  // Which default the index ends up with, and why. The site opens on mainnet
+  // if configured, else the newest chain deployment, else the mock, and reads
+  // the default only as a tie-break; but a default that names the mock or
+  // nothing is put right here, so nobody has to know to pass --default.
+  const current = index.deployments.find((d) => d.id === index.default);
+  const currentIsMainnet = !!current && current.id !== id && indexedChainId(current) === MAINNET_CHAIN_ID;
+  const thisIsMainnet = chainId === MAINNET_CHAIN_ID;
+  if (currentIsMainnet && !thisIsMainnet) {
+    indexLine = `entry written; the default stays ${index.default}, which is on mainnet, and a testnet never displaces it`
+      + (makeDefault ? ' (--default ignored; edit index.json by hand if you mean it)' : '');
+  } else if (makeDefault) {
+    index.default = id;
+    indexLine = `DEFAULT is now ${id} (--default)`;
+  } else if (!current || index.default === 'mock') {
+    const was = !current ? 'named nothing in the index' : 'was "mock"';
+    index.default = id;
+    indexLine = `DEFAULT is now ${id}: the default ${was}, and a chain deployment is never behind the mock`;
+  } else {
+    indexLine = `entry written; the default stays ${index.default} (add --default to change it)`
+      + (thisIsMainnet ? `; the site opens on ${id} regardless, mainnet being preferred` : '');
+  }
+  writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+}
 
 console.log(`public/deployments/${id}.json`);
 console.log(`  chain      ${chainId} via ${rpc}`);
 console.log(`  contracts  ${Object.entries(contracts).filter(([, v]) => v).length} of ${Object.keys(contracts).length}`
   + `${contracts.AviansHook ? '' : ' (no pool on this deployment)'}`);
+console.log(`  Avians     ${avians} — ${aviansEarly ? 'the token went first (DeployAvians.s.sol, step 0), reused by Deploy.s.sol' : 'created by Deploy.s.sol'}`);
 console.log(`  startBlock ${startBlock}`);
 console.log(`  multicall3 ${multicall3 ?? 'none — JSON-RPC batching'}`);
-console.log(`  lens       ${lens ?? 'none — deploy script/DeployLens.s.sol, or pass --lens'}`);
+console.log(`  sweeper    ${sweeper ?? 'none — no DeploySweeper broadcast, so the site shows no sweep panel'}`);
+console.log(`  roost      ${roostPair.roost} — every AVIANS fee lands here; staking at ${roostPair.aviansStaking}`);
 if (thirdParty) {
   for (const [name, address] of Object.entries(thirdParty)) console.log(`  ${name.padEnd(16)} ${address}`);
 }
 console.log(skipVerify ? '  NOT verified against the chain (--skip-verify)' : '  cross-checks passed against the chain');
-console.log(`\nOpen it with  ?d=${id}`);
+if (proofsServed) {
+  console.log(`  proofs     ${proofsServed} (${proofsCount} wallets)${proofsSource ? ' — copied from ' + rel(proofsSource) : ''}`);
+} else {
+  console.log('  proofs     none — only the manual allowlist can free-mint on this deployment');
+}
+if (isLocal) {
+  console.log('  index.json  untouched — a local-* manifest is per-machine and gitignored');
+} else {
+  console.log(`  index.json  ${indexLine}`);
+}
+console.log('\nRebuild before shipping: the CSP\'s connect-src is generated from the manifests at build time.');
+console.log(`Open it with  ?d=${id}`);

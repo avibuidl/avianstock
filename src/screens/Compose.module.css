@@ -18,7 +18,40 @@
   padding: var(--s6) var(--s5) var(--s8);
 }
 
-.preview { position: sticky; top: calc(var(--header-h) + var(--s4)); }
+/* The card stays in view for the whole composition. It is the card alone
+   (the price and the buttons are at the end of the pickers), so it fits a
+   900px window with room to spare; on a shorter one it scrolls inside its
+   own box rather than letting the picture leave. */
+.preview {
+  position: sticky;
+  top: calc(var(--header-h) + var(--s4));
+  max-height: calc(100dvh - var(--header-h) - var(--s4) - var(--s4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* The six choices under the picture, three across: the category small above
+   the trait, in the order they are picked. */
+.traits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.traits > div { min-width: 0; }
+.traits dt {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.traits dd { margin: 3px 0 0; font-family: var(--font-mono); font-size: 13px; color: var(--text-strong); overflow-wrap: anywhere; }
+
+/* The end of the pickers: the price, then the button. A form's width, not
+   the strip's. */
+.finish { margin-top: var(--s4); padding-top: var(--s5); border-top: 1px solid var(--line); max-width: 600px; }
 
 .picker { padding: var(--s4) 0; border-top: 1px solid var(--line); }
 .picker:first-child { border-top: 0; padding-top: 0; }
@@ -42,7 +75,7 @@
    categories scroll under it. */
 @media (max-width: 1080px) {
   .work { grid-template-columns: minmax(0, 1fr); gap: var(--s5); padding: var(--s4) var(--s4) 120px; }
-  .preview { position: static; }
+  .preview { position: static; max-height: none; overflow: visible; }
   .doorbar { padding: var(--s3) var(--s4); gap: var(--s3); }
 }
 

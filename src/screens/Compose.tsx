@@ -4,15 +4,15 @@
 // drawing the chain will return, and the register's answer before anything is
 // signed. Both doors live here: the flocklist's free one and the paid one.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import s from './Compose.module.css';
 import { Icon } from '../components/Icon';
 import {
-  Avian, Box, ErrorState, Note, PanelSkeleton, Swatch, Tag,
+  Avian, Box, ErrorState, Note, PanelSkeleton, Swatch, Tag, Unread,
 } from '../components/Primitives';
 import { ApprovalSheet, type ApprovalRoute } from '../components/ApprovalSheet';
 import { WriteGate } from '../components/Wallet';
-import { useTx } from '../components/Tx';
+import { useTx, type FixHandlers } from '../components/Tx';
 import { CATEGORIES } from '../art/traits';
 import { comboHex, packCombo, type TraitIndices } from '../art/render';
 import { avians, avianNumber, formatCount } from '../lib/format';
@@ -20,7 +20,7 @@ import { href, navigate } from '../router';
 import {
   PRICE, approveAviansForMint, comboTaken, isMock, mint, mintFree, mintMany,
   nearestAvailable, signMintPermit, useCollection, useRefreshNonce, useScenario, useWallet,
-  type Amount, type CategoryId, type FixKind,
+  type Amount, type CategoryId,
 } from '../mock';
 
 const START: TraitIndices = [1, 4, 14, 1, 3, 4];
@@ -40,6 +40,8 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   const [lost, setLost] = useState<TraitIndices[]>([]);
   const [approving, setApproving] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The free door was refused this session: mint paid, whatever the last read said. */
+  const [forcePaid, setForcePaid] = useState(false);
   const [alts, setAlts] = useState<TraitIndices[] | null>(null);
 
   const [status, setStatus] = useState<{ taken: boolean; tokenId?: number } | null>(null);
@@ -56,7 +58,11 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
       () => { if (alive) { setStatus(null); setChecking(false); } },
     );
     return () => { alive = false; };
-  }, [traits, scenario.combo, scenario.data]);
+    // `nonce` too: a write just landed. Without it the six choices that were
+    // minted a second ago stayed "AVAILABLE" on screen until one of them was
+    // changed, and the same bird could be sent to the wallet twice. Found on
+    // the launch dry run.
+  }, [traits, scenario.combo, scenario.data, nonce]);
 
   useEffect(() => {
     if (status?.taken) nearestAvailable(traits, 3).then(setAlts, () => setAlts(null));
@@ -96,7 +102,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   const freeStatus = w?.freeMintStatus ?? null;
   // Until the wallet has been read we do not know whether this door is
   // open to THIS wallet, and an unread wallet must never read as allowlisted.
-  const freeOpen = !!c?.freeMintOpen && !!w && freeStatus === null;
+  const freeOpen = !!c?.freeMintOpen && !!w && freeStatus === null && !forcePaid;
   const paidOpen = !!c?.mintOpen;
 
   const price = c?.price ?? PRICE;
@@ -120,14 +126,19 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   const needsApproval = allowance < needed;
   const shortOfBalance = balance < needed;
 
-  const onFix = useCallback((kind: FixKind, amount?: Amount) => {
-    if (kind === 'approve') { setApproving(true); return; }
-    if (kind === 'recompose') { nearestAvailable(traits, 3).then(setAlts, () => setAlts(null)); return; }
-    if (kind === 'get-avians') { navigate({ name: 'first-light' }); return; }
-    if (kind === 'perch') { navigate({ name: 'perch' }); return; }
-    if (kind === 'switch-network') { onConnect(); return; }
-    void amount;
-  }, [traits, onConnect]);
+  // The drawer's fixes this screen owns. "Get AVIANS" and the network are the
+  // site's; "Try again" and "Refresh" are the drawer's own.
+  const onFix = useMemo<FixHandlers>(() => ({
+    approve: () => setApproving(true),
+    recompose: () => { nearestAvailable(traits, 3).then(setAlts, () => setAlts(null)); },
+    perch: () => navigate({ name: 'perch' }),
+    // The free door refused this wallet — closed, already claimed, not on the
+    // list, or the allocation is spent. The paid door is the answer, and it
+    // must show at once: the re-read that would flip the door on its own
+    // lands a moment later, and a button that says "Claim your free Avian"
+    // in between would be the same refusal again.
+    'paid-mint': () => { setForcePaid(true); wallet.reload(); collection.reload(); },
+  }), [traits, wallet.reload, collection.reload]);
 
   const explainCtx = { price: needed, balance, allowance, walletLimit: c?.walletLimit };
 
@@ -156,7 +167,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
       }, {
         context: explainCtx,
         onFix,
-        outcome: (x) => `${x.tokenIds.length} birds minted — ${x.tokenIds.map(avianNumber).join(', ')}.`,
+        outcome: (x) => `${x.tokenIds.length} birds minted: ${x.tokenIds.map(avianNumber).join(', ')}.`,
       });
       // ONLY on success. A refused mint — a rejected signature, a short
       // allowance, a combination that went — used to empty the tray anyway, so
@@ -169,7 +180,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
       }, {
         context: explainCtx,
         onFix,
-        outcome: (x) => `${avianNumber(x.tokenId)} is yours. It has its own satchel from this moment.`,
+        outcome: (x) => `${avianNumber(x.tokenId)} is yours. It has its own wallet from this moment.`,
       });
       if (r) setTraits(nextComposition(traits, batch));
     }
@@ -181,7 +192,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
     await tx.run('Claiming your free Avian', (on) => mintFree(traits, w?.proof ?? [], on), {
       context: explainCtx,
       onFix,
-      outcome: (x) => `${avianNumber(x.tokenId)} is yours — a real Avian, same register, same perch.`,
+      outcome: (x) => `${avianNumber(x.tokenId)} is yours. A real bird, same traits, same perch price.`,
     });
     setBusy(false);
   };
@@ -205,8 +216,8 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
     return (
       <div className="page">
         <ErrorState
-          title="That read failed."
-          detail="We could not ask the collection whether the doors are open. Nothing is wrong with your wallet or your birds."
+          title="The collection could not be read."
+          detail="Nothing is wrong with your wallet or your birds. Try again in a moment."
           onRetry={collection.reload}
         />
       </div>
@@ -228,9 +239,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
         <div className={s.preview}>
           <div className={`panel panel--tight${status?.taken ? ' panel--bad' : ''}`}>
             <div className="row" style={{ marginBottom: 14 }}>
-              <p className="eyebrow" style={{ margin: 0 }}>
-                {freeOpen ? 'Your free Avian — not claimed yet' : 'Your Avian — not minted yet'}
-              </p>
+              <span className="label">{freeOpen ? 'Your free bird, not claimed yet' : 'Not minted yet'}</span>
               <span className="spacer" />
               {checking ? <Tag>Checking…</Tag>
                 : status?.taken ? <Tag tone="bad">Taken</Tag>
@@ -241,25 +250,25 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
 
             <div style={{ marginTop: 16 }}>
               {checking ? (
-                <p className="small dim" style={{ margin: 0 }}>Asking the register…</p>
+                <p className="small dim" style={{ margin: 0 }}>Checking…</p>
               ) : status?.taken ? (
                 <Note tone="bad">
-                  This exact bird already exists{status.tokenId ? ` — ${avianNumber(status.tokenId)} got there first` : ''}.
-                  Change any one of your six choices and it&rsquo;s yours again.{' '}
+                  This exact bird already exists{status.tokenId ? `: ${avianNumber(status.tokenId)} got there first` : ''}.
+                  Change any one of the six and it is yours again.{' '}
                   {status.tokenId ? <a href={href({ name: 'bird', id: status.tokenId })}>See {avianNumber(status.tokenId)}</a> : null}
                 </Note>
               ) : c.paidRemaining === 0 && !freeOpen ? (
                 <Note tone="warn">
-                  Nobody has composed this one — and now nobody will. All 5,555 are minted.
+                  Nobody composed this one, and now nobody can. All 5,555 are minted.
                 </Note>
               ) : (
                 <Note tone="ok">Nobody has this bird. Yours if you want it.</Note>
               )}
             </div>
 
-            <dl className="kv" style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+            <dl className={s.traits}>
               {CATEGORIES.map((cat, i) => (
-                <div key={cat.key} style={{ display: 'contents' }}>
+                <div key={cat.key}>
                   <dt>{cat.display}</dt>
                   <dd>{cat.traits[traits[i]].display}</dd>
                 </div>
@@ -267,7 +276,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
             </dl>
 
             <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-              <span className="tiny dim">REGISTER KEY</span>
+              <span className="label">Combination</span>
               <span className="spacer" />
               <span className="mono" style={{ fontSize: 13 }}>{comboHex(packCombo(traits))}</span>
             </div>
@@ -275,7 +284,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
 
           {status?.taken && alts && alts.length > 0 ? (
             <div className="panel panel--tight" style={{ marginTop: 18 }}>
-              <p className="eyebrow" style={{ margin: 0 }}>Nearest still available</p>
+              <h4 style={{ margin: 0 }}>Nearest still available</h4>
               <p className="tiny dim" style={{ margin: '6px 0 0' }}>
                 One choice changed. All of these are free right now.
               </p>
@@ -307,57 +316,71 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
               </div>
             </div>
           ) : null}
-
-          {/* The free door is open, but not to this wallet. Say which of the
-              three reasons it is, and point at the other door. */}
-          {!freeOpen && c.freeMintOpen && freeStatus ? (
-            <div style={{ marginTop: 18 }}>
-              <FreeDoorShut reason={freeStatus} collection={c} />
-            </div>
-          ) : null}
-
-          {freeOpen ? (
-            <FreeDoorCard collection={c} allowlistProof={(w?.proof?.length ?? 0)} />
-          ) : (
-            <PriceBlock price={price} balance={balance} allowance={allowance} needed={needed} known={!!w} />
-          )}
-
-          <div className={`${s.desktopActions}${inlineOnly ? ` ${s.inlineOnly}` : ''}`}>
-            <Actions
-              soldOut={c.paidRemaining === 0}
-              capReached={capReached}
-              walletLimit={c.walletLimit}
-              doorsShut={doorsShut}
-              freeOpen={freeOpen}
-              paidOpen={paidOpen}
-              freeStatus={freeStatus}
-              taken={!!status?.taken}
-              checking={checking}
-              busy={busy || tx.busy}
-              needsApproval={needsApproval}
-              shortOfBalance={shortOfBalance}
-              batch={batch}
-              lost={lost}
-              onClearBatch={() => { setBatch([]); setLost([]); }}
-              onDismissLost={() => setLost([])}
-              needed={needed}
-              onConnect={onConnect}
-              onMint={() => (needsApproval && !shortOfBalance ? setApproving(true) : doMint(false))}
-              onFree={doFree}
-              onAddToBatch={() => {
-                setBatch((b) => [...b, traits]);
-                setTraits((t) => nextComposition(t, [...batch, t]));
-              }}
-              onRemoveFromBatch={(i) => setBatch((b) => b.filter((_, j) => j !== i))}
-            />
-          </div>
         </div>
 
         <div>
           <Pickers traits={traits} onChange={setTraits} />
+
+          {/*
+            The price and the buttons used to sit under the picture, in the
+            sticky column. That column was 1,164px tall against a 900px
+            window, so it could stick for only the 129px of scroll the pickers
+            were taller than it, and the picture was gone by the fourth
+            category. Now the column is the card alone and stays in view for
+            the whole composition, and the mint is where a composer arrives
+            after the sixth pick.
+          */}
+          <section className={s.finish} aria-labelledby="finish-h">
+            <h4 id="finish-h">Mint it</h4>
+
+            {/* The free door is open, but not to this wallet. Say which of the
+                three reasons it is, and point at the other door. */}
+            {!freeOpen && c.freeMintOpen && freeStatus ? (
+              <div style={{ marginTop: 18 }}>
+                <FreeDoorShut reason={freeStatus} collection={c} />
+              </div>
+            ) : null}
+
+            {freeOpen ? (
+              <FreeDoorCard collection={c} allowlistProof={(w?.proof?.length ?? 0)} />
+            ) : (
+              <PriceBlock price={price} balance={balance} allowance={allowance} needed={needed} known={!!w} />
+            )}
+
+            <div className={`${s.desktopActions}${inlineOnly ? ` ${s.inlineOnly}` : ''}`}>
+              <Actions
+                soldOut={c.paidRemaining === 0}
+                capReached={capReached}
+                walletLimit={c.walletLimit}
+                doorsShut={doorsShut}
+                freeOpen={freeOpen}
+                paidOpen={paidOpen}
+                freeStatus={freeStatus}
+                taken={!!status?.taken}
+                checking={checking}
+                busy={busy || tx.busy}
+                needsApproval={needsApproval}
+                shortOfBalance={shortOfBalance}
+                batch={batch}
+                lost={lost}
+                onClearBatch={() => { setBatch([]); setLost([]); }}
+                onDismissLost={() => setLost([])}
+                needed={needed}
+                onConnect={onConnect}
+                onMint={() => (needsApproval && !shortOfBalance ? setApproving(true) : doMint(false))}
+                onFree={doFree}
+                onAddToBatch={() => {
+                  setBatch((b) => [...b, traits]);
+                  setTraits((t) => nextComposition(t, [...batch, t]));
+                }}
+                onRemoveFromBatch={(i) => setBatch((b) => b.filter((_, j) => j !== i))}
+              />
+            </div>
+          </section>
+
           <p className="tiny dim" style={{ marginTop: 24 }}>
-            Seventy traits over one locked owlish base. Nothing is reserved while you decide — if
-            someone else composes this bird first, it&rsquo;s theirs.
+            Seventy traits over one locked base. Nothing is reserved while you decide: if someone
+            mints this combination first, it is theirs.
           </p>
         </div>
       </div>
@@ -418,28 +441,25 @@ function DoorBar({
 }) {
   return (
     <div className={s.doorbar}>
-      {freeOpen ? <Tag tone="ok">Flocklist door open</Tag>
-        : c.freeMintOpen ? <Tag tone="hot">Flocklist door open</Tag>
-          : <Tag>Flocklist door closed</Tag>}
-      {paidOpen ? <Tag tone="ok">Paid door open</Tag> : <Tag>Paid door closed</Tag>}
+      {freeOpen ? <Tag tone="ok">Free mint open</Tag>
+        : c.freeMintOpen ? <Tag tone="hot">Free mint open</Tag>
+          : <Tag>Free mint closed</Tag>}
+      {paidOpen ? <Tag tone="ok">Paid mint open</Tag> : <Tag>Paid mint closed</Tag>}
 
       <span className="small">
         <span className="num">{formatCount(c.paidRemaining)}</span> of{' '}
         {formatCount(c.freeAllocationReleased ? c.maxSupply : 3555)} paid birds left
       </span>
       {!c.freeAllocationReleased ? (
-        <>
-          <span className="dim" aria-hidden="true">·</span>
-          <span className="small">
-            <span className="num">{formatCount(c.reservedFree)}</span> free birds still reserved for
-            the flocklist
-          </span>
-        </>
+        <span className="small">
+          <span className="num">{formatCount(c.reservedFree)}</span> free birds reserved for the
+          allowlist
+        </span>
       ) : null}
       <span className="spacer" />
       {!freeOpen && c.freeMintOpen && freeStatus ? (
         <span className="small dim">
-          {freeStatus === 'NotAllowlisted' ? 'This wallet is not on the flocklist.'
+          {freeStatus === 'NotAllowlisted' ? 'This wallet is not on the allowlist.'
             : freeStatus === 'FreeMintAlreadyClaimed' ? 'You have claimed your free bird.'
               : freeStatus === 'FreeAllocationExhausted' ? `All ${formatCount(c.freeAllocation)} free birds are claimed.` : ''}
         </span>
@@ -448,7 +468,7 @@ function DoorBar({
   );
 }
 
-/** The flocklist door is open, and this wallet cannot go through it. */
+/** The free mint is open, and this wallet cannot use it. */
 function FreeDoorShut({
   reason, collection: c,
 }: {
@@ -458,17 +478,17 @@ function FreeDoorShut({
   // The price is the owner's to raise, so it is read here rather than written
   // down — this sentence used to promise 100,000 AVIANS whatever `price()` said.
   const copy = reason === 'NotAllowlisted' ? {
-    title: "This wallet isn't on the flocklist.",
-    body: `That door is ${formatCount(c.freeAllocation)} birds, one per listed wallet — but the paid mint is a separate door, and your bird is composed exactly the same way.`,
+    title: 'This wallet is not on the allowlist.',
+    body: `The free mint is ${formatCount(c.freeAllocation)} birds, one per allowlisted wallet. The paid mint is open to anyone, and the bird is composed the same way.`,
   } : reason === 'FreeMintAlreadyClaimed' ? {
-    title: "You've already claimed yours.",
-    body: `One per wallet on the list. You can compose as many more as you like at ${avians(c.price)} each.`,
+    title: 'You have already claimed your free bird.',
+    body: `One per allowlisted wallet. You can mint more at ${avians(c.price)} each.`,
   } : reason === 'FreeAllocationExhausted' ? {
-    title: `All ${formatCount(c.freeAllocation)} flocklist birds are claimed.`,
-    body: 'The paid mint is the door now.',
+    title: `All ${formatCount(c.freeAllocation)} free birds are claimed.`,
+    body: 'The paid mint is open.',
   } : {
-    title: 'The flocklist door is closed.',
-    body: 'The paid mint is a separate door.',
+    title: 'The free mint is closed.',
+    body: 'The paid mint is open.',
   };
 
   return (
@@ -488,11 +508,11 @@ function FreeDoorCard({
     <>
       <div className="box box--ok" style={{ marginTop: 18 }}>
         <Note tone="ok">
-          <strong className="strong">You&rsquo;re on the list.</strong> One free Avian, and it&rsquo;s
-          a real one — same register, same satchel, same perch as every other bird.
+          <strong className="strong">You are on the allowlist.</strong> One free bird, and it is a
+          real one: same traits, same wallet, same perch price as every other bird.
         </Note>
         <dl className="kv" style={{ marginTop: 14, gridTemplateColumns: '120px 1fr' }}>
-          <dt>On the list by</dt><dd>Merkle proof · {allowlistProof} nodes</dd>
+          <dt>Proof</dt><dd>{allowlistProof} nodes</dd>
           <dt>Free birds left</dt><dd>{formatCount(c.reservedFree)} of {formatCount(c.freeAllocation)}</dd>
         </dl>
       </div>
@@ -502,9 +522,9 @@ function FreeDoorCard({
           <span className="num" style={{ fontSize: 18, color: 'var(--confirm)' }}>No AVIANS</span>
         </div>
         <p className="tiny dim" style={{ margin: 0 }}>
-          The collection holds {avians(c.minPrice)} behind every free bird and sends it to the perch when
-          you claim, so the perch will buy this one back at the same 90,000 AVIANS as any paid bird.
-          It counts toward your wallet limit like any other bird.
+          The collection holds {avians(c.minPrice)} behind every free bird and sends it to the perch
+          when you claim, so the perch buys this one back for the same 90,000 AVIANS as any paid
+          bird. It counts toward your wallet limit.
         </p>
       </div>
     </>
@@ -522,7 +542,7 @@ function PriceBlock({
         <span className="num" style={{ fontSize: 18 }}>{avians(price)}</span>
       </div>
       <p className="tiny dim" style={{ margin: '0 0 12px' }}>
-        Goes straight to the perch, not to us. We can&rsquo;t hold it and we can&rsquo;t redirect it.
+        Goes to the perch in the same transaction, not to us.
       </p>
       {/*
         No wallet, or a read that has not landed, is NOT a zero balance. A
@@ -532,13 +552,13 @@ function PriceBlock({
       <div className={s.costline} style={{ borderTop: '1px solid var(--line)' }}>
         <span className="small dim">You hold</span>
         <span className="num" style={{ color: known && short ? 'var(--attention)' : undefined }}>
-          {known ? avians(balance) : '—'}
+          {known ? avians(balance) : <Unread />}
         </span>
       </div>
       <div className={s.costline} style={{ paddingTop: 0 }}>
         <span className="small dim">Approved to the collection</span>
         <span className="num" style={{ color: !known ? undefined : allowance >= needed ? 'var(--confirm)' : 'var(--attention)' }}>
-          {known ? avians(allowance) : '—'}
+          {known ? avians(allowance) : <Unread />}
         </span>
       </div>
     </div>
@@ -565,8 +585,8 @@ function Actions(p: {
       <div style={{ marginTop: p.compact ? 0 : 18 }}>
         <Box tone="warn">
           <Note tone="warn">
-            <strong className="strong">The doors aren&rsquo;t open.</strong> Nothing to do here yet —
-            and we won&rsquo;t post a date we might have to move.
+            <strong className="strong">The mint is not open yet.</strong> We will not post a date
+            we might have to move.
           </Note>
           <p className="small" style={{ marginTop: 10 }}>
             <a href={href({ name: 'first-light' })}>See how the opening works</a>
@@ -585,10 +605,7 @@ function Actions(p: {
           <Note tone="warn">
             <strong className="strong">
               This wallet has minted its limit{p.walletLimit ? ` of ${formatCount(p.walletLimit)}` : ''}.
-            </strong>{' '}
-            <span className="small">
-              The limit is set on the collection, and we read it rather than assume it.
-            </span>
+            </strong>
           </Note>
           <p className="small" style={{ marginTop: 10 }}>
             <a href={href({ name: 'perch' })}>The perch will still sell you one.</a>
@@ -603,10 +620,7 @@ function Actions(p: {
       <div style={{ marginTop: p.compact ? 0 : 18 }}>
         <Box tone="warn">
           <Note tone="warn">
-            <strong className="strong">Sold out.</strong>{' '}
-            <span className="small">
-              All 5,555 are composed. The 1,860,685 combinations nobody chose stay unchosen forever.
-            </span>
+            <strong className="strong">All 5,555 are composed.</strong>
           </Note>
           <p className="small" style={{ marginTop: 10 }}>
             The perch is still open, and so is the secondary market.{' '}
@@ -619,10 +633,10 @@ function Actions(p: {
 
   const label = p.freeOpen ? 'Claim your free Avian'
     : p.batch.length > 0
-      ? `Mint ${p.batch.length} bird${p.batch.length === 1 ? '' : 's'} — ${avians(p.needed)}`
+      ? `Mint ${p.batch.length} bird${p.batch.length === 1 ? '' : 's'} for ${avians(p.needed)}`
       : p.shortOfBalance ? `You need ${avians(p.needed)}`
         : p.needsApproval ? 'Approve, then mint'
-          : 'Mint this Avian';
+          : `Mint for ${avians(p.needed)}`;
 
   return (
     <div style={{ marginTop: p.compact ? 0 : 18 }}>
@@ -631,7 +645,7 @@ function Actions(p: {
           <span className="tiny dim">
             {/* `needed` is the price, or the batch total when there are several
                 — either way it is what leaves the wallet, read rather than written. */}
-            {p.freeOpen ? 'No AVIANS — a real Avian either way' : `${avians(p.needed)} · to the perch, not to us`}
+            {p.freeOpen ? 'No AVIANS. A real bird either way.' : `${avians(p.needed)} to the perch, not to us.`}
           </span>
         </div>
       ) : null}
@@ -657,7 +671,7 @@ function Actions(p: {
 
       {p.taken ? (
         <p className="tiny dim" style={{ marginTop: 10 }}>
-          Disabled because the register already holds this combination.
+          This combination is already minted. Change one choice.
         </p>
       ) : null}
 
@@ -683,8 +697,8 @@ function Actions(p: {
               ))}
             </div>
             <p className="tiny dim" style={{ margin: '10px 0 0' }}>
-              Nothing here was ever reserved — the register answers first come, first served, and a
-              batch holding a taken combination is refused whole. The rest are untouched.
+              Nothing is reserved until it is minted, and a batch holding a taken combination is
+              refused whole, so the taken one is out. The rest are untouched.
             </p>
             <button
               type="button" className="btn btn--ghost btn--small"
@@ -724,8 +738,8 @@ function Actions(p: {
             ))}
           </div>
           <p className="tiny dim" style={{ marginTop: 12 }}>
-            One transaction, all or nothing — either every bird here is minted or none of them are,
-            and one approval covers the lot. The bird above is not in it until you add it.
+            One transaction, all or nothing: every bird here is minted or none is. The bird above
+            is not in it until you add it.
           </p>
         </div>
       ) : null}
@@ -770,7 +784,7 @@ function Pickers({ traits, onChange }: { traits: TraitIndices; onChange: (t: Tra
           </div>
           {cat.traits[traits[ci]].lore ? (
             <p className="tiny dim" style={{ marginTop: 10, maxWidth: 640 }}>
-              <span className="strong">{cat.traits[traits[ci]].display}</span> — {cat.traits[traits[ci]].lore}
+              <span className="strong">{cat.traits[traits[ci]].display}.</span> {cat.traits[traits[ci]].lore}
             </p>
           ) : null}
         </section>

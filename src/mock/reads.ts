@@ -5,8 +5,8 @@
 // shape. No component reaches past this file for a number.
 
 import type {
-  Address, Amount, Bird, ClaimAllResult, ClaimOutcome, CollectionState, Deployment,
-  ErrorName, Hex, LaunchState, PerchState, RoostState, TokenId, TraitIndices,
+  Address, Amount, Bird, BroodEntry, BroodState, BroodTokenLine, CollectionState, Deployment,
+  ErrorName, Hex, LaunchState, PerchState, SettleMove, SettlePreview, SweepState, TokenId, TraitIndices,
   RewardSplit, TransferSafety, TreasuryRow, TreasuryState, VaultState, WalletState,
   OwnerStatus,
 } from './types';
@@ -14,7 +14,7 @@ import { ContractError } from './errors';
 import { scenario } from './scenario';
 import {
   ADDRESSES, ALLOWLIST_ROOT, AVIANS_SUPPLY, LOCK_SECONDS, POOL_AVIANS, PERCH_SELL,
-  REWARD_TARGET_BPS, REWARD_TOKENS, THIRD_PARTY, buyFeeBpsAt, idForCombo, overlay,
+  REWARD_TARGET_BPS, REWARD_TOKENS, STOCK_REWARD_TOKENS, THIRD_PARTY, buyFeeBpsAt, idForCombo, overlay,
   rewardTokenMeta, satchelAddressOf, takenCombos, world,
 } from './fixtures';
 import { packCombo } from '../art/render';
@@ -62,8 +62,8 @@ export function getBird(id: TokenId): Promise<Bird> {
     // Burnt first: it is no longer in anybody's list, and the page for it still
     // draws because `tokenCombo` — here, the deterministic traits — is kept.
     if (overlay.burnt.includes(id)) return w.makeBird(id, { where: 'burnt' });
-    const mine = [...w.yourBirds, ...w.roosting].find((b) => b.id === id);
-    if (mine) return mine;
+    const mine = w.yourBirds.find((b) => b.id === id);
+    if (mine) return { ...mine, broodLines: linesOf(w, mine) };
     if (w.perch.heldIds.includes(id)) return w.makeBird(id, { where: 'perch' });
     const host = [...w.yourBirds].find((b) => b.satchel.holds.some((h) => h.kind === 'avian' && h.id === id));
     if (host) return w.makeBird(id, { where: 'satchel', hostId: host.id });
@@ -95,9 +95,8 @@ Promise<{ birds: Bird[]; total: number }> {
       if (overlay.burnt.includes(id)) continue;
       birds.push(w.perch.heldIds.includes(id)
         ? w.makeBird(id, { where: 'perch' })
-        : w.staked.has(id)
-          ? w.makeBird(id, { where: 'roost', staker: w.wallet.address, tier: w.staked.get(id)!, since: w.now })
-          : w.makeBird(id, { where: 'wallet', owner: ('0x' + 'a1'.repeat(20)) as Address }));
+        : w.yourBirds.find((b) => b.id === id)
+          ?? w.makeBird(id, { where: 'wallet', owner: ('0x' + 'a1'.repeat(20)) as Address }));
     }
     return { birds, total };
   }, 340);
@@ -107,8 +106,87 @@ export function getPerch(): Promise<PerchState> {
   return read(() => world().perch);
 }
 
-export function getRoost(_who: Address | null): Promise<RoostState> {
-  return read(() => world().roost);
+/** A brooding bird's per-token lines, from the world's own figures. */
+function linesOf(w: ReturnType<typeof world>, bird: Bird): BroodTokenLine[] | undefined {
+  if (!bird.brood) return undefined;
+  return w.listed.map((token): BroodTokenLine => ({
+    token,
+    unsettled: w.unsettledOf(bird.id, token.symbol),
+    // The destination's balance: the satchel's, or — for a wallet delivery —
+    // your own, which holds other things too.
+    settled: bird.brood!.delivery.toWallet
+      ? w.walletRewardBalanceOf(token.symbol)
+      : w.satchelBalanceOf(bird.id, token.symbol),
+    pending: w.pendingOf(bird.id, token.symbol),
+  }));
+}
+
+/**
+ * The nest for the brooding screen. Every bird you hold, with its brood and
+ * its reward lines: unsettled (`earned`), settled (the destination's balance
+ * — the satchel's, or your wallet's), and where a settle would send it.
+ */
+export function getBrood(who: Address | null): Promise<BroodState> {
+  return read(() => {
+    const w = world();
+    const n = w.nest;
+    const chainNow = Math.floor(Date.now() / 1000);
+    if (!who) return { ...n, yours: [], claimable: [], chainNow };
+    const yours: BroodEntry[] = w.yourBirds.map((bird) => ({
+      bird,
+      brood: bird.brood,
+      lines: linesOf(w, bird) ?? [],
+    }));
+    const claimable = [...w.claimable].map(([symbol, amount]) => ({
+      token: w.listed.find((t) => t.symbol === symbol)!, amount,
+    })).filter((x) => x.token);
+    return { ...n, yours, claimable, chainNow };
+  });
+}
+
+/**
+ * The Sweeper's view of your birds: each satchel's standing, and what a sweep
+ * would move in every listed token plus any the holder added by address.
+ */
+export function getSweep(_who: Address, extra: Address[] = []): Promise<SweepState> {
+  return read(() => {
+    const w = world();
+    const extras = extra
+      .filter((x, i) => extra.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i)
+      .filter((x) => !w.listed.some((t) => t.address.toLowerCase() === x.toLowerCase()))
+      .map(rewardTokenMeta);
+    const tokens = [...w.listed, ...extras];
+    const birds = w.yourBirds.map((b) => ({
+      id: b.id,
+      satchel: b.satchel.address,
+      deployed: w.satchelDeployed(b.id),
+      granted: w.sweeperGranted(b.id),
+      amounts: tokens.map((t) => w.satchelBalanceOf(b.id, t.symbol)),
+    }));
+    const relevant = birds.some((b) => b.granted)
+      || birds.some((b) => b.amounts.slice(0, w.listed.length).some((x) => x > 0n));
+    return { tokens, birds, relevant };
+  });
+}
+
+/** What `settle(ids)` would move, from the same figures the write uses. */
+export function simulateSettle(_who: Address, ids: TokenId[]): Promise<SettlePreview> {
+  return read(() => {
+    const w = world();
+    const withBrood = ids.filter((id) => w.broods.has(id));
+    const moves: SettleMove[] = [];
+    for (const id of withBrood) {
+      const b = w.broods.get(id)!;
+      for (const token of w.listed) {
+        const p = w.pendingOf(id, token.symbol);
+        const to = b.toWallet ? b.activator : satchelAddressOf(id);
+        if (p.toDestination > 0n) moves.push({ id, token, amount: p.toDestination, kind: b.toWallet ? 'to-wallet' : 'to-satchel', to });
+        if (p.toActivator > 0n) moves.push({ id, token, amount: p.toActivator, kind: 'to-activator', to: b.activator });
+        if (p.returned > 0n) moves.push({ id, token, amount: p.returned, kind: 'returned', to: ADDRESSES.TheNest });
+      }
+    }
+    return { ids: withBrood, moves };
+  }, 200);
 }
 
 export function getLaunch(): Promise<LaunchState> {
@@ -181,7 +259,9 @@ export function getOwnerStatus(who: Address | null): Promise<OwnerStatus> {
 export function getRewardSplit(): Promise<RewardSplit> {
   return read(() => ({
     listed: REWARD_TOKENS,
-    parts: REWARD_TOKENS.map((t, i) => ({ address: t.address, weightBps: REWARD_TARGET_BPS[i] })),
+    // The targets are the stock tokens only: AVIANS is listed but delivered by
+    // the Roost, never converted into.
+    parts: STOCK_REWARD_TOKENS.map((t, i) => ({ address: t.address, weightBps: REWARD_TARGET_BPS[i] })),
   }));
 }
 
@@ -272,7 +352,7 @@ export function getDeployment(): Promise<Deployment> {
 }
 
 export function getSupply(): Promise<{ total: Amount; inPool: Amount; burned: Amount }> {
-  return read(() => ({ total: AVIANS_SUPPLY, inPool: POOL_AVIANS, burned: world().roost.totalBurned }));
+  return read(() => ({ total: AVIANS_SUPPLY, inPool: POOL_AVIANS, burned: world().nest.totalForwarded / 5n }));
 }
 
 // ── pre-flight ────────────────────────────────────────────────────────────
@@ -373,45 +453,12 @@ export async function checkTransferSafety(id: TokenId, to: Address): Promise<Tra
   for (let depth = 0; depth < MAX_DEPTH; depth++) {
     path.push(cursor);
     if (cursor === id) return { ok: false, reason: 'cycle', path };
-    const host = [...w.yourBirds, ...w.roosting]
+    const host = w.yourBirds
       .find((b) => b.satchel.holds.some((h) => h.kind === 'avian' && h.id === cursor));
     if (!host) return { ok: true };
     cursor = host.id;
   }
   return { ok: false, reason: 'depth-cap', path };
-}
-
-/**
- * `claimAll` returns three parallel arrays; a screen renders rows. Two of the
- * rows look identical in the raw arrays and mean opposite things, so the
- * reading is done once, here, and never at a call site:
- *
- *   paid > 0                      → paid.
- *   paid === 0, skipped === false → nothing was owed. NOT a failure.
- *   skipped === true              → the token refused. The rewards are safe.
- *
- * The arrays can be longer than the listed set, so the symbol is resolved by
- * address rather than by position in anything else.
- */
-export function readClaimAll(r: ClaimAllResult): ClaimOutcome[] {
-  return r.tokens.map((address, i) => {
-    const meta = rewardTokenMeta(address);
-    const paid = r.paid[i] ?? 0n;
-    const skipped = r.skipped[i] ?? false;
-    return {
-      token: address,
-      symbol: meta.symbol,
-      decimals: meta.decimals,
-      paid,
-      skipped,
-      kind: skipped ? 'skipped' : paid > 0n ? 'paid' : 'nothing-owed',
-    };
-  });
-}
-
-/** The other refusal on the same checklist: a satchel with birds in it must not roost. */
-export function satchelBlocksStaking(bird: Bird): TokenId[] {
-  return bird.satchel.holds.filter((h) => h.kind === 'avian').map((h) => (h as { id: TokenId }).id);
 }
 
 export { packCombo, isValid, ALLOWLIST_ROOT, PERCH_SELL };

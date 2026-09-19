@@ -14,6 +14,12 @@ design/fine-avians-club-mint-site.html
 # esbuild output for `npm test`
 .test-build/
 
+# Per-machine deployment manifests. A `local-*` id is a fork somebody started
+# themselves — the addresses in it exist nowhere else — so make-manifest writes
+# the file but never adds it to index.json, and the site loads it straight from
+# `?d=local-fork`. tests/manifest.test.ts refuses an index entry for one.
+public/deployments/local-*.json
+
 # Secrets. The site reads no secret and never should; the rule is here so the
 # first .env somebody writes is not one `git add -A` away from public. Vite
 # also loads *.local files.
@@ -33,6 +39,12 @@ desktop.ini
 *-PLAN.md
 *-REPORT.md
 PLAN.md
+# The two launch documents are the record, not working notes.
+!LAUNCH-CHECKLIST.md
+!LAUNCH-REPORT.md
 
 # Wrangler's local state (login, logs). The config file wrangler.jsonc is committed.
 .wrangler/
+
+# Per-machine proofs written beside a local-* manifest by make-manifest --proofs.
+public/deployments/proofs/local-*.json

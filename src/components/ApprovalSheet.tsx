@@ -39,7 +39,7 @@ export function ApprovalSheet({
     ...(permitAvailable ? [{
       id: 'permit' as const,
       title: 'One signature',
-      body: `Your wallet signs a permit for exactly ${avians(amount)} and the site sends one transaction instead of two. No approval transaction, no extra gas.`,
+      body: `Your wallet signs a permit for exactly ${avians(amount)} and the mint goes through in one transaction instead of two. No approval transaction, no extra gas.`,
       tag: 'Fewest steps',
     }] : []),
     {
@@ -50,7 +50,7 @@ export function ApprovalSheet({
     {
       id: 'large',
       title: `Approve ${avians(LARGE)}`,
-      body: `Approve once and ${action} repeatedly without approving again. A larger standing allowance to one contract.`,
+      body: `Approve once and ${action} again and again without approving again. A larger standing allowance to one contract.`,
     },
   ];
 
@@ -67,7 +67,7 @@ export function ApprovalSheet({
 
         <h3 id="approve-title" style={{ marginTop: 16 }}>One approval first, then the {action}.</h3>
         <p className="small" style={{ marginTop: 10 }}>
-          {what} needs to be allowed to take AVIANS out of your wallet. Which way?
+          {what} needs your permission to take AVIANS from your wallet. Choose how much to allow.
         </p>
 
         <div className="stack" style={{ marginTop: 16, gap: 8 }} role="radiogroup" aria-label="Approval route">
@@ -106,17 +106,10 @@ export function ApprovalSheet({
           disabled={busy}
           onClick={() => onApprove(route, route === 'large' ? LARGE : amount)}
         >
-          {busy ? 'Waiting for your wallet…' : route === 'permit' ? 'Sign and mint' : 'Approve'}
+          {busy ? 'Waiting for your wallet…' : route === 'permit' ? 'Sign and mint' : `Approve ${avians(route === 'large' ? LARGE : amount)}`}
         </button>
 
-        {/* Only worth saying where a signature is one of the choices. */}
-        {permitAvailable ? (
-          <p className="tiny dim" style={{ marginTop: 12 }}>
-            A permit signature is public the moment it is broadcast, so the contract carries on with
-            whatever allowance actually exists if it does not land. You will never see &ldquo;your
-            signature was rejected&rdquo; from us — you would see an allowance message instead.
-          </p>
-        ) : null}
+
       </div>
     </div>
   );
