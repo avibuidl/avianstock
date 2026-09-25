@@ -1,0 +1,40 @@
+/* The council card (2026-09-24): the same hairline card as the rest, a few
+   quiet facts, and what is waiting. Nothing here is pressable. */
+
+.sentence { margin: 8px 0 0; max-width: 62ch; }
+/* `dl` in the selector: the global `.kv` this list also carries sets its own
+   margin, and the two would otherwise depend on which stylesheet loads last. */
+dl.facts { margin-top: 18px; }
+
+/* The card is the Treasury card's width; what is inside it keeps a reading
+   measure, so a change's wait sits beside its sentence and not a screen away. */
+.pending { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); max-width: 760px; }
+.rows { margin-top: 10px; }
+/* One row per change: the sentence, then the wait, which never wraps. The
+   sentence's column can shrink to nothing, so a long one wraps inside the
+   card rather than widening it. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px var(--s4);
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; padding-top: 0; }
+.says { min-width: 0; overflow-wrap: anywhere; }
+.wait { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* The rescue: the one a holder should notice. A rule down its edge and the
+   sentence in the strong ink, no colour of its own. */
+.rescue {
+  border-left: 2px solid var(--line-strong);
+  padding-left: var(--s3);
+  margin-left: -2px;
+}
+.rescue .says { color: var(--text-strong); font-weight: 600; }
+
+@media (max-width: 720px) {
+  /* The wait drops under its sentence rather than squeezing it. */
+  .row { grid-template-columns: minmax(0, 1fr); }
+}

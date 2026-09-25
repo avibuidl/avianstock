@@ -5,7 +5,9 @@
 // chain calls, the hooks keep their names and their shapes.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { Amount, Connection, PriceBoard, RoostState, StakingState, SwapState } from './types';
+import type {
+  Amount, Connection, CouncilState, FlywheelSnapshot, SeatState, PriceBoard, RoostState, StakingState, SwapState,
+} from './types';
 import * as reads from './source';
 import { onWrite } from './source';
 import { connection, onConnectionChanged } from './source';
@@ -84,6 +86,29 @@ export const useTreasury = () => useAsync(() => reads.getTreasury(), []);
 export const useDeployment = () => useAsync(() => reads.getDeployment(), []);
 export const useSupply = () => useAsync(() => reads.getSupply(), []);
 export const useRewardSplit = () => useAsync(() => reads.getRewardSplit(), []);
+/**
+ * The flywheel snapshot (2026-09-22): the landing page's live figures, and the
+ * Nest's "paid to brooders, ever" line, from one read at one block, on the
+ * Roost screen's quiet timer.
+ */
+export function useFlywheel(o: PollOptions = {}): Polled<FlywheelSnapshot> {
+  return usePolled(() => reads.getFlywheel(), [], o);
+}
+/**
+ * The council (2026-09-24): the second key's card, on the public site and at
+ * the foot of the Owner page. Polled, so a pending change's countdown and the
+ * moment it lands are both on screen without a reload.
+ */
+export function useCouncil(o: PollOptions = {}): Polled<CouncilState> {
+  return usePolled(() => reads.getCouncil(), [], o);
+}
+/**
+ * The owner's seat (2026-09-24): the six owned seats' clocks and proposals,
+ * for the "Your seat" control on the Owner page.
+ */
+export function useSeat(o: PollOptions = {}): Polled<SeatState> {
+  return usePolled(() => reads.getSeat(), [], o);
+}
 /**
  * The Roost alone, polled: the Nest screen reads it for the held brooding leg
  * through this same read, not a second one.

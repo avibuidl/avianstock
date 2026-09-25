@@ -1,10 +1,10 @@
 // The nest — brooding, not custody (2026-09-11).
 //
-// Nobody sends a bird anywhere. A holder broods birds they hold, burning AVIANS
+// Nobody sends a bird anywhere. A holder broods birds they hold, burning AVIAN
 // for a tier each; rewards stream by weight into wherever the brood delivers —
 // the bird's own wallet by default, the holder's by choice — and the brood ends
 // the moment the bird changes hands. Anyone may settle. The only approval is
-// AVIANS to the Nest for the tier costs: there is NO bird approval, and this
+// AVIAN to the Nest for the tier costs: there is NO bird approval, and this
 // screen never asks for one.
 //
 // HANDOVER section 5 names three things this screen must say. The three cards
@@ -16,17 +16,18 @@
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import {
-  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, StockDisclaimer, Tag,
+  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, Tag,
 } from '../components/Primitives';
-import { TreasuryCard } from '../components/TreasuryCard';
 import { WriteGate } from '../components/Wallet';
 import { useTx, type FixHandlers } from '../components/Tx';
 import { SettleControl, nestNote, nestRows } from '../components/Settle';
+import { StreamRow } from '../components/Streams';
+import { NestCounters } from '../components/Counters';
 import { avians, avianNumber, formatAgo, formatCount, formatReward, formatSince, shortAddress } from '../lib/format';
 import { href } from '../router';
 import {
-  ADDRESSES, approveAviansForNest, brood, claim, deliverHeld, estimateUnsettled, redirect, upgrade,
-  useBrood, useNow, useRoost, useWallet,
+  approveAviansForNest, brood, claim, deliverHeld, estimateUnsettled, redirect, upgrade,
+  useBrood, useFlywheel, useNow, useRoost, useWallet,
   type BroodEntry, type DeliverResult, type NestEvents, type RewardStream, type Tier, type TokenId,
 } from '../mock';
 
@@ -38,6 +39,9 @@ type Choice = { tier: Tier; toWallet: boolean };
 export function Nest({ onConnect }: { onConnect: () => void }) {
   const wallet = useWallet();
   const tx = useTx();
+  // The "paid to brooders, ever" line under each stream values the Nest's
+  // own total at today's price, from the flywheel snapshot's read.
+  const fly = useFlywheel();
 
   // The birds picked to brood, each with its own tier and delivery choice.
   const [choices, setChoices] = useState<Map<TokenId, Choice>>(new Map());
@@ -129,16 +133,9 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
     <div className="page page--wide">
       <h2>The nest</h2>
       <p className="lede" style={{ maxWidth: 820 }}>
-        Brooding is staking without moving the bird. Brood a bird by paying for a tier in AVIANS
-        token and reward tokens stream into the bird&rsquo;s own wallet, by weight, until you sell
-        or move it. AVIANS tokens spent to brood are sent to the Roost to be split between AVIANS
-        token staker rewards, brooder rewards, protocol revenue, and burns.
+        Brooding is staking without moving birds. Brood a bird by paying for a tier. AVIAN and
+        stock tokens stream into the brooding bird&rsquo;s own wallet, until you sell or move it.
       </p>
-
-      {/* Where the streams come from. The same card that used to be on Contracts. */}
-      <div style={{ marginTop: 32 }}>
-        <TreasuryCard />
-      </div>
 
       <div className="two-up">
         {/* ── brood ────────────────────────────────────────────────────── */}
@@ -221,7 +218,7 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
             </div>
           )}
 
-          {/* The cost, before the button, as AVIANS paid on to the Roost. */}
+          {/* The cost, before the button, as AVIAN paid on to the Roost. */}
           <div className="row" style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
             <span className="small">
               {picked.length} {picked.length === 1 ? 'bird' : 'birds'}
@@ -237,7 +234,7 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
           </div>
 
           {/*
-            ONE APPROVAL, and it is for AVIANS. There is no bird approval to
+            ONE APPROVAL, and it is for AVIAN. There is no bird approval to
             the nest and no route to choose: a bird broods where it is.
           */}
           <div style={{ marginTop: 16 }}>
@@ -262,12 +259,20 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
         {/* ── brooding now, and what has ended ─────────────────────────── */}
         <div className="stack">
           <section className="panel" aria-labelledby="now-h">
-            <div className="row">
+            {/*
+              The heading, and "Settle all" on its right (2026-09-25; the weight
+              tag that stood there went). Pressed, the control becomes its
+              preview, which wraps under the heading at the card's width.
+            */}
+            <div className="row row--wrap now-head">
               <h3 id="now-h">Brooding now</h3>
               <span className="spacer" />
-              <Tag tone={brooding.length > 0 ? 'ok' : undefined}>
-                {brooding.reduce((a, e) => a + e.brood!.tier, 0)}x of {formatCount(Number(r.totalWeight))}
-              </Tag>
+              {settleAll.length > 1 ? (
+                <SettleControl
+                  ids={settleAll} label={`Settle all ${formatCount(settleAll.length)}`} compact
+                  symbolOf={symbolOf} onConnect={onConnect} onDone={() => nest.reload()}
+                />
+              ) : null}
             </div>
 
             {r.listed.length === 0 ? (
@@ -290,16 +295,9 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
             ) : (
               <>
                 {settleAll.length > 1 ? (
-                  <div className="row" style={{ marginTop: 14, gap: 12 }}>
-                    <span className="tiny dim">
-                      {formatCount(settleAll.length)} birds have rewards accrued and not yet delivered.
-                    </span>
-                    <span className="spacer" />
-                    <SettleControl
-                      ids={settleAll} label={`Settle all ${formatCount(settleAll.length)}`}
-                      symbolOf={symbolOf} onConnect={onConnect} onDone={() => nest.reload()}
-                    />
-                  </div>
+                  <p className="tiny dim" style={{ marginTop: 10 }}>
+                    {formatCount(settleAll.length)} birds have rewards accrued and not yet delivered.
+                  </p>
                 ) : null}
 
                 {[...brooding, ...ended].map((e) => (
@@ -311,8 +309,8 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
                   />
                 ))}
                 <p className="tiny dim" style={{ marginTop: 14 }}>
-                  A reward token that will not move right now is held, still owed to the bird, and
-                  lands on a later settle.
+                  Any stock token paused by its issuer is held, still owed to the bird, and lands on
+                  a later settle after it is unpaused.
                 </p>
               </>
             )}
@@ -371,33 +369,13 @@ export function Nest({ onConnect }: { onConnect: () => void }) {
                 <h3 id="streams-h">The streams</h3>
                 {lastRead ? <span className="tiny dim">{lastRead}</span> : null}
               </div>
-              {r.streams.map((s) => <StreamRow key={s.token.address} stream={s} now={now} />)}
-              <div style={{ marginTop: 16 }}>
-                <StockDisclaimer compact />
-              </div>
+              {r.streams.map((s) => <StreamRow key={s.token.address} stream={s} now={now} fly={fly.data} />)}
             </section>
           ) : null}
         </div>
       </div>
 
-      <div className="counters">
-        <div>
-          <div className="num" style={{ fontSize: 22 }}>{formatCount(r.totalBrooding)}</div>
-          <div className="label" style={{ marginTop: 4 }}>Birds brooding</div>
-        </div>
-        <div>
-          <div className="num" style={{ fontSize: 22 }}>{formatCount(Number(r.totalWeight))}</div>
-          <div className="label" style={{ marginTop: 4 }}>Total weight</div>
-        </div>
-        <div>
-          <div className="num" style={{ fontSize: 22 }}>{avians(r.totalForwarded)}</div>
-          <div className="label" style={{ marginTop: 4 }}>Paid to the Roost in tiers, ever</div>
-        </div>
-        <div>
-          <div className="num" style={{ fontSize: 22 }}>{r.listed.length}</div>
-          <div className="label" style={{ marginTop: 4 }}>Reward tokens listed</div>
-        </div>
-      </div>
+      <NestCounters r={r} />
     </div>
   );
 }
@@ -602,27 +580,3 @@ function wallAtN(r: object): number {
   return t;
 }
 
-function StreamRow({ stream, now }: { stream: RewardStream; now: number }) {
-  const live = stream.periodFinish > now;
-  return (
-    <div className="reward-row">
-      <div className="row">
-        <Tag>{stream.token.symbol}</Tag>
-        {/* AVIANS is listed too, since the Roost delivers it, and it is not a stock product. */}
-        {stream.token.address.toLowerCase() !== ADDRESSES.Avians?.toLowerCase() ? <span className="small dim">tokenized stock product</span> : null}
-        <span className="spacer" />
-        <span className="tiny dim">
-          {live ? `Streaming. Ends in ${formatSince(stream.periodFinish - now)}.`
-            // `periodFinish` is 0 until the first conversion funds the token. That is
-            // not a stream that ended; it is one that has not started — launch day.
-            : stream.periodFinish === 0 ? 'Nothing has streamed yet.' : 'Stream ended.'}
-        </span>
-      </div>
-      <div className="row" style={{ marginTop: 6, gap: 14 }}>
-        <span className="tiny dim">Paid, ever <span className="num">{formatReward(stream.totalPaid, stream.token.decimals)}</span></span>
-        <span className="tiny dim">Returned to the stream <span className="num">{formatReward(stream.totalReturned, stream.token.decimals)}</span></span>
-        <span className="tiny dim">Escrowed <span className="num">{formatReward(stream.escrowed, stream.token.decimals)}</span></span>
-      </div>
-    </div>
-  );
-}

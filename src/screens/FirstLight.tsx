@@ -38,7 +38,7 @@ export function FirstLight() {
         <div>
           <h2>First Light</h2>
           <p className="lede" style={{ marginTop: 8 }}>
-            The pool&rsquo;s first five minutes: a buy fee that starts at 25% and falls to 1%.
+            The pool&rsquo;s first five minutes: a buy fee that starts at {formatBps(l.feeBps + l.maxExtraFeeBps)} and falls to {formatBps(l.feeBps)}.
           </p>
         </div>
         <span className="spacer" />
@@ -105,12 +105,12 @@ export function FirstLight() {
 
           <section className="panel" aria-labelledby="get-h">
             <div className="row">
-              <h3 id="get-h" style={{ fontSize: 20 }}>Get AVIANS</h3>
+              <h3 id="get-h" style={{ fontSize: 20 }}>Get AVIAN</h3>
               <span className="spacer" />
               {inWindow ? <Tag tone="hot">{formatBps(bps)} right now</Tag> : null}
             </div>
             <p className="small" style={{ marginTop: 8 }}>
-              Buying AVIANS mints nothing. Get the token first, then compose a bird.
+              Buying AVIAN mints nothing. Get the token first, then compose a bird.
             </p>
             <a
               className="btn btn--ghost btn--wide"
@@ -186,12 +186,14 @@ export function FirstLight() {
   );
 }
 
-/** The whole decay curve, drawn from `buyFeeBpsAt`. */
+/** The whole decay curve, drawn from `buyFeeBpsAt`; the axis runs to the opening figure, whatever the hook says it is. */
 function FeeCurve({ launchAt, now, windowSeconds }: { launchAt: number; now: number; windowSeconds: number }) {
   const W = 820, H = 260;
   const pad = { l: 56, r: 20, t: 18, b: 34 };
+  const top = buyFeeBpsAt(launchAt, launchAt);
+  const ticks = [0, 1, 2, 3, 4, 5, 6].map((i) => Math.round((top * i) / 6));
   const x = (t: number) => pad.l + (t / windowSeconds) * (W - pad.l - pad.r);
-  const y = (bps: number) => pad.t + (1 - bps / 2600) * (H - pad.t - pad.b);
+  const y = (bps: number) => pad.t + (1 - bps / (top * 1.04)) * (H - pad.t - pad.b);
 
   const points = [0, windowSeconds].map((t) => `${x(t).toFixed(1)},${y(buyFeeBpsAt(launchAt + t, launchAt)).toFixed(1)}`).join(' ');
   const elapsed = Math.min(Math.max(0, now - launchAt), windowSeconds);
@@ -199,12 +201,12 @@ function FeeCurve({ launchAt, now, windowSeconds }: { launchAt: number; now: num
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
-      aria-label={`The buy fee falls from 25% to 1% over five minutes. Right now it is ${formatBps(buyFeeBpsAt(now, launchAt))}.`}>
-      {[0, 500, 1000, 1500, 2000, 2500].map((b) => (
+      aria-label={`The buy fee falls from ${formatBps(top)} to ${formatBps(buyFeeBpsAt(launchAt + windowSeconds, launchAt))} over five minutes. Right now it is ${formatBps(buyFeeBpsAt(now, launchAt))}.`}>
+      {ticks.map((b) => (
         <g key={b}>
           <line x1={pad.l} y1={y(b)} x2={W - pad.r} y2={y(b)} stroke="var(--slate)" strokeWidth={1} />
           <text x={pad.l - 10} y={y(b) + 4} fill="var(--ash)" fontSize={10} textAnchor="end" fontFamily="Geist Mono, monospace">
-            {b / 100}%
+            {formatBps(b, 0)}
           </text>
         </g>
       ))}

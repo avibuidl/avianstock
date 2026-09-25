@@ -3,18 +3,18 @@ import type { RewardSplit } from '../mock/types';
 // Every amount on this site is 18 decimals of base units behind the scenes,
 // and nobody should ever see a raw base-unit figure. BigInt end to end, a
 // formatter at the edge. `Number` never touches an amount — it loses precision
-// above 2^53, and 100,000 AVIANS is 10^23.
+// above 2^53, and 100,000 AVIAN is 10^23.
 
 export const WAD = 10n ** 18n;
 
-/** Whole AVIANS, with thousands separators. 100000e18 -> "100,000". */
+/** Whole AVIAN, with thousands separators. 100000e18 -> "100,000". */
 export function formatAvians(v: bigint): string {
   return group((v / WAD).toString());
 }
 
 /** The unit always travels with the amount: a bare number invites a dollar reading. */
 export function avians(v: bigint): string {
-  return `${formatAvians(v)} AVIANS`;
+  return `${formatAvians(v)} AVIAN`;
 }
 
 /**
@@ -95,7 +95,7 @@ export function shortAddress(a: string): string {
   return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 }
 
-/** 2500 -> "25%", 1396 -> "13.96%" trimmed to one place when it is not round. */
+/** 9000 -> "90%", 1396 -> "13.96%" trimmed to one place when it is not round. */
 export function formatBps(bps: number, places = 1): string {
   const pct = bps / 100;
   return `${Number.isInteger(pct) ? pct : pct.toFixed(places)}%`;
@@ -120,6 +120,18 @@ export function formatSince(seconds: number): string {
   const m = Math.floor(seconds / 60);
   if (m >= 1) return `${m} minute${m === 1 ? '' : 's'}`;
   return 'just now';
+}
+
+/** "3d 4h" / "4h 12m" / "12m" / "under a minute" — a countdown in two units, for the rotation line. */
+export function formatDaysHours(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d >= 1) return `${d}d ${h}h`;
+  if (h >= 1) return `${h}h ${m}m`;
+  if (m >= 1) return `${m}m`;
+  return 'under a minute';
 }
 
 /** "40 s" / "3 minutes" / "2 hours" — how long ago a read landed, for a stale panel's title. */
@@ -161,7 +173,7 @@ export function rewardSplitLine(r: RewardSplit | undefined, avians?: string): st
   const weight = new Map(r.parts.map((p) => [p.address.toLowerCase(), p.weightBps]));
   const shares = r.listed.map((t) => {
     const bps = weight.get(t.address.toLowerCase());
-    // AVIANS is listed since 2026-09-18 but is no conversion target: the Roost
+    // AVIAN is listed since 2026-09-18 but is no conversion target: the Roost
     // delivers it. "No share" would read as a fault; it is the design.
     if (bps === undefined && avians && t.address.toLowerCase() === avians.toLowerCase()) return `${t.symbol} from the Roost`;
     return bps === undefined ? `${t.symbol} (no share)` : `${t.symbol} ${formatBps(bps)}`;
@@ -187,4 +199,102 @@ export function rewardTokenNames(r: RewardSplit | undefined): string | null {
   const names = r.listed.map((t) => t.symbol);
   if (names.length === 1) return names[0];
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+// ── the flywheel snapshot's figures (2026-09-22) ─────────────────────────
+//
+// BigInt end to end, like everything above: `Number` never touches an amount.
+
+/**
+ * An amount for a tile: K above ten thousand, M above a million, with up to
+ * `places` decimals and the trailing zeros trimmed; below ten thousand, the
+ * whole part with separators and `wholePlaces` decimals (the same by
+ * default), and B above a billion so the original supply is "1B" and not
+ * "1,000M". 999,850,000 -> "999.85M", 850,000 -> "850K", 8,800 -> "8,800",
+ * 37.86 -> "37.86". Truncated, never rounded up, so a figure never claims
+ * more than exists.
+ */
+export function formatCompact(v: bigint, decimals = 18, places = 2, wholePlaces = places): string {
+  const unit = 10n ** BigInt(decimals);
+  const scaled = (n: bigint, suffix: string, p: number) => {
+    const whole = n / unit;
+    const frac = ((n % unit) * 10n ** BigInt(p)) / unit;
+    const f = frac.toString().padStart(p, '0').replace(/0+$/, '');
+    return `${group(whole.toString())}${f ? '.' + f : ''}${suffix}`;
+  };
+  if (v >= unit * 1_000_000_000n) return scaled(v / 1_000_000_000n, 'B', places);
+  if (v >= unit * 1_000_000n) return scaled(v / 1_000_000n, 'M', places);
+  if (v >= unit * 10_000n) return scaled(v / 1_000n, 'K', places);
+  return scaled(v, '', wholePlaces);
+}
+
+/** A price's trailing zeros, gone: "0.004400" -> "0.0044", "11.49" -> "11.49", "123,456" -> "123,456". */
+function trimZeros(s: string): string {
+  return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
+}
+
+/** ETH to four significant figures, truncated: 0.0044 ETH, 11.49 ETH, 499.9 ETH. */
+export function formatEthSig(v: bigint): string {
+  return `${trimZeros(formatPrice(v, 18, 4))} ETH`;
+}
+
+/**
+ * A dollar total: to the nearest dollar below ten thousand, K and M above,
+ * "$5,120", "$46.44K", "$1.39M". Never "$0" for a non-zero amount below a
+ * dollar: that reads "less than $1".
+ */
+export function formatUsd(usd: bigint): string {
+  if (usd > 0n && usd < WAD) return 'less than $1';
+  return `$${formatCompact(usd, 18, 2, 0)}`;
+}
+
+/** A dollar unit price, to four significant figures: "$0.001391", "$2,782". */
+export function formatUsdPrice(usd: bigint): string {
+  return `$${trimZeros(formatPrice(usd, 18, 4))}`;
+}
+
+/** An ETH value in dollars, both 18 decimals: the one place a dollar figure is derived. */
+export function usdOf(ethValue: bigint, usdPerEth: bigint): bigint {
+  return (ethValue * usdPerEth) / WAD;
+}
+
+/** `part` as a share of `whole`, to two places, trimmed: "0.02%", "15%". "0%" for nothing. */
+export function formatShare(part: bigint, whole: bigint): string {
+  if (whole <= 0n || part <= 0n) return '0%';
+  const bps = (part * 10_000n) / whole;
+  const wholePct = bps / 100n;
+  const frac = (bps % 100n).toString().padStart(2, '0').replace(/0+$/, '');
+  return `${group(wholePct.toString())}${frac ? '.' + frac : ''}%`;
+}
+
+/**
+ * "today", or "September 24" in the reader's own zone, with the year only
+ * when it is not this one. For the owner's seat: when he was last heard from,
+ * and when the council may act alone.
+ */
+export function formatDay(t: number, now: number): string {
+  const d = new Date(t * 1000);
+  const n = new Date(now * 1000);
+  if (d.toDateString() === n.toDateString()) return 'today';
+  return d.toLocaleDateString(undefined, {
+    month: 'long', day: 'numeric',
+    ...(d.getFullYear() === n.getFullYear() ? {} : { year: 'numeric' }),
+  });
+}
+
+/**
+ * "2 days 4 hours", "5 hours 12 minutes", "12 minutes", "under a minute":
+ * a wait in words, two units at most. The price band's council half, where a
+ * change's countdown is read in passing rather than watched.
+ */
+export function formatWait(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const d = Math.floor(s / 86_400);
+  const h = Math.floor((s % 86_400) / 3_600);
+  const m = Math.floor((s % 3_600) / 60);
+  const u = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  if (d >= 1) return h ? `${u(d, 'day')} ${u(h, 'hour')}` : u(d, 'day');
+  if (h >= 1) return m ? `${u(h, 'hour')} ${u(m, 'minute')}` : u(h, 'hour');
+  if (m >= 1) return u(m, 'minute');
+  return 'under a minute';
 }

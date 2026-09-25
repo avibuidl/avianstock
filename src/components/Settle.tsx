@@ -66,7 +66,7 @@ export function nestNote(ev: NestEvents): string | undefined {
 }
 
 export function SettleControl({
-  ids, label, symbolOf, onConnect, onDone, ghost, disabled,
+  ids, label, symbolOf, onConnect, onDone, ghost, disabled, compact,
 }: {
   ids: TokenId[];
   label: string;
@@ -75,6 +75,8 @@ export function SettleControl({
   onDone?: () => void;
   ghost?: boolean;
   disabled?: boolean;
+  /** The site's compact CTA size (the homepage Bird Engine's), for a press that sits in a line of text. */
+  compact?: boolean;
 }) {
   const tx = useTx();
   const who = useAddress();
@@ -121,7 +123,7 @@ export function SettleControl({
       <WriteGate onConnect={onConnect}>
         <button
           type="button"
-          className={`btn btn--small${ghost ? ' btn--ghost' : ''}`}
+          className={`btn ${compact ? 'btn--compact' : 'btn--small'}${ghost ? ' btn--ghost' : ''}`}
           disabled={disabled || previewing || ids.length === 0}
           onClick={doPreview}
         >

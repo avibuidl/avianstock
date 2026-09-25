@@ -18,7 +18,7 @@ const E18 = 10n ** 18n;
 const WEEK = 604_800;
 const T0 = 1_789_800_000;
 
-/** 10,000 AVIANS over a week, as the contract stores it: base units per second × 1e18. */
+/** 10,000 AVIAN over a week, as the contract stores it: base units per second × 1e18. */
 const RATE = (10_000n * E18 * E18) / BigInt(WEEK);
 
 const staking = (o: Partial<StakingState> = {}): StakingState => ({
@@ -48,7 +48,7 @@ test('estimateEarned never decreases between reads, and never goes below what wa
 
 test('estimateEarned ticks at rewardRate × staked / totalStaked / 1e18 per second, the whole stream to a sole staker', () => {
   const s = staking();
-  // 10,000 AVIANS over 604,800 s: 0.0165343… AVIANS per second, all of it to the only staker.
+  // 10,000 AVIAN over 604,800 s: 0.0165343… AVIAN per second, all of it to the only staker.
   const perSec = perSecond(s.rewardRate, s.staked, s.totalStaked);
   assert.equal(perSec, (10_000n * E18) / BigInt(WEEK));
   assert.equal(estimateEarned(s, T0 + 3600), s.earned + perSec * 3600n);

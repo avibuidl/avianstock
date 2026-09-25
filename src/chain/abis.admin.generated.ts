@@ -27,7 +27,7 @@
 export const avianStockAdminAbi = [
   {
     "type": "function",
-    "name": "AVIANS",
+    "name": "AVIAN",
     "inputs": [],
     "outputs": [
       {
@@ -95,7 +95,7 @@ export const avianStockAdminAbi = [
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -146,13 +146,6 @@ export const avianStockAdminAbi = [
         "internalType": "bytes"
       }
     ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "deleteDefaultRoyalty",
-    "inputs": [],
-    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -443,24 +436,6 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "function",
-    "name": "setDefaultRoyalty",
-    "inputs": [
-      {
-        "name": "receiver",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "feeNumerator",
-        "type": "uint96",
-        "internalType": "uint96"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setFreeMintOpen",
     "inputs": [
       {
@@ -526,6 +501,13 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "function",
+    "name": "stillHere",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -552,6 +534,11 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "error",
+    "name": "AcceptOwnershipDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ComboTaken",
     "inputs": [
       {
@@ -565,6 +552,28 @@ export const avianStockAdminAbi = [
     "type": "error",
     "name": "ConfigureDataTooShort",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -830,12 +839,39 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidMintSink",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNest",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidTrait",
     "inputs": []
   },
   {
     "type": "error",
     "name": "MintClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NewOwnerIsZero",
     "inputs": []
   },
   {
@@ -861,12 +897,50 @@ export const avianStockAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotHeldByThePerch",
     "inputs": [
       {
         "name": "id",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwnersProposal",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -916,6 +990,22 @@ export const avianStockAdminAbi = [
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnerNotSilent",
+    "inputs": [
+      {
+        "name": "lastSeenAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "silentAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -997,6 +1087,22 @@ export const avianStockAdminAbi = [
     "type": "error",
     "name": "RescueFailed",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RoyaltyAboveCap",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "cap",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1190,7 +1296,7 @@ export const thePerchAdminAbi = [
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -1296,6 +1402,13 @@ export const thePerchAdminAbi = [
   },
   {
     "type": "function",
+    "name": "stillHere",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -1306,6 +1419,11 @@ export const thePerchAdminAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "AcceptOwnershipDisabled",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1324,6 +1442,28 @@ export const thePerchAdminAbi = [
     "inputs": [
       {
         "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
         "type": "address",
         "internalType": "address"
       }
@@ -1368,10 +1508,26 @@ export const thePerchAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NewOwnerIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotAContract",
     "inputs": [
       {
         "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
         "type": "address",
         "internalType": "address"
       }
@@ -1412,6 +1568,33 @@ export const thePerchAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwnersProposal",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -1429,6 +1612,22 @@ export const thePerchAdminAbi = [
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnerNotSilent",
+    "inputs": [
+      {
+        "name": "lastSeenAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "silentAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -1551,7 +1750,7 @@ export const theNestAdminAbi = [
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -1824,6 +2023,13 @@ export const theNestAdminAbi = [
   },
   {
     "type": "function",
+    "name": "stillHere",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "totalBrooding",
     "inputs": [],
     "outputs": [
@@ -1882,6 +2088,11 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "AcceptOwnershipDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "AlreadyBrooding",
     "inputs": [
       {
@@ -1915,6 +2126,28 @@ export const theNestAdminAbi = [
         "name": "id",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -2017,6 +2250,11 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NewOwnerIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NoLiveStream",
     "inputs": [
       {
@@ -2087,6 +2325,17 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotHeldHere",
     "inputs": [
       {
@@ -2120,6 +2369,22 @@ export const theNestAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotTheOwner",
     "inputs": [
       {
@@ -2134,6 +2399,17 @@ export const theNestAdminAbi = [
       },
       {
         "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwnersProposal",
+    "inputs": [
+      {
+        "name": "given",
         "type": "address",
         "internalType": "address"
       }
@@ -2163,6 +2439,22 @@ export const theNestAdminAbi = [
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnerNotSilent",
+    "inputs": [
+      {
+        "name": "lastSeenAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "silentAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -2354,13 +2646,26 @@ export const theNestAdminAbi = [
 export const theRoostAdminAbi = [
   {
     "type": "function",
-    "name": "AVIANS",
+    "name": "AVIAN",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
         "internalType": "contract Avians"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "LOCKERS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract LockerRewards"
       }
     ],
     "stateMutability": "view"
@@ -2462,10 +2767,54 @@ export const theRoostAdminAbi = [
   },
   {
     "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNest",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotAContract",
     "inputs": [
       {
         "name": "a",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
         "type": "address",
         "internalType": "address"
       }
@@ -2482,6 +2831,22 @@ export const theRoostAdminAbi = [
       },
       {
         "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
         "type": "address",
         "internalType": "address"
       }
@@ -2614,7 +2979,7 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
-    "name": "AVIANS",
+    "name": "AVIAN",
     "inputs": [],
     "outputs": [
       {
@@ -2718,6 +3083,58 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "OPENING_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "READING_MAX_AGE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REWARDS_SHARE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ROOST_SHARE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "SLIPPAGE_BPS_CAP",
     "inputs": [],
     "outputs": [
@@ -2744,10 +3161,23 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "TWAP_WINDOW",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -2778,6 +3208,19 @@ export const treasuryAdminAbi = [
         "internalType": "address"
       }
     ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "aviansToRoost",
+    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -2870,6 +3313,32 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "conversionsOpen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "conversionsOpenAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "convertible",
     "inputs": [
       {
@@ -2956,6 +3425,37 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "lastReading",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "tickCumulative",
+        "type": "int56",
+        "internalType": "int56"
+      },
+      {
+        "name": "at",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastRoostBuyAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "maxKeeperDropBps",
     "inputs": [],
     "outputs": [
@@ -2995,6 +3495,24 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "prevReading",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "tickCumulative",
+        "type": "int56",
+        "internalType": "int56"
+      },
+      {
+        "name": "at",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "priceKeeper",
     "inputs": [],
     "outputs": [
@@ -3002,6 +3520,80 @@ export const treasuryAdminAbi = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "priceSource",
+    "inputs": [
+      {
+        "name": "currency",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "roostBuyable",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "roostMeanTick",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "mean",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "age",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "roostOut",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -3270,6 +3862,13 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "function",
+    "name": "stillHere",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "targetCount",
     "inputs": [],
     "outputs": [
@@ -3357,6 +3956,11 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "AcceptOwnershipDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ConversionDisabled",
     "inputs": []
   },
@@ -3373,6 +3977,17 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "ConversionsNotOpen",
+    "inputs": [
+      {
+        "name": "openAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CoolingDown",
     "inputs": [
       {
@@ -3384,6 +3999,28 @@ export const treasuryAdminAbi = [
         "name": "currentTime",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -3515,6 +4152,17 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidStaking",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "KeeperDropBpsTooHigh",
     "inputs": [
       {
@@ -3528,6 +4176,11 @@ export const treasuryAdminAbi = [
         "internalType": "uint16"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "LaunchUnknown",
+    "inputs": []
   },
   {
     "type": "error",
@@ -3568,6 +4221,11 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NewOwnerIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NoFloorPrice",
     "inputs": [
       {
@@ -3585,6 +4243,11 @@ export const treasuryAdminAbi = [
   {
     "type": "error",
     "name": "NoRewardTokens",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoRoost",
     "inputs": []
   },
   {
@@ -3607,6 +4270,33 @@ export const treasuryAdminAbi = [
     "type": "error",
     "name": "NoTargets",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoTickOracle",
+    "inputs": [
+      {
+        "name": "hooks",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoUsableReading",
+    "inputs": [
+      {
+        "name": "lastAt",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "prevAt",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
   },
   {
     "type": "error",
@@ -3655,6 +4345,44 @@ export const treasuryAdminAbi = [
     "type": "error",
     "name": "NotConverting",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwnersProposal",
+    "inputs": [
+      {
+        "name": "given",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -3709,6 +4437,22 @@ export const treasuryAdminAbi = [
     "type": "error",
     "name": "NothingStaked",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToBuyForRoost",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "unspentShare",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -3776,6 +4520,22 @@ export const treasuryAdminAbi = [
   },
   {
     "type": "error",
+    "name": "OwnerNotSilent",
+    "inputs": [
+      {
+        "name": "lastSeenAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "silentAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnershipRenounceDisabled",
     "inputs": []
   },
@@ -3797,6 +4557,43 @@ export const treasuryAdminAbi = [
         "name": "max",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PriceUnsettled",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "meanTick",
+        "type": "int24",
+        "internalType": "int24"
+      },
+      {
+        "name": "spotTick",
+        "type": "int24",
+        "internalType": "int24"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReadingTooYoung",
+    "inputs": [
+      {
+        "name": "at",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "usableAt",
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ]
   },
@@ -3924,6 +4721,17 @@ export const treasuryAdminAbi = [
         "name": "max",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unpriceable",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -4097,7 +4905,7 @@ export const liquidityVaultAdminAbi = [
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -4190,6 +4998,13 @@ export const liquidityVaultAdminAbi = [
   },
   {
     "type": "function",
+    "name": "stillHere",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "tokenId",
     "inputs": [],
     "outputs": [
@@ -4242,6 +5057,11 @@ export const liquidityVaultAdminAbi = [
   },
   {
     "type": "error",
+    "name": "AcceptOwnershipDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "AlreadyHoldsAPosition",
     "inputs": [
       {
@@ -4250,6 +5070,33 @@ export const liquidityVaultAdminAbi = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilAlreadyNamed",
+    "inputs": [
+      {
+        "name": "council",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CouncilNotAContract",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NewOwnerIsZero",
+    "inputs": []
   },
   {
     "type": "error",
@@ -4269,12 +5116,39 @@ export const liquidityVaultAdminAbi = [
   },
   {
     "type": "error",
+    "name": "NotCouncil",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotOwnedByVault",
     "inputs": [
       {
         "name": "id",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheCouncilNamer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "namer",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -4289,6 +5163,17 @@ export const liquidityVaultAdminAbi = [
       },
       {
         "name": "launcher",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotTheOwnersProposal",
+    "inputs": [
+      {
+        "name": "given",
         "type": "address",
         "internalType": "address"
       }
@@ -4324,6 +5209,22 @@ export const liquidityVaultAdminAbi = [
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnerNotSilent",
+    "inputs": [
+      {
+        "name": "lastSeenAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "silentAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

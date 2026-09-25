@@ -11,7 +11,7 @@ import {
   DEFAULT_SCENARIO, PRESETS, applyPreset, presetHref, resetScenario, setScenario, useScenario,
   type Scenario,
 } from '../mock/scenario';
-import { SELECTORS, type ErrorName } from '../mock';
+import { SELECTORS, refreshAll, setUnveiledForDev, unveiled, type ErrorName } from '../mock';
 
 type Row = { key: keyof Scenario; label: string; options: string[] };
 
@@ -30,10 +30,17 @@ const ROWS: Row[] = [
   { key: 'rewards', label: 'rewards', options: ['none-listed', 'accruing', 'one-paused', 'all-paused'] },
   { key: 'sweeper', label: 'sweeper', options: ['none-granted', 'some-granted', 'all-granted', 'all-swept'] },
   { key: 'satchel', label: 'satchel', options: ['empty', 'holds-tokens', 'holds-birds'] },
+  { key: 'recompose', label: 'recompose', options: ['as-minted', 'swapped', 'restored'] },
   { key: 'operatorWhitelist', label: 'operators', options: ['applied', 'missing'] },
   { key: 'ticker', label: 'ticker', options: ['all', 'one-missing', 'reduced-motion'] },
   { key: 'roost', label: 'roost', options: ['ready', 'nest-held', 'nest-held-brooding', 'too-soon'] },
+  { key: 'rotation', label: 'rotation', options: ['week-0', 'week-1', 'week-2'] },
   { key: 'staking', label: 'staking', options: ['mid-week', 'nothing-staked', 'held-with-staker', 'held-nobody-staked'] },
+  { key: 'flywheel', label: 'flywheel', options: ['live', 'first-day', 'no-usd', 'turn-due'] },
+  { key: 'stakers', label: 'stakers', options: ['streaming', 'ended', 'unfunded', 'unlisted'] },
+  { key: 'council', label: 'council', options: ['quiet', 'replacement', 'rescue', 'silent-rescue', 'three', 'overdue', 'none'] },
+  { key: 'seat', label: 'your seat', options: ['today', 'quiet-26', 'proposed', 'disagree', 'midway'] },
+  { key: 'deployment', label: 'deployment read', options: ['ok', 'fails'] },
 ];
 
 /** Every error a user-facing call can return — HANDOVER section 7. */
@@ -42,6 +49,11 @@ const FORCEABLE = (Object.keys(SELECTORS) as ErrorName[]).filter((n) => n !== 'U
 export function DevPanel() {
   const s = useScenario();
   const [open, setOpen] = useState(false);
+  // The veil's two toggles (2026-09-22): the proof that an unveiling reverses
+  // everything with no other change. They flip the active manifest in memory
+  // (DEV only) and re-read every panel; nothing is stored anywhere.
+  const [veilTick, setVeilTick] = useState(0);
+  const flip = (what: 'vaults' | 'traitMarket') => { setUnveiledForDev(what, !unveiled(what)); setVeilTick(veilTick + 1); refreshAll(); };
 
   if (!open) {
     return (
@@ -109,6 +121,24 @@ export function DevPanel() {
             </div>
           </div>
         ))}
+
+        <div className="dev__row">
+          <div className="tiny dim" style={{ letterSpacing: '0.1em', marginBottom: 6 }}>
+            THE VEIL (the manifest's `unveiled`, flipped in memory)
+          </div>
+          <div className="row row--wrap" style={{ gap: 6 }}>
+            {(['vaults', 'traitMarket'] as const).map((what) => (
+              <button
+                key={what} type="button"
+                className={`select select--tight${unveiled(what) ? ' select--on' : ''}`}
+                aria-pressed={unveiled(what)}
+                onClick={() => flip(what)}
+              >
+                {what === 'vaults' ? 'vaults' : 'trait market'}: {unveiled(what) ? 'unveiled' : 'veiled'}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="dev__row">
           <div className="tiny dim" style={{ letterSpacing: '0.1em', marginBottom: 6 }}>

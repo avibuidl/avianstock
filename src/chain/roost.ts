@@ -1,14 +1,18 @@
-// The Roost and AVIANS staking, read from the chain and written to it.
+// The Roost and AVIAN staking, read from the chain and written to it.
 //
-// THE ROOST (2026-09-18). Where every AVIANS fee lands — the whole of every
+// THE ROOST (2026-09-18). Where every AVIAN fee lands — the whole of every
 // Perch fee and every brooding tier cost — and is split by a rule nobody can
-// change: 40% streamed to AVIANS stakers, 30% to brooding birds through the
-// Nest, 20% burnt, 10% the admin's. Anyone may turn it once a day; the site
-// offers the turn when it is due and says why when it is not.
+// change. Since 2026-09-20 the rule rotates: three figures, 35 / 30 / 20,
+// move one place a week between AVIAN stakers, brooding birds through the
+// Nest, and the users of the vault products through the lockers' distributor,
+// on a fixed three-week cycle from `GENESIS`; 10% is the admin's and 5% is
+// burnt, always. Anyone may turn it once a day; the site offers the turn when
+// it is due and says why when it is not. The lockers' leg is held at the
+// Roost until the vault products exist, and `deliverHeld` sends it on then.
 //
-// AVIANS STAKING. Stake AVIANS, earn AVIANS, by amount, streamed over a week
+// AVIAN STAKING. Stake AVIAN, earn AVIAN, by amount, streamed over a week
 // from each delivery. No lock, no cooldown, no fee, no owner. `stake` needs
-// an AVIANS approval to the staking contract — the fourth approval in
+// an AVIAN approval to the staking contract — the fourth approval in
 // HANDOVER section 2's sense, and approve-only: `stake(amount)` takes no
 // permit signature, so a "permit" here would be its own transaction.
 //
@@ -23,7 +27,8 @@ import { guard } from './reads';
 import { run } from './writes';
 import { estimateSince } from '../lib/stream';
 import type {
-  Address, Amount, DeliverResult, DistributeResult, Hex, OnPhase, RoostState, StakingState, UnixSeconds,
+  Address, Amount, DeliverResult, DistributeResult, Hex, OnPhase, RoostLegName, RoostState, RotatingSplit,
+  StakingState, UnixSeconds,
 } from '../mock/types';
 
 // ── reads ─────────────────────────────────────────────────────────────────
@@ -34,16 +39,32 @@ export async function getRoost(at?: At): Promise<RoostState> {
     const { roost } = roostContracts();
     const r = (functionName: string) => ({ address: roost, abi: theRoostAbi as unknown as Abi, functionName });
     const [
-      cumulativeIn, unallocated, toStaking, toNest, burned, adminClaimed, adminClaimable,
-      stakingHeld, nestHeld, stakingReady, nestReady, nextAt,
-      stakingBps, nestBps, burnBps, adminBps, admin,
+      cumulativeIn, unallocated, toStaking, toNest, toLockers, burned, adminClaimed, adminClaimable,
+      stakingHeld, nestHeld, lockersHeld, stakingReady, nestReady, lockersReady, nextAt,
+      split, nextRotation, burnBps, adminBps, admin,
     ] = await readMany<unknown>([
-      r('cumulativeIn'), r('unallocated'), r('toStaking'), r('toNest'), r('burned'), r('adminClaimed'), r('adminClaimable'),
-      r('stakingHeld'), r('nestHeld'), r('stakingReady'), r('nestReady'), r('nextDistributionAt'),
-      r('STAKING_BPS'), r('NEST_BPS'), r('BURN_BPS'), r('ADMIN_BPS'), r('admin'),
+      r('cumulativeIn'), r('unallocated'), r('toStaking'), r('toNest'), r('toLockers'), r('burned'), r('adminClaimed'), r('adminClaimable'),
+      r('stakingHeld'), r('nestHeld'), r('lockersHeld'), r('stakingReady'), r('nestReady'), r('lockersReady'), r('nextDistributionAt'),
+      r('currentSplit'), r('nextRotationAt'), r('BURN_BPS'), r('ADMIN_BPS'), r('admin'),
     ], a);
-    // `xReady()` returns (bool, string); viem hands that back as a tuple or,
-    // when the outputs are named, as an object. Read it either way.
+    // Next week's figures, from the contract's own rule at the second it next
+    // moves: `splitAt(nextRotationAt())`. A second call under the same pin,
+    // because the argument is the first call's answer.
+    const [nextSplit] = await readMany<unknown>([
+      { ...r('splitAt'), args: [nextRotation as bigint] },
+    ], a);
+    // `currentSplit()` / `splitAt()` return (stakingBps, nestBps, lockersBps);
+    // viem hands a multi-return back as a tuple or, when the outputs are
+    // named, as an object. Read it either way, like `xReady()` below.
+    const three = (v: unknown): RotatingSplit => {
+      const t = Array.isArray(v) ? v as [bigint, bigint, bigint] : null;
+      const o = t ? null : v as { stakingBps: bigint; nestBps: bigint; lockersBps: bigint };
+      return {
+        staking: Number(t ? t[0] : o!.stakingBps), /* count */
+        nest: Number(t ? t[1] : o!.nestBps), /* count */
+        lockers: Number(t ? t[2] : o!.lockersBps), /* count */
+      };
+    };
     const leg = (v: unknown) => {
       const t = Array.isArray(v) ? v as [boolean, string] : null;
       const o = t ? null : v as { ready?: boolean; reason?: string };
@@ -54,19 +75,22 @@ export async function getRoost(at?: At): Promise<RoostState> {
       unallocated: unallocated as Amount,
       toStaking: toStaking as Amount,
       toNest: toNest as Amount,
+      toLockers: toLockers as Amount,
       burned: burned as Amount,
       adminClaimed: adminClaimed as Amount,
       adminClaimable: adminClaimable as Amount,
       staking: { held: stakingHeld as Amount, ...leg(stakingReady) },
       nest: { held: nestHeld as Amount, ...leg(nestReady) },
+      lockers: { held: lockersHeld as Amount, ...leg(lockersReady) },
       nextDistributionAt: Number(nextAt as bigint), /* count */
       chainNow: a.timestamp,
       splitBps: {
-        staking: Number(stakingBps as bigint), /* count */
-        nest: Number(nestBps as bigint), /* count */
+        ...three(split),
         burn: Number(burnBps as bigint), /* count */
         admin: Number(adminBps as bigint), /* count */
       },
+      nextRotationAt: Number(nextRotation as bigint), /* count */
+      nextSplitBps: three(nextSplit),
       admin: admin as Address,
     };
   });
@@ -132,9 +156,10 @@ export function estimateEarned(s: StakingState, now: UnixSeconds): Amount {
 
 // ── the Roost's writes ────────────────────────────────────────────────────
 
-const LEG = (v: unknown): 'staking' | 'nest' => (Number(v) === 1 ? 'nest' : 'staking');
+/** Leg ids on chain: 0 stakers, 1 the Nest, 2 the lockers' distributor. */
+const LEG = (v: unknown): RoostLegName => (Number(v) === 1 ? 'nest' : Number(v) === 2 ? 'lockers' : 'staking');
 
-/** What the receipt says the turn did. */
+/** What the receipt says the turn did. `Allocated` carries all five legs since 2026-09-20. */
 export function distributeEvents(logs: unknown[]): DistributeResult {
   const ev = (name: string) => parseEventLogs({
     abi: theRoostAbi as unknown as Abi, logs: logs as never, eventName: name as never,
@@ -144,7 +169,7 @@ export function distributeEvents(logs: unknown[]): DistributeResult {
   return {
     allocated: alloc ? {
       inflow: b(alloc.args.inflow), toStaking: b(alloc.args.toStaking), toNest: b(alloc.args.toNest),
-      toBurn: b(alloc.args.toBurn), toAdmin: b(alloc.args.toAdmin),
+      toLockers: b(alloc.args.toLockers), toBurn: b(alloc.args.toBurn), toAdmin: b(alloc.args.toAdmin),
     } : null,
     delivered: ev('Delivered').map((e) => ({ leg: LEG(e.args.leg), amount: b(e.args.amount) })),
     held: ev('Held').map((e) => ({ leg: LEG(e.args.leg), amount: b(e.args.amount), reason: String(e.args.reason ?? '') })),
@@ -160,7 +185,10 @@ export function distributeEvents(logs: unknown[]): DistributeResult {
  * Send a held leg on (2026-09-19). Anyone, any time, no interval: splits
  * nothing and leaves the day's clock alone. Simulated first, so
  * `NothingHeld()` and `NothingDeliverable()` arrive by name; the receipt
- * carries the same `Delivered` / `Held` events a turn does.
+ * carries the same `Delivered` / `Held` events a turn does. The call's own
+ * return is three flags (stakingMoved, nestMoved, lockersMoved) since
+ * 2026-09-20; the events say the same with the amounts, so they are what is
+ * read.
  */
 export async function deliverHeld(on?: OnPhase): Promise<DeliverResult & { hash: Hex }> {
   const { roost } = roostContracts();
@@ -183,10 +211,10 @@ export async function distribute(on?: OnPhase): Promise<DistributeResult & { has
 
 // ── staking writes ────────────────────────────────────────────────────────
 
-/** The fourth approval: AVIANS to the staking contract, for `stake`. */
+/** The fourth approval: AVIAN to the staking contract, for `stake`. */
 export async function approveAviansForStaking(amount: Amount, on?: OnPhase) {
   const { hash } = await run({
-    where: 'approving AVIANS for staking',
+    where: 'approving AVIAN for staking',
     to: contracts().Avians, abi: aviansAbi, functionName: 'approve',
     args: [roostContracts().staking, amount],
   }, { on });
@@ -206,18 +234,18 @@ function paidFrom(logs: unknown[]): Amount {
 
 export async function stake(amount: Amount, on?: OnPhase): Promise<{ hash: Hex }> {
   if (amount <= 0n) throw new Error('nothing to stake');   // ZeroAmount is the contract's; the button is disabled first
-  const { hash } = await run(stakingPlan('staking AVIANS', 'stake', [amount]), { on, price: amount });
+  const { hash } = await run(stakingPlan('staking AVIAN', 'stake', [amount]), { on, price: amount });
   return { hash };
 }
 
 export async function withdrawStake(amount: Amount, on?: OnPhase): Promise<{ hash: Hex }> {
   if (amount <= 0n) throw new Error('nothing to withdraw');
-  const { hash } = await run(stakingPlan('withdrawing AVIANS', 'withdraw', [amount]), { on });
+  const { hash } = await run(stakingPlan('withdrawing AVIAN', 'withdraw', [amount]), { on });
   return { hash };
 }
 
 export async function claimStakingReward(on?: OnPhase): Promise<{ hash: Hex; paid: Amount }> {
-  const { hash, logs } = await run(stakingPlan('claiming AVIANS', 'claim'), { on });
+  const { hash, logs } = await run(stakingPlan('claiming AVIAN', 'claim'), { on });
   return { hash, paid: paidFrom(logs) };
 }
 

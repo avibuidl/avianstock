@@ -57,10 +57,10 @@ export function Sweeps({ admin }: { admin: AdminState }) {
       </p>
 
       <Control
-        title="The collection, in AVIANS"
+        title="The collection, in AVIAN"
         now={`${avians(sweepable)} may leave`}
         note={<>
-          The collection has to keep <span className="mono">requiredBacking()</span> in AVIANS behind
+          The collection has to keep <span className="mono">requiredBacking()</span> in AVIAN behind
           the free mint. Only the excess can be swept, and the contract works out how much rather
           than trusting an amount from here.
         </>}
@@ -75,9 +75,9 @@ export function Sweeps({ admin }: { admin: AdminState }) {
             actions={actions}
             action={{
               key: 'sweep-avians',
-              label: 'Sweep the excess AVIANS',
+              label: 'Sweep the excess AVIAN',
               disabled: sweepable === 0n || !canSend,
-              run: (on) => rescueFromCollection(admin.treasury.rows.find((r) => r.symbol === 'AVIANS')?.currency ?? null, destination as Address, on),
+              run: (on) => rescueFromCollection(admin.treasury.rows.find((r) => r.symbol === 'AVIAN')?.currency ?? null, destination as Address, on),
               outcome: () => 'Swept.',
             }}
           />
@@ -139,7 +139,7 @@ export function Sweeps({ admin }: { admin: AdminState }) {
       <div style={{ marginTop: 16 }}>
         <Box title="What the perch refuses, and why">
           <p className="tiny dim" style={{ margin: 0 }}>
-            AVIANS and the collection itself are refused by ADDRESS, not by balance: they are the
+            AVIAN and the collection itself are refused by ADDRESS, not by balance: they are the
             pool, and sweeping either would take the backing out from under every bird in it. That
             refusal is in the contract and this panel only reports it.
           </p>

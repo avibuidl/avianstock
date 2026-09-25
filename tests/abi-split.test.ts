@@ -44,7 +44,7 @@ const names = (abi: readonly unknown[], write = true) =>
 const OWNER_ONLY = [
   // AvianStock
   'setMintOpen', 'setFreeMintOpen', 'setAllowlistRoot', 'setAllowlisted',
-  'releaseFreeAllocation', 'setPrice', 'setDefaultRoyalty', 'deleteDefaultRoyalty',
+  'releaseFreeAllocation', 'setPrice',
   'setRenderer', 'lockRenderer', 'setTransferValidator', 'lockTransferValidator',
   'configureTransferValidator', 'rescue',
   // ThePerch
@@ -58,8 +58,11 @@ const OWNER_ONLY = [
   'collectFees', 'extendLock', 'withdraw',
   // TheRoost (2026-09-18): the admin's tenth, and the rescue
   'claimAdmin',
-  // all five
-  'transferOwnership', 'acceptOwnership',
+  // all five. `acceptOwnership` left this list with f28828e: it is `pure` and
+  // always refuses (`AcceptOwnershipDisabled`), because nobody accepts a
+  // transfer alone any more; the council seats the owner's proposal. The
+  // owner proposes with `transferOwnership`, which stays.
+  'transferOwnership',
 ];
 
 /**
@@ -69,6 +72,18 @@ const OWNER_ONLY = [
  * stays a name check everywhere else.
  */
 const SAME_NAME_DIFFERENT_DOOR = new Set(['aviansStakingAbi.withdraw']);
+
+/**
+ * THE COUNCIL'S (2026-09-24): the structural pointers, the royalty, the
+ * rescue, and the seat itself. The multisig proposes them to the Council and
+ * the Council calls them after its delay; the site sends none of them, from
+ * any page. Typed out, for the same reason as the owner list.
+ */
+const COUNCIL_ONLY = [
+  'setTreasury', 'setMintSink', 'setNest', 'setCostSink', 'setRoost', 'setStaking',
+  'setDefaultRoyalty', 'deleteDefaultRoyalty',
+  'councilTransferOwnership', 'councilRescueSilentOwner', 'setCouncil',
+];
 
 const COLLECTOR = {
   aviansAbi, avianStockAbi, thePerchAbi, theNestAbi, treasuryAbi,
@@ -84,6 +99,19 @@ test('no owner-only function is in any collector ABI', () => {
     }
   }
   assert.deepEqual(leaked, [], 'these owner calls can be encoded from a collector ABI');
+});
+
+test('no council call is in any ABI the site holds, collector or owner', () => {
+  const held: Record<string, readonly unknown[]> = {
+    ...COLLECTOR,
+    avianStockAdminAbi, thePerchAdminAbi, theNestAdminAbi, treasuryAdminAbi,
+    liquidityVaultAdminAbi, theRoostAdminAbi,
+  };
+  const leaked: string[] = [];
+  for (const [label, abi] of Object.entries(held)) {
+    for (const name of names(abi)) if (COUNCIL_ONLY.includes(name)) leaked.push(`${label}.${name}`);
+  }
+  assert.deepEqual(leaked, [], 'the site could encode these council calls');
 });
 
 test('the admin ABIs carry the owner surface they are for', () => {
@@ -302,23 +330,30 @@ test('the price ticker reads the venue off the collector Treasury ABI, and the v
   assert.deepEqual([...names(uniswapV3PoolAbi, false)].sort(), ['fee', 'liquidity', 'slot0', 'token0', 'token1']);
 });
 
-// ── the Roost and AVIANS staking, which arrived on 2026-09-18 ─────────────
+// ── the Roost and AVIAN staking, which arrived on 2026-09-18 ─────────────
 
-test('the Roost: distribute and deliverHeld are everyone’s, claimAdmin is the admin’s, and the receipt’s four events are readable', () => {
+test('the Roost: distribute and deliverHeld are everyone’s, claimAdmin is the admin’s, the rotation and the lockers’ leg are readable, and the receipt’s events carry five legs', () => {
   // `deliverHeld` (2026-09-19): anyone, any time, no interval; sends a held leg on.
   assert.deepEqual([...names(theRoostAbi)].sort(), ['deliverHeld', 'distribute'], 'the collector Roost ABI has exactly two writes');
   assert.ok(names(theRoostAdminAbi).includes('claimAdmin'));
   assert.ok(!names(theRoostAdminAbi).includes('rescueERC20'), 'the rescue stays in owner tooling');
   const views = names(theRoostAbi, false);
   for (const n of ['cumulativeIn', 'unallocated', 'nextDistributionAt', 'stakingHeld', 'nestHeld', 'adminClaimable',
-    'toStaking', 'toNest', 'burned', 'adminClaimed', 'stakingReady', 'nestReady', 'admin']) {
+    'toStaking', 'toNest', 'burned', 'adminClaimed', 'stakingReady', 'nestReady', 'admin',
+    // the rotation and the lockers' leg (2026-09-20)
+    'lockersHeld', 'lockersReady', 'toLockers', 'currentSplit', 'splitAt', 'nextRotationAt', 'LOCKERS', 'BURN_BPS', 'ADMIN_BPS']) {
     assert.ok(views.includes(n), `the Roost card cannot read ${n}`);
   }
+  for (const gone of ['STAKING_BPS', 'NEST_BPS']) assert.ok(!views.includes(gone), `${gone} is gone from the contract and must be gone from the ABI`);
+  const allocated = (theRoostAbi as unknown as Entry[]).find((e) => e.type === 'event' && e.name === 'Allocated') as unknown as { inputs: { name: string }[] };
+  assert.deepEqual(allocated.inputs.map((i) => i.name), ['inflow', 'toStaking', 'toNest', 'toLockers', 'toBurn', 'toAdmin'], 'Allocated carries all five legs');
+  const deliver = (theRoostAbi as unknown as Entry[]).find((e) => e.type === 'function' && e.name === 'deliverHeld') as unknown as { outputs: { name: string }[] };
+  assert.deepEqual(deliver.outputs.map((o) => o.name), ['stakingMoved', 'nestMoved', 'lockersMoved'], 'deliverHeld returns three flags');
   const events = (theRoostAbi as unknown as Entry[]).filter((e) => e.type === 'event').map((e) => e.name);
   for (const n of ['Allocated', 'Delivered', 'Held', 'Burned']) assert.ok(events.includes(n), `the receipt cannot name ${n}`);
 });
 
-test('AVIANS staking has no owner surface, and the four actions are every staker’s', () => {
+test('AVIAN staking has no owner surface, and the four actions are every staker’s', () => {
   assert.deepEqual([...names(aviansStakingAbi)].sort(), ['claim', 'exit', 'stake', 'withdraw']);
   assert.ok(!('aviansStakingAdminAbi' in adminSurfaces), 'no admin ABI was generated for a contract with no owner');
   const views = names(aviansStakingAbi, false);

@@ -55,7 +55,7 @@ export const Main = doc({
     <div class="stats">
       <div><div class="num" style="font-size:24px">${M.minted.toLocaleString()} <span class="dim" style="font-size:15px">/ 5,555</span></div><div class="tiny dim" style="margin-top:4px">COMPOSED SO FAR</div></div>
       <div><div class="num" style="font-size:24px">${M.freeLeft}</div><div class="tiny dim" style="margin-top:4px">FREE BIRDS LEFT ON THE LIST</div></div>
-      <div><div class="num" style="font-size:24px">100,000 <span class="dim" style="font-size:15px">AVIANS</span></div><div class="tiny dim" style="margin-top:4px">TO COMPOSE ONE</div></div>
+      <div><div class="num" style="font-size:24px">100,000 <span class="dim" style="font-size:15px">AVIAN</span></div><div class="tiny dim" style="margin-top:4px">TO COMPOSE ONE</div></div>
     </div>
   </div>
 
@@ -114,9 +114,9 @@ export const Main = doc({
     <div>
       <div class="numbox big">4</div>
       <h4 style="margin-top:14px">There&rsquo;s always a buyer.</h4>
-      <p class="small">The perch buys any bird back for 90,000 AVIANS, and its ability to pay is a proven property of the
+      <p class="small">The perch buys any bird back for 90,000 AVIAN, and its ability to pay is a proven property of the
         contract, not a promise from us.</p>
-      <p class="tiny dim" style="font-style:italic">That&rsquo;s a quantity of tokens, not a dollar amount — AVIANS trades
+      <p class="tiny dim" style="font-style:italic">That&rsquo;s a quantity of tokens, not a dollar amount — AVIAN trades
         at whatever the market says.</p>
     </div>
   </div>
@@ -132,8 +132,8 @@ export const Main = doc({
     <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">All on-chain.</strong>
       <span class="small">The whole collection is 12,866 bytes on one contract. There is no link to break, because there is no link.</span></span></div></div>
     <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">Your money never touches us.</strong>
-      <span class="small">A paid mint&rsquo;s 100,000 AVIANS goes to the buy-back perch in the same transaction. We can&rsquo;t hold it and we can&rsquo;t redirect it.</span></span></div></div>
-    <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">Nobody can print AVIANS.</strong>
+      <span class="small">A paid mint&rsquo;s 100,000 AVIAN goes to the buy-back perch in the same transaction. We can&rsquo;t hold it and we can&rsquo;t redirect it.</span></span></div></div>
+    <div><div class="note ok">${icon('check', C.mossLight)}<span><strong class="chalk">Nobody can print AVIAN.</strong>
       <span class="small">1,000,000,000, minted once. No mint function, no pause, no blacklist, no tax, no upgrade — and no owner at all.</span></span></div></div>
     <div><div class="note warn">${icon('warn', C.amber)}<span><strong class="chalk">Tested, not audited.</strong>
       <span class="small">Hundreds of tests, invariants proven able to fail, adversarial review after every build phase, fork tests against the live chain — and no paid third-party audit. We&rsquo;d rather say that than let you assume otherwise.</span></span></div></div>
@@ -143,13 +143,13 @@ export const Main = doc({
 <section class="sec">
   <h2>Three steps. That&rsquo;s the whole thing.</h2>
   <div class="steps" style="margin-top:40px">
-    <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">1</span> GET AVIANS</div>
+    <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">1</span> GET AVIAN</div>
       <p class="small">On the pool, once the opening window has run.</p></div>
     <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">2</span> COMPOSE YOUR BIRD</div>
       <p class="small">One pick in each of six categories. Combinations already taken are greyed out, so you can&rsquo;t
         waste a transaction on a bird that exists.</p></div>
     <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">3</span> MINT IT</div>
-      <p class="small">It&rsquo;s yours, it has its own wallet, and the perch will buy it back for 90,000 AVIANS whenever
+      <p class="small">It&rsquo;s yours, it has its own wallet, and the perch will buy it back for 90,000 AVIAN whenever
         you want.</p></div>
   </div>
   <div style="margin-top:40px"><button class="btn">Compose your Avian ${icon('arrow', C.ink)}</button></div>
@@ -158,7 +158,7 @@ export const Main = doc({
     <h3>Want it to brood?</h3>
     <div class="steps" style="margin-top:24px">
       <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">1</span> STAKE AT A TIER</div>
-        <p class="small">5,000, 15,000 or 25,000 AVIANS, burned, for one, two or three shares of weight.</p></div>
+        <p class="small">10,000, 30,000 or 50,000 AVIAN, burned, for one, two or three shares of weight.</p></div>
       <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">2</span> WAIT FOR THE FLYWHEEL TO TURN</div>
         <p class="small">Pool fees and royalties reach the Treasury, and anyone at all can trigger the conversion.</p></div>
       <div class="step"><div class="eyebrow" style="color:${C.teal};display:flex;align-items:center;gap:8px"><span class="numbox">3</span> CLAIM YOUR SHARE</div>
@@ -199,16 +199,16 @@ export const Main = doc({
     <tr><td>Birds that will ever exist</td><td>5,555</td></tr>
     <tr><td>Free birds, one per allowlisted wallet</td><td>2,000</td></tr>
     <tr><td>Paid birds</td><td>3,555 + any free birds released unclaimed</td></tr>
-    <tr><td>Price of a bird</td><td>100,000 AVIANS — never ETH</td></tr>
-    <tr><td>Can the price change?</td><td>Raised, yes. Never below 100,000 AVIANS</td></tr>
-    <tr><td>The perch buys any bird for</td><td>90,000 AVIANS, instantly, always</td></tr>
-    <tr><td>The perch sells the next bird for</td><td>110,000 AVIANS — or 115,000 for a specific one</td></tr>
+    <tr><td>Price of a bird</td><td>100,000 AVIAN — never ETH</td></tr>
+    <tr><td>Can the price change?</td><td>Raised, yes. Never below 100,000 AVIAN</td></tr>
+    <tr><td>The perch buys any bird for</td><td>90,000 AVIAN, instantly, always</td></tr>
+    <tr><td>The perch sells the next bird for</td><td>110,000 AVIAN — or 115,000 for a specific one</td></tr>
     <tr><td>Perch fees</td><td>50% burned, 50% to the Treasury</td></tr>
-    <tr><td>Brooding tiers (burned)</td><td>5,000 / 15,000 / 25,000 AVIANS for 1x / 2x / 3x weight</td></tr>
+    <tr><td>Brooding tiers (burned)</td><td>10,000 / 30,000 / 50,000 AVIAN for 1x / 2x / 3x weight</td></tr>
     <tr><td>Reward tokens</td><td>NVDA, SPY, SPCX, AAPL, equal parts</td></tr>
-    <tr><td>AVIANS supply</td><td>1,000,000,000, minted once, no owner</td></tr>
-    <tr><td>In the launch pool</td><td>800,000,000 AVIANS, single-sided</td></tr>
-    <tr><td>Opening window</td><td>5 minutes; buy fee 25% → ~1%; max 50,000,000 AVIANS per transaction</td></tr>
+    <tr><td>AVIAN supply</td><td>1,000,000,000, minted once, no owner</td></tr>
+    <tr><td>In the launch pool</td><td>800,000,000 AVIAN, single-sided</td></tr>
+    <tr><td>Opening window</td><td>5 minutes; buy fee 25% → ~1%; max 50,000,000 AVIAN per transaction</td></tr>
     <tr><td>Pool fee afterwards</td><td>1% of the ETH side, both directions, forever</td></tr>
     <tr><td>Liquidity lock</td><td>365 days minimum, extendable, never shortenable</td></tr>
     <tr><td>Royalty</td><td>5%, to the Treasury</td></tr>
@@ -217,7 +217,7 @@ export const Main = doc({
   </table>
   <p class="eyebrow" style="margin-top:40px">Where the money goes, in one line each</p>
   <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:1px;background:${C.slate};border:1px solid ${C.slate}">
-    <div style="background:${C.ink};padding:20px"><p class="small" style="margin:0">A paid mint&rsquo;s 100,000 AVIANS → the perch, same transaction, never us.</p></div>
+    <div style="background:${C.ink};padding:20px"><p class="small" style="margin:0">A paid mint&rsquo;s 100,000 AVIAN → the perch, same transaction, never us.</p></div>
     <div style="background:${C.ink};padding:20px"><p class="small" style="margin:0">Pool fees and royalties → the Treasury → converted to stock tokens for the nest, with the admin capped at 5% of what comes in.</p></div>
     <div style="background:${C.ink};padding:20px"><p class="small" style="margin:0">Brooding tiers → burned, gone from the supply entirely.</p></div>
   </div>
@@ -226,10 +226,10 @@ export const Main = doc({
 <section class="band sec">
   <h2>The honest answers</h2>
   <div style="margin-top:36px">
-    <div class="faq"><h4>Is 90,000 AVIANS a floor price?</h4>
+    <div class="faq"><h4>Is 90,000 AVIAN a floor price?</h4>
       <p class="small" style="margin:0">It&rsquo;s a standing offer in <em>tokens</em>, not in dollars or ETH. The perch
-        will always buy your bird for 90,000 AVIANS — that part is a proven property of the contract. What those 90,000
-        AVIANS are worth is whatever the market says, and it can be anything. We will never tell you what a bird will be
+        will always buy your bird for 90,000 AVIAN — that part is a proven property of the contract. What those 90,000
+        AVIAN are worth is whatever the market says, and it can be anything. We will never tell you what a bird will be
         worth, because we don&rsquo;t know and neither does anyone else.</p></div>
     <div class="faq"><h4>Are the rewards stocks?</h4>
       <p class="small" style="margin:0">No. NVDA, SPY, SPCX and AAPL here are <strong class="chalk">tokenized stock
@@ -243,8 +243,8 @@ export const Main = doc({
         against the live chain. That&rsquo;s a real bar and it isn&rsquo;t the same as an audit, so we say
         &ldquo;tested.&rdquo;</p></div>
     <div class="faq"><h4>Can the team rug?</h4>
-      <p class="small" style="margin:0">Here is the honest map. Nobody can print AVIANS, pause it, blacklist an address
-        or upgrade it — the token has no owner. Nobody can move the perch&rsquo;s AVIANS or its birds, change
+      <p class="small" style="margin:0">Here is the honest map. Nobody can print AVIAN, pause it, blacklist an address
+        or upgrade it — the token has no owner. Nobody can move the perch&rsquo;s AVIAN or its birds, change
         90,000/110,000/115,000, lower the mint price, redirect mint proceeds, touch your stake or your accrued rewards,
         shorten the liquidity lock, or change the opening window and its 1%. Ownership can&rsquo;t even be renounced, so
         a lost key would stop new configuration but never stop trading, minting, redeeming or unstaking.<br><br>
@@ -257,7 +257,7 @@ export const Main = doc({
     <div class="faq"><h4>The free mint — what&rsquo;s the catch?</h4>
       <p class="small" style="margin:0">There isn&rsquo;t one, and it also isn&rsquo;t free money. A free bird is a real
         Avian: composed the same way, in the same register, with its own wallet, and it can be sold to the perch for the
-        same 90,000 AVIANS as any bird that was paid for. It&rsquo;s 2,000 birds, one per allowlisted wallet. If the door
+        same 90,000 AVIAN as any bird that was paid for. It&rsquo;s 2,000 birds, one per allowlisted wallet. If the door
         has been open 24 hours and some are unclaimed, the rest can be released to the paid mint.</p></div>
   </div>
   <p style="margin-top:28px"><a href="#" class="small">Seven more answers ${icon('chev', C.teal, 13)}</a></p>
@@ -279,13 +279,13 @@ export const Main = doc({
     <img class="px" src="mark.svg" width="32" height="32" alt="">
     <div style="max-width:900px">
       <p style="margin:0"><strong class="chalk">Fine Avians Club</strong> <span class="small">— 5,555 composed pixel birds on
-        Robinhood Chain. Art stored on-chain. AVIANS: 1,000,000,000, minted once, no owner.</span></p>
+        Robinhood Chain. Art stored on-chain. AVIAN: 1,000,000,000, minted once, no owner.</span></p>
       <p class="small" style="margin-top:14px"><a href="#">Compose</a> · <a href="#">The flock</a> ·
         <a href="#">The Perch</a> · <a href="#">The Nest</a> · <a href="#">Contracts</a> · <a href="#">X</a></p>
       <p class="tiny dim" style="margin-top:22px;font-style:italic">Fine Avians Club is an independent project with no
         relationship to Robinhood, NVIDIA, SpaceX, Apple or S&amp;P. NVDA, SPY, SPCX and AAPL are tokenized stock
         products issued and controlled by their issuer, not by us; they can be paused or frozen by that issuer at any
-        time. Reward streams depend on Treasury income and may be zero. AVIANS is a token with a market price that can go
+        time. Reward streams depend on Treasury income and may be zero. AVIAN is a token with a market price that can go
         to anything; nothing here is a promise of value, return or income, and nothing here is financial advice. The
         contracts are tested — hundreds of tests, invariants, adversarial review and fork tests — and have not had a paid
         third-party audit.</p>
@@ -308,13 +308,13 @@ function doorbar(inner) { return `<div class="doorbar">${inner}</div>`; }
 
 function priceBlock({ approved = true } = {}) {
   return `<div class="inset" style="margin-top:18px;padding:16px 18px">
-      <div class="costline"><span class="small">Price</span><span class="num" style="font-size:18px">100,000 AVIANS</span></div>
+      <div class="costline"><span class="small">Price</span><span class="num" style="font-size:18px">100,000 AVIAN</span></div>
       <p class="tiny dim" style="margin:0 0 12px">Goes straight to the perch, not to us.</p>
       <div class="costline" style="border-top:1px solid ${C.slate};padding-top:12px">
-        <span class="small dim">You hold</span><span class="num">${M.avians} AVIANS</span></div>
+        <span class="small dim">You hold</span><span class="num">${M.avians} AVIAN</span></div>
       <div class="costline" style="padding-top:0">
         <span class="small dim">Approved to the collection</span>
-        <span class="num" style="color:${approved ? C.mossLight : C.amber}">${approved ? '100,000' : '0'} AVIANS</span></div>
+        <span class="num" style="color:${approved ? C.mossLight : C.amber}">${approved ? '100,000' : '0'} AVIAN</span></div>
     </div>`;
 }
 
@@ -355,7 +355,7 @@ ${doorbar(`<span class="tag ok">${icon('check', C.mossLight, 11)} PAID DOOR OPEN
     <div class="inset" style="margin-top:14px;padding:14px 16px">
       <div class="row" style="gap:10px">
         <span class="small chalk">2 in the batch</span><span class="spacer"></span>
-        <span class="num">200,000 AVIANS</span></div>
+        <span class="num">200,000 AVIAN</span></div>
       <div class="row" style="gap:8px;margin-top:12px">
         ${bird('avian-04.svg', 48)}${bird('avian-22.svg', 48)}
         <span class="tiny dim" style="margin-left:6px">Batch mints are all-or-nothing — either every bird in the
@@ -424,7 +424,7 @@ ${doorbar(`<span class="tag ok">${icon('check', C.mossLight, 11)} PAID DOOR OPEN
     </div>
     <h4 style="margin-top:14px">That one just went.</h4>
     <p class="small" style="margin-top:8px">Avian #1,204 has this exact combination. Nothing was taken — the transaction
-      reverted before any AVIANS moved.</p>
+      reverted before any AVIAN moved.</p>
     <div class="row" style="gap:12px;margin-top:16px">
       <button class="btn small">Show me the nearest available</button>
       <button class="btn ghost small">Dismiss</button>
@@ -475,15 +475,15 @@ ${doorbar(`<span class="tag ok">${icon('check', C.mossLight, 11)} FLOCKLIST DOOR
     </div>
 
     <div class="inset" style="margin-top:18px;padding:16px 18px">
-      <div class="costline"><span class="small">Cost</span><span class="num" style="font-size:18px;color:${C.mossLight}">No AVIANS</span></div>
-      <p class="tiny dim" style="margin:0">The collection holds 100,000 AVIANS behind every free bird and sends it to the
+      <div class="costline"><span class="small">Cost</span><span class="num" style="font-size:18px;color:${C.mossLight}">No AVIAN</span></div>
+      <p class="tiny dim" style="margin:0">The collection holds 100,000 AVIAN behind every free bird and sends it to the
         perch when you claim, so the perch will buy this one back at the same 90,000 as any paid bird.</p>
     </div>
 
     <button class="btn wide" style="margin-top:18px">Claim your free Avian</button>
     <p class="tiny dim" style="margin-top:12px">It counts toward your wallet limit like any other bird. One per listed
       wallet, ever.</p>
-    <p class="small" style="margin-top:14px"><a href="#">Compose a paid one instead — 100,000 AVIANS</a></p>
+    <p class="small" style="margin-top:14px"><a href="#">Compose a paid one instead — 100,000 AVIAN</a></p>
   </div>
 
   <div>${pickers(SEL_FREE)}</div>
@@ -535,9 +535,9 @@ export const ComposeMobile = doc({
 
 <div class="mbar">
   <div class="row" style="margin-bottom:10px">
-    <span class="tiny dim">100,000 AVIANS · to the perch, not to us</span>
+    <span class="tiny dim">100,000 AVIAN · to the perch, not to us</span>
     <span class="spacer"></span><span class="tiny dim">You hold <span class="num" style="font-size:11.5px">${M.avians}</span></span>
   </div>
-  <button class="btn wide">Mint this Avian — 100,000 AVIANS</button>
+  <button class="btn wide">Mint this Avian — 100,000 AVIAN</button>
 </div>`,
 });

@@ -1,0 +1,28 @@
+/* The Treasury's two shares anybody may press, one row each: what it is
+   for, then the state and the button in the compact size. The two buttons
+   are peers, aligned in one column at desktop; at 375px each takes the row's
+   width under its label. No percentages since 2026-09-25. */
+
+.shares { border: 1px solid var(--line); background: var(--panel-inset); }
+.share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 6px var(--s3);
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+.share:first-child { border-top: 0; }
+/* The state and the button on one line under the label, so the two buttons
+   sit at the same edge whatever the labels do. */
+.foot { display: flex; align-items: center; gap: var(--s3); }
+.what { min-width: 0; }
+.buttons { display: flex; gap: var(--s2); flex: none; }
+/* The state, or the reason it cannot run. */
+.state { flex: 1; min-width: 0; margin: 0; }
+
+@media (max-width: 720px) {
+  .foot { flex-wrap: wrap; }
+  .buttons { width: 100%; }
+  .buttons :global(.btn) { width: 100%; }
+}

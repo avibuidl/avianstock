@@ -16,7 +16,7 @@ const PARAMS = {
   launchAt: LAUNCH_AT,
   windowSeconds: 300,
   feeBps: 100,
-  maxExtraFeeBps: 2400,
+  maxExtraFeeBps: 8900,
   maxBuyPerTx: 50_000_000n * WAD,
 };
 
@@ -24,22 +24,22 @@ setLaunchParams(PARAMS);
 
 /** The contract's own arithmetic, transcribed from AviansHook. */
 const onChain = (t: number) => {
-  if (t < LAUNCH_AT) return 100 + 2400;
+  if (t < LAUNCH_AT) return 100 + 8900;
   const elapsed = t - LAUNCH_AT;
   if (elapsed >= 300) return 100;
-  return 100 + Math.floor((2400 * (300 - elapsed)) / 300);
+  return 100 + Math.floor((8900 * (300 - elapsed)) / 300);
 };
 
-test('25% at the first second, 1% at the last', () => {
-  assert.equal(buyFeeBpsAt(LAUNCH_AT, LAUNCH_AT), 2500);
+test('90% at the first second (2026-09-21), 1% at the last', () => {
+  assert.equal(buyFeeBpsAt(LAUNCH_AT, LAUNCH_AT), 9000);
   assert.equal(buyFeeBpsAt(LAUNCH_AT + 300, LAUNCH_AT), 100);
-  assert.equal(buyFeeBpsAt(LAUNCH_AT + 299, LAUNCH_AT), 108);
+  assert.equal(buyFeeBpsAt(LAUNCH_AT + 299, LAUNCH_AT), 129);
 });
 
 test('before the launch it returns the OPENING number, not a zero', () => {
   // A zero would read as "free". The contract does the same thing and says why.
-  assert.equal(buyFeeBpsAt(LAUNCH_AT - 1, LAUNCH_AT), 2500);
-  assert.equal(buyFeeBpsAt(LAUNCH_AT - 86_400, LAUNCH_AT), 2500);
+  assert.equal(buyFeeBpsAt(LAUNCH_AT - 1, LAUNCH_AT), 9000);
+  assert.equal(buyFeeBpsAt(LAUNCH_AT - 86_400, LAUNCH_AT), 9000);
 });
 
 test('every second of the window agrees with the contract, to the bp', () => {

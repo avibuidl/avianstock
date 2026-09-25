@@ -30,11 +30,17 @@ export {
   signMintPermit, mint, mintMany, mintFree, sellToPerch, buyNext, buyNamed,
   brood, upgrade, redirect, settle, claim, transferBird, createSatchel, routeFor, onWrite,
   prepareSatchels, grantSweeper, sweep,
-  convertAndStream,
-  // the Roost and AVIANS staking
+  buyForRoost, takeRoostReading, convertAndStream,
+  // the Roost and AVIAN staking
   getRoost, getRoostScreen, getStaking, distribute, deliverHeld, approveAviansForStaking, stake, withdrawStake,
   claimStakingReward, exitStaking,
-  // trading AVIANS
+  // the flywheel snapshot
+  getFlywheel,
+  // the council
+  getCouncil,
+  // the owner's seat
+  getSeat, stillHere, proposeOwner, seatRunFixture,
+  // trading AVIAN
   canSwap, getSwapState, quoteSwap, swap,
   approveAviansForPermit2, approvePermit2ForRouter, overCap, CAP_MARGIN_BPS,
 } from './source';
@@ -47,7 +53,7 @@ export {
   getAdmin, getOwnerStatus, readForeignToken, encodeValidatorOperation, checkAllowlist,
   allowanceOf, balanceOfToken,
   setMintOpen, setFreeMintOpen, setAllowlistRoot, setAllowlisted, releaseFreeAllocation,
-  setPrice, setDefaultRoyalty, deleteDefaultRoyalty, setRenderer, lockRenderer,
+  setPrice, setRenderer, lockRenderer,
   setTransferValidator, lockTransferValidator, configureTransferValidator,
   rescueFromCollection,
   setFeeRecipient, rescueFromPerch,
@@ -73,7 +79,7 @@ export {
 // The deployment picker, and the boot result. Chrome, not chain data.
 export {
   chooseId, chooseDeployment, loadIndex, loadManifest, manifest, hasManifest, switchDeployment,
-  explorerTx, explorerAddress, type Manifest, type DeploymentIndex,
+  explorerTx, explorerAddress, unveiled, setUnveiledForDev, type Manifest, type DeploymentIndex,
 } from '../chain/manifest';
 export { lastStartup, type Check } from '../chain/startup';
 export { capGuard, splitForCap, curveIsFromChain } from '../chain/launch';

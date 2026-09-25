@@ -21,12 +21,17 @@ import * as fakeWallet from './wallet';
 import * as fakeSwap from './swap';
 import * as fakePrices from './prices';
 import * as fakeRoost from './roost';
+import * as fakeFlywheel from './flywheel';
+import * as fakeCouncil from './council';
+import * as fakeSeat from './seat';
 import * as chain from '../chain/reads';
 import * as chainWrites from '../chain/writes';
 import * as chainWallet from '../chain/provider';
 import * as chainSwap from '../chain/swap';
 import * as chainPrices from '../chain/prices';
 import * as chainRoost from '../chain/roost';
+import * as chainFlywheel from '../chain/flywheel';
+import * as chainCouncil from '../chain/council';
 import * as chainBirds from '../chain/birds';
 import { hasManifest, manifest, sweeperAddress } from '../chain/manifest';
 import { buyFeeBpsAt as chainBuyFeeBpsAt } from '../chain/launch';
@@ -43,7 +48,11 @@ import type {
   LaunchState, NetworkDescription, OnPhase, PerchState, PermitSignature, RewardToken,
   OwnerStatus, RewardSplit, SwapQuote, SwapState, SweepResult, SweepState, Tier, TokenId, TraitIndices,
   TransferSafety,
-  TreasuryState, PriceBoard, RoostState, StakingState, DistributeResult, DeliverResult,
+  TreasuryState, PriceBoard, RoostState, StakingState, DistributeResult, DeliverResult, FlywheelSnapshot,
+  CouncilState,
+  OwnedSeat,
+  SeatRun,
+  SeatState,
   V3Hop, V4Hop, ValidatorOperation, VaultState, WalletInfo, WalletState,
 } from './types';
 
@@ -296,10 +305,44 @@ export const claim = (token: Address, on?: OnPhase) =>
 export const transferBird = (id: TokenId, to: Address, on?: OnPhase) =>
   (isMock() ? fakeWrites.transferBird(id, to, on) : chainWrites.transferBird(id, to, on));
 
-// ── the Roost and AVIANS staking (2026-09-18) ────────────────────────────
+// ── the Roost and AVIAN staking (2026-09-18) ────────────────────────────
 
 export const getRoost = (): Promise<RoostState> =>
   (isMock() ? fakeRoost.getRoost() : chainRoost.getRoost());
+
+/** The flywheel snapshot (2026-09-22): `src/chain/flywheel.ts`, one pin and one multicall. */
+export const getFlywheel = (): Promise<FlywheelSnapshot> =>
+  (isMock() ? fakeFlywheel.getFlywheel() : chainFlywheel.getFlywheel());
+
+/**
+ * The council (2026-09-24): `src/chain/council.ts`, the seats' `council()`,
+ * the multisig, the two delays, and one log scan for what is scheduled and
+ * not yet executed or cancelled.
+ */
+export const getCouncil = (): Promise<CouncilState> =>
+  (isMock() ? fakeCouncil.getCouncil() : chainCouncil.getCouncil());
+
+// ── the owner's seat (2026-09-24) ─────────────────────────────────────────
+//
+// The "Your seat" control on the Owner page (part 18): the clock is read in
+// `src/chain/council.ts`; the two senders are owner calls and live in
+// `src/chain/admin-writes.ts`, the one place an owner ABI may be held.
+
+/** `owner()`, `lastSeenAt()`, `silentAt()` and `pendingOwner()` on each owned seat, and `SILENCE()`. */
+export const getSeat = (): Promise<SeatState> =>
+  (isMock() ? fakeSeat.getSeat() : chainCouncil.getSeat());
+
+/** `stillHere()` on one owned seat. The control sends it to each in turn. */
+export const stillHere = async (id: OwnedSeat['id'], on?: OnPhase): Promise<{ hash: Hex }> =>
+  (isMock() ? fakeSeat.stillHere(id, on) : (await import('../chain/admin-writes')).stillHere(id, on));
+
+/** `transferOwnership(key)` on one owned seat: a proposal, which the council seats a day later. */
+export const proposeOwner = async (id: OwnedSeat['id'], key: Address, on?: OnPhase): Promise<{ hash: Hex }> =>
+  (isMock() ? fakeSeat.proposeOwner(id, key, on) : (await import('../chain/admin-writes')).proposeOwner(id, key, on));
+
+/** The mock's fifth scene, "Still here" caught mid-way. Never anything on a chain. */
+export const seatRunFixture = (): SeatRun | null =>
+  (isMock() ? fakeSeat.seatRunFixture() : null);
 
 /** The Roost screen's one read: both cards under one pin. */
 export const getRoostScreen = (): Promise<{ roost: RoostState; staking: StakingState }> =>
@@ -329,6 +372,13 @@ export const claimStakingReward = (on?: OnPhase): Promise<{ hash: Hex; paid: Amo
 
 export const exitStaking = (on?: OnPhase): Promise<{ hash: Hex; paid: Amount }> =>
   (isMock() ? fakeRoost.exitStaking(on) : chainRoost.exitStaking(on));
+
+/** The Roost's tenth, spent on AVIAN and sent whole to the Roost (2026-09-22). */
+export const buyForRoost = (on?: OnPhase) =>
+  (isMock() ? fakeWrites.buyForRoost(on) : chainWrites.buyForRoost(on));
+
+export const takeRoostReading = (on?: OnPhase) =>
+  (isMock() ? fakeWrites.takeRoostReading(on) : chainWrites.takeRoostReading(on));
 
 export const convertAndStream = (currency: Address | null, on?: OnPhase) =>
   (isMock() ? fakeWrites.convertAndStream(currency, on) : chainWrites.convertAndStream(currency, on));
@@ -437,16 +487,6 @@ export const setPrice = async (price: Amount, on?: OnPhase) =>
   (isMock()
     ? (await import('./admin')).setPrice(price, on)
     : (await import('../chain/admin-writes')).setPrice(price, on));
-
-export const setDefaultRoyalty = async (receiver: Address, bps: number, on?: OnPhase) =>
-  (isMock()
-    ? (await import('./admin')).setDefaultRoyalty(receiver, bps, on)
-    : (await import('../chain/admin-writes')).setDefaultRoyalty(receiver, bps, on));
-
-export const deleteDefaultRoyalty = async (on?: OnPhase) =>
-  (isMock()
-    ? (await import('./admin')).deleteDefaultRoyalty(on)
-    : (await import('../chain/admin-writes')).deleteDefaultRoyalty(on));
 
 export const setRenderer = async (renderer: Address, on?: OnPhase) =>
   (isMock()
@@ -591,9 +631,9 @@ export const acceptOwnership = async (c: AdminContract, on?: OnPhase) =>
     ? (await import('./admin')).acceptOwnership(c, on)
     : (await import('../chain/admin-writes')).acceptOwnership(c, on));
 
-// ── trading AVIANS ────────────────────────────────────────────────────────
+// ── trading AVIAN ────────────────────────────────────────────────────────
 //
-// Static, not lazily loaded like the owner surface: a collector with no AVIANS
+// Static, not lazily loaded like the owner surface: a collector with no AVIAN
 // is exactly who needs this, so it belongs in the bundle they already have.
 
 export const canSwap = (): boolean =>

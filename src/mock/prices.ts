@@ -32,7 +32,7 @@ export function getPrices(): Promise<PriceBoard> {
   return read(() => {
     const s = scenario();
     const n = tick++;
-    // AVIANS is listed on the Nest but not on the band: the stock tokens only.
+    // AVIAN is listed on the Nest but not on the band: the stock tokens only.
     const listed = s.rewards === 'none-listed' ? [] : STOCK_REWARD_TOKENS;
     const prices: TokenPrice[] = listed
       // One token whose pool is missing or empty: it is not in the list, and
@@ -49,6 +49,7 @@ export function getPrices(): Promise<PriceBoard> {
           ethPerToken: base + (base * bps) / 10_000n,
           pool: `0x${'ab'.repeat(20)}` as Address,
           fee: 500,
+          venue: 'v3' as const,
         };
       });
     return { blockNumber: 62190576n + BigInt(n), timestamp: Math.floor(Date.now() / 1000), prices };

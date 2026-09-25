@@ -7,7 +7,7 @@ import { comboHex } from '../art/render';
 import { avians, avianNumber, formatCount, formatEth, formatReward, formatSince, shortAddress } from '../lib/format';
 import { href } from '../router';
 import { SettleControl } from '../components/Settle';
-import { PERCH_BUY_NAMED, PERCH_BASE, useBird } from '../mock';
+import { PERCH_BUY_NAMED, PERCH_BASE, unveiled, useBird } from '../mock';
 
 export function BirdDetail({ id, onConnect }: { id: number; onConnect: () => void }) {
   const bird = useBird(id);
@@ -72,14 +72,24 @@ export function BirdDetail({ id, onConnect }: { id: number; onConnect: () => voi
                     : loc.where === 'burnt' ? <Tag tone="bad">Burnt</Tag>
                       : b.brood?.live ? <Tag tone="ok">Brooding, tier {b.brood.tier}</Tag>
                         : b.brood ? <Tag tone="warn">Brood ended</Tag>
-                          : <Tag>Held</Tag>}
+                          : null}
               </div>
-              <p className="mono tiny" style={{ margin: '8px 0 0', overflowWrap: 'anywhere', color: 'var(--text)' }}>
-                {loc.where === 'wallet' ? loc.owner
-                  : loc.where === 'satchel' ? <>Inside {avianNumber(loc.hostId)}&rsquo;s satchel</>
+              {/* Whose it is. The full address where it fits, the short form
+                  on a phone (CSS picks one); the satchel card below has the
+                  bird's own address in full either way. */}
+              <div className="row" style={{ gap: 10, marginTop: 8 }}>
+                <span className="label">Owner</span>
+                <span className="mono tiny" style={{ color: 'var(--text)', minWidth: 0 }}>
+                  {loc.where === 'wallet' ? (
+                    <>
+                      <span className="bird-detail__addr" title={loc.owner}>{loc.owner}</span>
+                      <span className="bird-detail__addr--short" title={loc.owner}>{shortAddress(loc.owner)}</span>
+                    </>
+                  ) : loc.where === 'satchel' ? <>Inside {avianNumber(loc.hostId)}&rsquo;s satchel</>
                     : loc.where === 'burnt' ? 'Nobody. It was burnt by the perch.'
-                      : 'Held by the perch'}
-              </p>
+                      : 'The perch'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -131,21 +141,33 @@ export function BirdDetail({ id, onConnect }: { id: number; onConnect: () => voi
         <div>
           <section className="panel" aria-labelledby="traits-h">
             <h3 id="traits-h" style={{ fontSize: 20 }}>Traits</h3>
-            <div style={{ marginTop: 16 }}>
+            {/*
+              A grid, four across (2026-09-21), the same cell as the composer's:
+              the category small above the value. The six choices in the order
+              they are picked, then the chain's two facts about the bird as
+              minted right now and ever swapped; a burnt bird has neither,
+              because its reads revert. The lore that used to run under each
+              row is on the composer, beside the choice.
+            */}
+            <dl className="trait-grid">
               {CATEGORIES.map((cat, i) => (
-                <div key={cat.key} className="trait-row">
-                  <div className="row">
-                    <span className="numbox" aria-hidden="true">{i + 1}</span>
-                    <span className="small dim">{cat.display}</span>
-                    <span className="spacer" />
-                    <span className="mono strong">{cat.traits[b.traits[i]].display}</span>
-                  </div>
-                  {cat.traits[b.traits[i]].lore ? (
-                    <p className="tiny dim" style={{ marginTop: 8 }}>{cat.traits[b.traits[i]].lore}</p>
-                  ) : null}
+                <div key={cat.key}>
+                  <dt><span className="numbox" aria-hidden="true">{i + 1}</span>{cat.display}</dt>
+                  <dd>{cat.traits[b.traits[i]].display}</dd>
                 </div>
               ))}
-            </div>
+              {/*
+                THE VEIL (2026-09-22): the two provenance cells are drawn only
+                once the founder has unveiled the trait market. The chain's
+                metadata carries them either way; the site does not.
+              */}
+              {unveiled('traitMarket') && b.isMintCombo !== undefined ? (
+                <div><dt><span className="numbox" aria-hidden="true">7</span>Mint Combo</dt><dd>{b.isMintCombo ? 'Yes' : 'No'}</dd></div>
+              ) : null}
+              {unveiled('traitMarket') && b.recomposed !== undefined ? (
+                <div><dt><span className="numbox" aria-hidden="true">8</span>Recomposed</dt><dd>{b.recomposed ? 'Yes' : 'No'}</dd></div>
+              ) : null}
+            </dl>
             <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
               <span className="label">Combination</span>
               <span className="spacer" />

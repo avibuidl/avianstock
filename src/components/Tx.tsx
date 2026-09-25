@@ -5,7 +5,7 @@
 // comes from the mock layer's `explain`, which is the only place one is written.
 
 import {
-  createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import { Icon } from './Icon';
 import { Tag } from './Primitives';
@@ -68,7 +68,7 @@ const TxContext = createContext<Ctx | null>(null);
 
 /**
  * `siteFixes` are the fixes no one screen owns: opening the trade modal for
- * "Get AVIANS", opening the wallet dialog for "Switch to Robinhood Chain".
+ * "Get AVIAN", opening the wallet dialog for "Switch to Robinhood Chain".
  * The app supplies them once, and every screen's refusals get them.
  */
 export function TxProvider({ children, siteFixes }: { children: ReactNode; siteFixes?: FixHandlers }) {
@@ -137,6 +137,32 @@ export function useTx(): Ctx {
 function TxDrawer({
   state, ctx, onDismiss, fixes,
 }: { state: TxState; ctx: ExplainContext; onDismiss: () => void; fixes: (FixHandlers | undefined)[] }) {
+  // A confirmed drawer goes on its own, three seconds after it lands, and
+  // the pointer resting on it (or focus inside it) holds it; once they leave
+  // it goes a second later. Nothing else goes by itself: in flight it is the
+  // one sign the transaction exists, and a refusal carries the fix and the
+  // decoded reason, which are there to be read and pressed.
+  //
+  // The pointer can already be on the spot when the drawer lands there (it
+  // sat on the sell sheet's scrim, say), and no enter event reaches React
+  // for that, so the timer asks the browser as well before it dismisses.
+  const box = useRef<HTMLElement>(null);
+  const [held, setHeld] = useState(false);
+  const wasHeld = useRef(false);
+  useEffect(() => {
+    if (state.phase !== 'confirmed') { wasHeld.current = false; return; }
+    if (held) { wasHeld.current = true; return; }
+    let t: ReturnType<typeof setTimeout>;
+    const arm = (ms: number) => {
+      t = setTimeout(() => {
+        if (box.current?.matches(':hover')) { wasHeld.current = true; arm(1000); return; }
+        onDismiss();
+      }, ms);
+    };
+    arm(wasHeld.current ? 1000 : 3000);
+    return () => clearTimeout(t);
+  }, [state.phase, held, onDismiss]);
+
   if (state.phase === 'idle') return null;
 
   const failed = state.phase === 'failed';
@@ -151,9 +177,14 @@ function TxDrawer({
 
   return (
     <aside
+      ref={box}
       className={`drawer${done ? ' drawer--ok' : ''}${failed && !unresolved ? ' drawer--bad' : ''}${unresolved ? ' drawer--waiting' : ''}`}
       role={failed ? 'alert' : 'status'}
       aria-live="polite"
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeld(false); }}
     >
       <div className="row">
         {unresolved ? <Tag tone="hot">Sent</Tag>

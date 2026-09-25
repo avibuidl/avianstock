@@ -31,18 +31,6 @@
 
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s7); }
 
-/* The numbers, in four groups. One hairline closes each group; the rows
-   inside it are separated by space, not by rules. */
-.group { margin-top: var(--s6); padding-bottom: var(--s5); border-bottom: 1px solid var(--line); }
-.numbers { margin: var(--s3) 0 0; }
-.numberRow {
-  display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-  gap: var(--s2) var(--s5);
-  padding: 6px 0;
-}
-.numberRow dd { margin: 0; font-family: var(--font-mono); color: var(--text-strong); font-weight: 500; }
-
 .money {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -59,16 +47,6 @@
 .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .facts > div { background: var(--ink); padding: var(--s4); }
 
-.steps { display: grid; gap: var(--s2); counter-reset: step; }
-.step {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: var(--s3);
-  padding: var(--s3) 0;
-  border-top: 1px solid var(--line);
-}
-.step:first-child { border-top: 0; }
-
 /* Two prose tables: every cell in the body face, left-aligned, nothing mono. */
 :global(.table).powers td, :global(.table).powers td:last-child, :global(.table).words td, :global(.table).words td:last-child { text-align: left; font-family: var(--font-sans); font-size: 13.5px; color: var(--text); }
 :global(.table).powers td:first-child { color: var(--text-strong); font-weight: 600; }
@@ -82,7 +60,6 @@
 }
 
 @media (max-width: 720px) {
-  .numberRow { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 0; }
   .money { grid-template-columns: minmax(0, 1fr); }
   .rules { grid-template-columns: minmax(0, 1fr); }
   .facts { grid-template-columns: minmax(0, 1fr); }

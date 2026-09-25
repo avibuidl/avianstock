@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Box, Note, Tag } from '../Primitives';
 import { ActionButton, Addr, Control, Field, isAddressish, useAdminActions } from './Bits';
 import { avians } from '../../lib/format';
-import { claimRoostAdmin, type AdminState, type Address } from '../../mock';
+import { claimRoostAdmin, unveiled, type AdminState, type Address } from '../../mock';
 import { href } from '../../router';
 import s from '../../screens/Admin.module.css';
 
@@ -27,9 +27,10 @@ export function RoostPanel({ admin }: { admin: AdminState }) {
     <section aria-labelledby="roost-h">
       <h3 id="roost-h" style={{ fontSize: 20 }}>The Roost</h3>
       <p className="small dim" style={{ marginTop: 6 }}>
-        Every Perch fee and every brooding cost lands here and is split 40% to AVIANS stakers, 30% to
-        brooding birds, 20% burnt, 10% to the admin. The split is fixed; nothing here sets it.{' '}
-        <a href={href({ name: 'roost' })}>The Roost page</a> turns it.
+        Every Perch fee and every brooding cost lands here and is split by this week&rsquo;s
+        figures{unveiled('vaults') ? ' (35 / 30 / 20, rotating weekly between AVIAN stakers, brooding birds and vault users)' : ', rotating weekly between AVIAN stakers and brooding birds'},
+        10% to the admin, 5% burnt. The rule is fixed; nothing here sets it.{' '}
+        <a href={href({ name: 'engine', at: 'roost' })}>The Bird Engine page</a> turns it.
       </p>
 
       {!perchOk || !nestOk ? (
@@ -43,7 +44,7 @@ export function RoostPanel({ admin }: { admin: AdminState }) {
               </strong>{' '}
               <span className="small">
                 {!perchOk ? <>The Perch&rsquo;s fee recipient is <Addr value={admin.perch.feeRecipient} />; the Roost is <Addr value={r.roost} />. Every fee is going somewhere the split never sees. Set it above.</> : null}
-                {!nestOk ? <> The Nest&rsquo;s cost sink is <Addr value={r.costSink} />, not the Roost: owner tooling only can repoint it, and only to a Roost bound to this Nest.</> : null}
+                {!nestOk ? <> The Nest&rsquo;s cost sink is <Addr value={r.costSink} />, not the Roost. The Roost is the council&rsquo;s to replace.</> : null}
               </span>
             </Note>
           </Box>
@@ -59,7 +60,7 @@ export function RoostPanel({ admin }: { admin: AdminState }) {
           Tier costs to <Addr value={r.costSink} />{' '}
           {nestOk ? <Tag tone="ok">the Roost</Tag> : <Tag tone="bad">not the Roost</Tag>}
         </>}
-        note="Both should read the Roost. The Perch's is a setter on this panel; the Nest's is bound at construction."
+        note="Both should read the Roost. The Perch's is a setter on this panel; the Roost is the council's to replace."
       />
 
       <Control

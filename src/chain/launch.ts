@@ -51,7 +51,7 @@ export function launchParams(): LaunchParams | null { return params; }
 export function buyFeeBpsAt(t: number, launchAt: number): number {
   const p = params;
   const feeBps = p?.feeBps ?? 100;
-  const maxExtra = p?.maxExtraFeeBps ?? 2400;
+  const maxExtra = p?.maxExtraFeeBps ?? 8900;
   const windowSeconds = p?.windowSeconds ?? 300;
 
   if (table) {

@@ -1,6 +1,6 @@
 // BigInt end to end.
 //
-// AVIANS is 18 decimals and the mint price is 100000e18 — twenty-three zeros,
+// AVIAN is 18 decimals and the mint price is 100000e18 — twenty-three zeros,
 // which is far above 2^53. Every one of these is a value `Number` would get
 // wrong, which is the whole reason none of them goes near it.
 
@@ -15,7 +15,7 @@ const WAD = 10n ** 18n;
 test('the mint price survives a round trip exactly', () => {
   const price = 100_000n * WAD;
   assert.equal(formatAvians(price), '100,000');
-  assert.equal(avians(price), '100,000 AVIANS');
+  assert.equal(avians(price), '100,000 AVIAN');
   assert.equal(parseAvians('100000'), price);
   assert.equal(parseAvians('100,000'), price);
 });

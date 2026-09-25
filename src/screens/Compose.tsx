@@ -126,7 +126,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   const needsApproval = allowance < needed;
   const shortOfBalance = balance < needed;
 
-  // The drawer's fixes this screen owns. "Get AVIANS" and the network are the
+  // The drawer's fixes this screen owns. "Get AVIAN" and the network are the
   // site's; "Try again" and "Refresh" are the drawer's own.
   const onFix = useMemo<FixHandlers>(() => ({
     approve: () => setApproving(true),
@@ -141,6 +141,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   }), [traits, wallet.reload, collection.reload]);
 
   const explainCtx = { price: needed, balance, allowance, walletLimit: c?.walletLimit };
+  const mintCtx = { ...explainCtx, mint: true };
 
   // Avians is a solady ERC-20 with EIP-2612, so a permit is always available
   // against a real deployment. The scenario axis is the mock's way of walking
@@ -165,7 +166,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
         // The tray, in the order it was composed. The easel is not in it.
         return mintMany(batch, { permit }, on);
       }, {
-        context: explainCtx,
+        context: mintCtx,
         onFix,
         outcome: (x) => `${x.tokenIds.length} birds minted: ${x.tokenIds.map(avianNumber).join(', ')}.`,
       });
@@ -178,7 +179,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
         const permit = withPermit ? await signMintPermit(1) : undefined;
         return mint(traits, { permit }, on);
       }, {
-        context: explainCtx,
+        context: mintCtx,
         onFix,
         outcome: (x) => `${avianNumber(x.tokenId)} is yours. It has its own wallet from this moment.`,
       });
@@ -190,7 +191,7 @@ export function Compose({ onConnect }: { onConnect: () => void }) {
   const doFree = async () => {
     setBusy(true);
     await tx.run('Claiming your free Avian', (on) => mintFree(traits, w?.proof ?? [], on), {
-      context: explainCtx,
+      context: mintCtx,
       onFix,
       outcome: (x) => `${avianNumber(x.tokenId)} is yours. A real bird, same traits, same perch price.`,
     });
@@ -476,7 +477,7 @@ function FreeDoorShut({
   collection: NonNullable<ReturnType<typeof useCollection>['data']>;
 }) {
   // The price is the owner's to raise, so it is read here rather than written
-  // down — this sentence used to promise 100,000 AVIANS whatever `price()` said.
+  // down — this sentence used to promise 100,000 AVIAN whatever `price()` said.
   const copy = reason === 'NotAllowlisted' ? {
     title: 'This wallet is not on the allowlist.',
     body: `The free mint is ${formatCount(c.freeAllocation)} birds, one per allowlisted wallet. The paid mint is open to anyone, and the bird is composed the same way.`,
@@ -519,11 +520,11 @@ function FreeDoorCard({
       <div className="inset" style={{ marginTop: 18 }}>
         <div className={s.costline}>
           <span className="small">Cost</span>
-          <span className="num" style={{ fontSize: 18, color: 'var(--confirm)' }}>No AVIANS</span>
+          <span className="num" style={{ fontSize: 18, color: 'var(--confirm)' }}>No AVIAN</span>
         </div>
         <p className="tiny dim" style={{ margin: 0 }}>
           The collection holds {avians(c.minPrice)} behind every free bird and sends it to the perch
-          when you claim, so the perch buys this one back for the same 90,000 AVIANS as any paid
+          when you claim, so the perch buys this one back for the same 90,000 AVIAN as any paid
           bird. It counts toward your wallet limit.
         </p>
       </div>
@@ -546,7 +547,7 @@ function PriceBlock({
       </p>
       {/*
         No wallet, or a read that has not landed, is NOT a zero balance. A
-        dash says "we have not asked"; "0 AVIANS" would be a claim about
+        dash says "we have not asked"; "0 AVIAN" would be a claim about
         somebody's wallet that we are in no position to make.
       */}
       <div className={s.costline} style={{ borderTop: '1px solid var(--line)' }}>
@@ -645,7 +646,7 @@ function Actions(p: {
           <span className="tiny dim">
             {/* `needed` is the price, or the batch total when there are several
                 — either way it is what leaves the wallet, read rather than written. */}
-            {p.freeOpen ? 'No AVIANS. A real bird either way.' : `${avians(p.needed)} to the perch, not to us.`}
+            {p.freeOpen ? 'No AVIAN. A real bird either way.' : `${avians(p.needed)} to the perch, not to us.`}
           </span>
         </div>
       ) : null}
@@ -777,16 +778,13 @@ function Pickers({ traits, onChange }: { traits: TraitIndices; onChange: (t: Tra
                 index={t.index}
                 selected={traits[ci] === t.index}
                 traitOnly
+                // "None" draws nothing, so the word carries it: an option, not a gap.
+                caption={t.display === 'None' ? t.display : undefined}
                 label={`${cat.display}: ${t.display}`}
                 onClick={() => set(ci, t.index)}
               />
             ))}
           </div>
-          {cat.traits[traits[ci]].lore ? (
-            <p className="tiny dim" style={{ marginTop: 10, maxWidth: 640 }}>
-              <span className="strong">{cat.traits[traits[ci]].display}.</span> {cat.traits[traits[ci]].lore}
-            </p>
-          ) : null}
         </section>
       ))}
     </div>

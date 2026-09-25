@@ -7,7 +7,7 @@ import type { FixKind } from '../mock/errors';
 // the drawer draws a button for it. Whether anything happens when it is pressed
 // used to depend on the screen: each screen's handler was one function that
 // acted on the kinds it knew and silently dropped the rest, so "Try again" and
-// "Get AVIANS" closed the drawer and did nothing. Now a handler is a MAP from
+// "Get AVIAN" closed the drawer and did nothing. Now a handler is a MAP from
 // kind to action, and the button is drawn only when some map in the chain has
 // an entry for the kind: a button that exists is a button that acts.
 //

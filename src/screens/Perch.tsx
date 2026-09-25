@@ -7,17 +7,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import {
-  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, Tag, Unread,
+  Avian, Box, EmptyState, ErrorState, Note, PanelSkeleton, Tag,
 } from '../components/Primitives';
 import { ApprovalSheet } from '../components/ApprovalSheet';
 import { WriteGate } from '../components/Wallet';
 import { useTx, type FixHandlers } from '../components/Tx';
-import { avians, avianNumber, formatBps, formatCount } from '../lib/format';
+import { avians, avianNumber, formatCount } from '../lib/format';
 import { traitNames } from '../art/traits';
 import { href } from '../router';
 import {
   approveAviansForPerch, buyNamed, buyNext, nextBirds,
-  traitsForId, usePerch, useRoost, useWallet, warmTraits,
+  traitsForId, usePerch, useWallet, warmTraits,
   type Amount, type TokenId,
 } from '../mock';
 
@@ -28,14 +28,18 @@ const NO_BIRDS: TokenId[] = [];
 export function Perch({ onConnect }: { onConnect: () => void }) {
   const perch = usePerch();
   const wallet = useWallet();
-  // The four shares of every fee are the Roost's, read rather than written
+  // The five shares of every fee are the Roost's, read rather than written
   // down: this page used to say "50% burned, 50% to the Treasury" from a
-  // literal a week after the contracts stopped doing that.
-  const roost = useRoost();
+  // literal a week after the contracts stopped doing that. Three of them
+  // rotate weekly (2026-09-20), so they are this week's.
   const tx = useTx();
 
   const [count, setCount] = useState(1);
-  const [named, setNamed] = useState<TokenId | null>(null);
+  // The birds picked from the perch's holding, in the order they were
+  // picked. `ThePerch.buy(uint256[] ids, address to)` takes the list whole,
+  // so a purchase of several is one transaction; a pick that somebody else
+  // buys first refuses the whole list, and nothing is taken.
+  const [named, setNamed] = useState<TokenId[]>([]);
   const [next, setNext] = useState<TokenId[]>([]);
   const [busy, setBusy] = useState(false);
   // The amount the approval sheet is open for, or null when it is closed.
@@ -60,7 +64,11 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
     nextBirds(Math.min(count, p.poolSize)).then(setNext, () => setNext([]));
   }, [p, count]);
 
-  useEffect(() => { if (p && named !== null && !p.heldIds.includes(named)) setNamed(null); }, [p, named]);
+  useEffect(() => {
+    if (!p) return;
+    if (named.some((id) => !p.heldIds.includes(id))) setNamed((v) => v.filter((id) => p.heldIds.includes(id)));
+  }, [p, named]);
+  const namedTotal = p ? p.buyNamed * BigInt(named.length) : 0n;
 
   // The next page of the picker, when its end scrolls into view.
   const held = p?.heldIds ?? NO_BIRDS;
@@ -88,7 +96,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
   }, [count, p?.lowestId]);
 
   /*
-    BUYING FROM THE PERCH IS A `transferFrom` OF AVIANS.
+    BUYING FROM THE PERCH IS A `transferFrom` OF AVIAN.
 
     `ThePerch.buyNext` and `ThePerch.buy` both pull the price with
     `SafeTransferLib.safeTransferFrom(avians, msg.sender, ...)`, so the wallet
@@ -142,14 +150,15 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
   };
 
   const doBuyNamed = async () => {
-    if (named === null) return;
+    if (named.length === 0) return;
+    const ids = [...named];
     setBusy(true);
-    await tx.run(`Buying ${avianNumber(named)}`, (on) => buyNamed([named], on), {
-      context: { balance: wallet.data?.avians, price: p.buyNamed },
+    const r = await tx.run(ids.length === 1 ? `Buying ${avianNumber(ids[0])}` : `Buying ${ids.length} birds`, (on) => buyNamed(ids, on), {
+      context: { balance: wallet.data?.avians, price: p.buyNamed * BigInt(ids.length) },
       onFix,
-      outcome: () => `${avianNumber(named)}: yours. In your wallet now.`,
+      outcome: () => `${ids.map(avianNumber).join(', ')}: yours. In your wallet now.`,
     });
-    setNamed(null);
+    if (r) setNamed([]);
     setBusy(false);
   };
 
@@ -276,13 +285,14 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
         {/* ── buy named ────────────────────────────────────────────────── */}
         <section className="panel" aria-labelledby="named-h">
           <div className="row">
-            <h3 id="named-h">Buy a bird you pick</h3>
+            <h3 id="named-h">Buy your choice birds</h3>
             <span className="spacer" />
             <span className="num" style={{ color: 'var(--attention)' }}>{avians(p.buyNamed)}</span>
           </div>
           <p className="small dim" style={{ marginTop: 6 }}>
-            Picking costs {avians(p.buyNamed - p.buyNext)} more. If someone buys your pick first,
-            the purchase is refused and nothing is taken.
+            Picking costs {avians(p.buyNamed - p.buyNext)} more per bird. Pick as many as you
+            like; they come in one transaction. If someone buys one of your picks first, the
+            whole purchase is refused and nothing is taken.
           </p>
 
           {p.poolSize === 0 ? (
@@ -304,7 +314,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
               */}
               <div
                 ref={poolBox}
-                className="pool-grid pool-scroll"
+                className="pool-grid pool-grid--pick pool-scroll"
                 // The same height as the other card's picture block, whatever
                 // the perch holds: the card keeps its size, and the two match.
                 style={{ marginTop: 14, height: nextBlockH ?? undefined, maxHeight: nextBlockH ? 'none' : undefined, alignContent: 'start' }}
@@ -314,9 +324,9 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
                   <button
                     key={id}
                     type="button"
-                    className={`tile${named === id ? ' tile--on' : ''}`}
-                    aria-pressed={named === id}
-                    onClick={() => setNamed(named === id ? null : id)}
+                    className={`tile${named.includes(id) ? ' tile--on' : ''}`}
+                    aria-pressed={named.includes(id)}
+                    onClick={() => setNamed((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]))}
                   >
                     <Avian traits={traitsForId(id)} alt={avianNumber(id)} />
                     <span className="mono tiny dim" style={{ display: 'block', textAlign: 'center', marginTop: 4 }}>
@@ -334,23 +344,27 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
               ) : null}
 
               <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <span className="small">{named !== null ? avianNumber(named) : 'Nothing picked yet'}</span>
+                <span className="small">
+                  {named.length === 0 ? 'Nothing picked yet'
+                    : named.length === 1 ? avianNumber(named[0])
+                      : `${formatCount(named.length)} picked`}
+                </span>
                 <span className="spacer" />
-                {named !== null ? <span className="num" style={{ fontSize: 17 }}>{avians(p.buyNamed)}</span> : null}
+                {named.length > 0 ? <span className="num" style={{ fontSize: 17 }}>{avians(namedTotal)}</span> : null}
               </div>
 
               <div style={{ marginTop: 14 }}>
                 <WriteGate onConnect={onConnect}>
                   <button
                     type="button" className="btn btn--wide"
-                    disabled={named === null || busy || tx.busy}
-                    onClick={() => (allowanceToPerch < p.buyNamed
-                      ? setApproving(p.buyNamed)
+                    disabled={named.length === 0 || busy || tx.busy}
+                    onClick={() => (allowanceToPerch < namedTotal
+                      ? setApproving(namedTotal)
                       : doBuyNamed())}
                   >
-                    {named === null ? 'Pick a bird above'
-                      : allowanceToPerch < p.buyNamed ? 'Approve, then buy'
-                        : `Buy ${avianNumber(named)} for ${avians(p.buyNamed)}`}
+                    {named.length === 0 ? 'Pick a bird above'
+                      : allowanceToPerch < namedTotal ? 'Approve, then buy'
+                        : `Buy ${named.length === 1 ? avianNumber(named[0]) : `${formatCount(named.length)} birds`} for ${avians(namedTotal)}`}
                   </button>
                 </WriteGate>
               </div>
@@ -366,7 +380,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
           <h4>The perch can always pay.</h4>
           <p className="small" style={{ marginTop: 10, maxWidth: 760 }}>
             It holds {avians(p.base)} for every bird that is not already in it. Fees charged on
-            every buy and sell are sent to the Roost to be split between AVIANS token staker
+            every buy and sell are sent to the Roost to be split between AVIAN token staker
             rewards, brooder rewards, protocol revenue, and burns.
           </p>
           <div className="bar" style={{ marginTop: 16 }} role="img"
@@ -380,21 +394,6 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
             <span className="label">Holds</span>
             <span className="num" style={{ fontSize: 13, color: 'var(--accent)' }}>{avians(p.aviansHeld)}</span>
           </div>
-        </div>
-        {/*
-          The fee is the 10% or 15% between the sell price and the buy prices,
-          and all of it goes to the Roost. The four shares are the Roost's
-          constants, read: STAKING_BPS and the rest.
-        */}
-        <div className="inset">
-          <h4>Where the fees go</h4>
-          <p className="tiny dim" style={{ margin: '6px 0 0' }}>
-            The whole fee, to the Roost, which splits it once a day.
-          </p>
-          <FeeShare label="AVIANS stakers" bps={roost.data?.splitBps.staking} />
-          <FeeShare label="Brooding birds" bps={roost.data?.splitBps.nest} />
-          <FeeShare label="Burnt" bps={roost.data?.splitBps.burn} />
-          <FeeShare label="The protocol" bps={roost.data?.splitBps.admin} />
         </div>
       </div>
 
@@ -413,16 +412,6 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
         onClose={() => setApproving(null)}
         onApprove={(_route, amount) => doApprove(amount)}
       />
-    </div>
-  );
-}
-
-function FeeShare({ label, bps }: { label: string; bps: number | undefined }) {
-  return (
-    <div className="row" style={{ marginTop: 8 }}>
-      <span className="small">{label}</span>
-      <span className="spacer" />
-      <span className="num">{bps === undefined ? <Unread /> : formatBps(bps)}</span>
     </div>
   );
 }

@@ -26,11 +26,13 @@ export const PERCH_BASE = e18(100_000);
 export const PERCH_SELL = e18(90_000);
 export const PERCH_BUY_NEXT = e18(110_000);
 export const PERCH_BUY_NAMED = e18(115_000);
-export const TIER_COST: Record<Tier, Amount> = { 1: e18(5_000), 2: e18(15_000), 3: e18(25_000) };
+/** The Nest's own constants: 10,000 / 30,000 / 50,000 since 2026-09-22 (tiers 2 and 3 doubled). */
+export const TIER_COST: Record<Tier, Amount> = { 1: e18(10_000), 2: e18(30_000), 3: e18(50_000) };
 export const TIER_WEIGHT: Record<Tier, bigint> = { 1: 1n, 2: 2n, 3: 3n };
 export const WINDOW_SECONDS = 300;
 export const FEE_BPS = 100;
-export const MAX_EXTRA_FEE_BPS = 2400;
+/** The opening fee's extra, on top of FEE_BPS: 90% in total at the first second (2026-09-21; was 25%). */
+export const MAX_EXTRA_FEE_BPS = 8900;
 export const MAX_BUY_PER_TX = e18(50_000_000);
 /** `ThePerch.BURN_EVERY`: one bird in this many deposits is burnt. */
 export const BURN_EVERY = 100;
@@ -79,12 +81,12 @@ export const STOCK_REWARD_TOKENS: RewardToken[] = [
   { address: '0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9', symbol: 'AAPL', decimals: 18 },
 ];
 /**
- * AVIANS is a listed reward token on the Nest since 2026-09-18: the Roost
+ * AVIAN is a listed reward token on the Nest since 2026-09-18: the Roost
  * streams 30% of every fee to brooding birds through it. Not a Treasury
  * target (nothing converts into it — the Roost delivers it), and not on the
  * ticker. The Nest's listing is the five, in this order.
  */
-export const AVIANS_REWARD: RewardToken = { address: ADDRESSES.Avians, symbol: 'AVIANS', decimals: 18 };
+export const AVIANS_REWARD: RewardToken = { address: ADDRESSES.Avians, symbol: 'AVIAN', decimals: 18 };
 export const REWARD_TOKENS: RewardToken[] = [...STOCK_REWARD_TOKENS, AVIANS_REWARD];
 
 /**
@@ -95,7 +97,8 @@ export const REWARD_TOKENS: RewardToken[] = [...STOCK_REWARD_TOKENS, AVIANS_REWA
  * read it now, the owner's targets table and the Docs reference row, and a mock
  * that disagrees with itself teaches the wrong thing twice.
  */
-export const REWARD_TARGET_BPS = [4000, 3000, 2000, 1000];
+// Equal weights, as Deploy.s.sol sets them since 2026-09-24.
+export const REWARD_TARGET_BPS = [2500, 2500, 2500, 2500];
 
 /**
  * Listed once, not any more. It does not stream, but a wallet that earned in
@@ -193,7 +196,10 @@ type Overlay = {
   royaltyBps: number | null;
   /** And for the conversion interval the Treasury card states. */
   conversionMinInterval: number | null;
-  /** AVIANS -> Permit2, granted in this session. Step one of a sell. */
+  /** The Roost's tenth spent and bought in this session (2026-09-22). */
+  roostSpent: Amount;
+  roostBought: Amount | null;
+  /** AVIAN -> Permit2, granted in this session. Step one of a sell. */
   permit2Approved: Amount | null;
   /** Permit2 -> the router. Step two. */
   permit2Router: Amount | null;
@@ -225,6 +231,7 @@ const emptyOverlay = (): Overlay => ({
   soldToPerch: [], boughtFromPerch: [],
   claimed: new Set(), transferredAway: new Set(),
   price: null, royaltyBps: null, conversionMinInterval: null,
+  roostSpent: 0n, roostBought: null,
   permit2Approved: null, permit2Router: null,
   swappedAvians: 0n, swappedEth: 0n, deposits: 0, burnt: [],
   feesCollected: false,
@@ -351,7 +358,14 @@ export function world(s: Scenario = scenario()) {
   // A bird that left the wallet this session took its brood with it, expired.
   for (const id of [...overlay.soldToPerch, ...overlay.transferredAway]) broods.delete(id);
 
-  const listed = s.rewards === 'none-listed' ? [] : REWARD_TOKENS;
+  // The flywheel's first-day scene (2026-09-22) is launch day: no reward
+  // token listed yet, so nothing streams and the landing page says so.
+  const listed = s.rewards === 'none-listed' || s.flywheel === 'first-day' ? []
+    // Part 19: the Nest without AVIAN, while the staking contract still pays it.
+    : s.stakers === 'unlisted' ? REWARD_TOKENS.filter((t) => t.symbol !== 'AVIAN')
+      : REWARD_TOKENS;
+  /** A token's place among all five, so its figures do not move when one is unlisted. */
+  const place = (token: { symbol: string }) => REWARD_TOKENS.findIndex((t) => t.symbol === token.symbol);
   const pausedSymbols = s.rewards === 'all-paused' ? ['NVDA', 'SPY', 'SPCX', 'AAPL']
     : s.rewards === 'one-paused' ? ['AAPL'] : [];
   // Per-token accrual per unit of weight since a brood's last settle. Small,
@@ -421,7 +435,16 @@ export function world(s: Scenario = scenario()) {
   }
 
   function makeBird(id: TokenId, where: Bird['location']): Bird {
-    const traits = traitsForId(id);
+    // Bird #1204 is the one the 'recompose' axis touches: a swap changed its
+    // headwear ('swapped'), or changed it and changed it back ('restored').
+    const minted = traitsForId(id);
+    const swapped = id === 1204 && s.recompose === 'swapped';
+    const traits = swapped
+      ? [minted[0], minted[1], minted[2], minted[3], minted[4], (minted[5] + 1) % COUNTS[5]] as unknown as TraitIndices
+      : minted;
+    const rows = id === 1204 && s.recompose !== 'as-minted'
+      ? { isMintCombo: !swapped, recomposed: true }
+      : { isMintCombo: true, recomposed: false };
     const nested = id === 1204 ? satchelHolds : [];
     const satchel = satchelAddressOf(id);
     // Settled reward sits in the satchel like anything else in it.
@@ -432,6 +455,7 @@ export function world(s: Scenario = scenario()) {
       id, traits, combo: packCombo(traits), location: where,
       satchel: { address: satchel, deployed: satchelDeployed(id), holds: [...nested, ...settledHere] },
       brood: broodSummary(id),
+      ...rows,
     };
   }
 
@@ -465,22 +489,21 @@ export function world(s: Scenario = scenario()) {
   // A live stream of 2,000 tokens a day per token, three days in, as the
   // chain keeps it: base units per second scaled by 1e18. A bird's share
   // (weight / totalWeight) visibly ticks between reads on the brood screen.
-  const streams: RewardStream[] = listed.map((token, i) => ({
+  const streams: RewardStream[] = listed.map((token) => ({
     token,
     rate: (e18(2_000) * e18(1)) / 86400n,
     periodFinish: now + 4 * 86400,
-    escrowed: perWeight[i] * 12_000n,
-    totalPaid: perWeight[i] * 3200n,
-    totalReturned: perWeight[i] * 140n,
+    escrowed: perWeight[place(token)] * 12_000n,
+    totalPaid: perWeight[place(token)] * 3200n,
+    totalReturned: perWeight[place(token)] * 140n,
   }));
 
   /** `earned(id, token)` — what a settle would move for this bird, in total. */
   function unsettledOf(id: TokenId, symbol: string): Amount {
     const b = broods.get(id);
     if (!b || listed.length === 0) return 0n;
-    const i = listed.findIndex((t) => t.symbol === symbol);
-    if (i < 0) return 0n;
-    const gross = perWeight[i] * TIER_WEIGHT[b.tier];
+    if (!listed.some((t) => t.symbol === symbol)) return 0n;
+    const gross = perWeight[place({ symbol })] * TIER_WEIGHT[b.tier];
     const paid = overlay.settledUpTo.get(id)?.get(symbol) ?? 0n;
     return gross > paid ? gross - paid : 0n;
   }
@@ -567,7 +590,7 @@ export function world(s: Scenario = scenario()) {
 }
 
 /**
- * The total buy fee in bps at a moment. 2500 at the first second, decaying
+ * The total buy fee in bps at a moment. 9000 at the first second, decaying
  * linearly to 100 at the last. Before the launch it returns the opening
  * number, not zero — same as the contract.
  */

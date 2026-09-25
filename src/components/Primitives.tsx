@@ -90,7 +90,7 @@ export function Avian({
 }
 
 export function Swatch({
-  category, index, selected, taken, label, isolated, isolatedFace, traitOnly, onClick,
+  category, index, selected, taken, label, isolated, isolatedFace, traitOnly, caption, onClick,
 }: {
   category: CategoryId; index: number; selected?: boolean; taken?: boolean;
   label: string; isolated?: boolean;
@@ -98,9 +98,15 @@ export function Swatch({
   traitOnly?: boolean;
   /** Which plumage, eyes and beak the isolated swatches share. */
   isolatedFace?: { plumage?: number; eyes?: number; beak?: number };
+  /**
+   * A word under the tile (2026-09-22). The two "None" pieces draw nothing,
+   * and an empty tile among painted ones reads as a gap rather than a
+   * choice; the word says it is one. The picture itself is unchanged.
+   */
+  caption?: string;
   onClick?: () => void;
 }) {
-  return (
+  const swatch = (
     <button
       type="button"
       onClick={onClick}
@@ -119,6 +125,13 @@ export function Swatch({
       {selected ? <span className="swatch__mark" aria-hidden="true"><Icon name="check" size={11} /></span> : null}
       {taken ? <span className="swatch__mark swatch__mark--bad" aria-hidden="true"><Icon name="cross" size={11} /></span> : null}
     </button>
+  );
+  if (!caption) return swatch;
+  return (
+    <span className="swatch-wrap">
+      {swatch}
+      <span className="swatch-caption" aria-hidden="true">{caption}</span>
+    </span>
   );
 }
 

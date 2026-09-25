@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <strong className="strong">This screen hit a bug.</strong>
           </Note>
           <p className="small" style={{ marginTop: 8 }}>
-            Nothing on chain was touched: your birds, your AVIANS and anything brooding are where
+            Nothing on chain was touched: your birds, your AVIAN and anything brooding are where
             they were. The rest of the site still works.
           </p>
           <div className="row" style={{ gap: 12, marginTop: 16 }}>

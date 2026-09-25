@@ -1,4 +1,4 @@
-// Buying and selling AVIANS, without leaving the mint.
+// Buying and selling AVIAN, without leaving the mint.
 //
 // COMPACT ON PURPOSE. Every explanation has been taken out of this modal —
 // what slippage is, how Permit2 works, where the fees go, the itemised pool and
@@ -7,11 +7,12 @@
 // explained; this is where a trade is made.
 //
 // WHAT DID NOT COME OUT, and the one judgement in this file. Inside the launch
-// window a buy pays an extra fee that starts near 24% and decays to nothing
-// over five minutes, so the same ETH buys materially more a minute later. That
-// figure is one line, it moves every second, and without it the modal would
-// quote a 25% trade and a 1.5% trade in exactly the same words. It stays, as a
-// single line rather than a banner.
+// window a buy pays an extra fee that starts at 89% (90% in total, since
+// 2026-09-21) and decays to nothing over five minutes, so the same ETH buys
+// materially more a minute later. That figure is one line, it moves every
+// second, and without it the modal would quote a 90% trade and a 1.5% trade in
+// exactly the same words. It stays, as a single line rather than a banner. The
+// figure is the chain's own, `currentBuyFeeBps()`, never a constant here.
 //
 // THE QUOTE IS NET. `amountOut` already has every fee taken out of it — the
 // quoter runs the real swap, hook included — so "you pay X, you receive Y" is
@@ -76,7 +77,7 @@ export function TradeModal({ open, onClose }: { open: boolean; onClose: () => vo
         ref={dialog}
       >
         <div className="row">
-          <h3 id="trade-h" style={{ fontSize: 18 }}>Trade AVIANS</h3>
+          <h3 id="trade-h" style={{ fontSize: 18 }}>Trade AVIAN</h3>
           <span className="spacer" />
           <button type="button" className="btn btn--ghost btn--small" onClick={onClose} aria-label="Close">
             <Icon name="cross" size={14} />
@@ -224,7 +225,7 @@ function Body({
     approve: () => {
       const l = latest.current;
       if (l.amountIn === null) return false;
-      if (l.needsErc20) { void go('erc20', 'Approving AVIANS to Permit2', (on) => approveAviansForPermit2(l.amountIn!, on), () => 'Approved. One more step, then the swap.'); return true; }
+      if (l.needsErc20) { void go('erc20', 'Approving AVIAN to Permit2', (on) => approveAviansForPermit2(l.amountIn!, on), () => 'Approved. One more step, then the swap.'); return true; }
       if (l.needsPermit2) { void go('permit2', 'Allowing the router to spend through Permit2', (on) => approvePermit2ForRouter(l.amountIn!, on), () => 'Allowed. The swap can go through now.'); return true; }
       return false;
     },
@@ -270,7 +271,7 @@ function Body({
 
       <div className={s.field}>
         <div className={s.fieldHead}>
-          <span className={s.label}>{buy ? 'You pay, ETH' : 'You sell, AVIANS'}</span>
+          <span className={s.label}>{buy ? 'You pay, ETH' : 'You sell, AVIAN'}</span>
           <span className="spacer" />
           <span className="tiny dim mono">{inUnit(balance)}</span>
         </div>
@@ -317,16 +318,16 @@ function Body({
       </div>
 
       {/*
-        THE ONE LINE THAT STAYED. It is the difference between a 25% trade and a
+        THE ONE LINE THAT STAYED. It is the difference between a 90% trade and a
         1.5% one, and it changes every second — with it gone, both would read
         identically. Shown for buys only, because only buys pay it.
       */}
       {inWindow && buy ? (
         <p className={s.window}>
           <Icon name="warn" size={12} />
-          Opening fee{' '}
-          <strong className="strong">{formatBps(Math.max(0, state.buyFeeBps - state.sellFeeBps))}</strong>,
-          falling to nothing in <span className="mono">{formatCountdown(secondsLeft)}</span>
+          Buy fee now{' '}
+          <strong className="strong">{formatBps(state.buyFeeBps)}</strong>,
+          falling to {formatBps(state.feeBps)} in <span className="mono">{formatCountdown(secondsLeft)}</span>
         </p>
       ) : null}
 
@@ -379,10 +380,10 @@ function Body({
           <StepRow
             n={1}
             done={!needsErc20}
-            label="Approve AVIANS to Permit2"
+            label="Approve AVIAN to Permit2"
             busy={busy === 'erc20'}
             disabled={blocked || amountIn === null || !needsErc20}
-            onClick={() => go('erc20', 'Approving AVIANS to Permit2',
+            onClick={() => go('erc20', 'Approving AVIAN to Permit2',
               (on) => approveAviansForPermit2(amountIn!, on),
               () => 'Approved. One more step, then the swap.')}
           />
@@ -409,7 +410,7 @@ function Body({
         }
         onClick={() => go(
           'swap',
-          buy ? `Buying AVIANS with ${formatEth(amountIn!)} ETH` : `Selling ${avians(amountIn!)}`,
+          buy ? `Buying AVIAN with ${formatEth(amountIn!)} ETH` : `Selling ${avians(amountIn!)}`,
           (on) => swap(direction, amountIn!, quote!.minOut, on),
           () => (buy
             ? `Bought at least ${avians(quote!.minOut)}.`
@@ -418,7 +419,7 @@ function Body({
       >
         {busy === 'swap' ? 'Swapping…'
           : !launched ? 'The pool has not opened'
-            : buy ? 'Buy AVIANS' : 'Sell AVIANS'}
+            : buy ? 'Buy AVIAN' : 'Sell AVIAN'}
       </button>
     </>
   );

@@ -1,0 +1,71 @@
+/* The flywheel snapshot on the landing page (2026-09-22). Three hairline
+   cards, one per place value moves through (the birds, AVIAN, the Roost),
+   each a grid of cells in the site's counters idiom: the figure in Geist
+   Mono, the label small under it, a one-line note where a figure needs one.
+   Under them the tokens ever paid out, as chips, and one total. */
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s4);
+  margin-top: 28px;
+}
+.group { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); padding: 20px; min-width: 0; }
+
+.cells {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 14px;
+  /* The three cards are one height; the rows share whatever is left. */
+  flex: 1;
+}
+.cell { background: var(--panel); padding: 14px 16px; min-width: 0; }
+.wide { grid-column: 1 / -1; }
+
+.fig {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.of { font-size: 14px; font-weight: 400; color: var(--text-dim); }
+/* A figure the chain did not give, or a state instead of a number ("Due now"): said in the body face where the figure would be. */
+.none { font-family: var(--font-sans); font-weight: 500; font-size: 15px; color: var(--text); }
+.lbl { margin-top: 5px; }
+.sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.sub :global(.num) { font-size: 12px; color: var(--text); }
+
+/* The card's call to action, on a row of its own under the cells so the
+   cells sit exactly where they did; right-aligned, one filled at most. On a
+   phone each button is the card's width, never two abreast. */
+.actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: 14px; }
+
+.paid { margin-top: 28px; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.chip {
+  display: inline-flex; align-items: baseline; gap: 10px;
+  border: 1px solid var(--line); background: var(--panel);
+  padding: 10px 14px; max-width: 100%;
+}
+.amt { font-family: var(--font-mono); font-weight: 500; font-size: 14px; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.val { font-size: 12.5px; color: var(--text-dim); }
+.total { margin-top: var(--s3); }
+.foot { margin-top: var(--s4); }
+
+@media (max-width: 1080px) {
+  .groups { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .fig { font-size: 20px; }
+  .group { padding: 16px; }
+  .cell { padding: 12px; }
+  .actions { flex-direction: column; }
+  .actions :global(.btn) { width: 100%; }
+}

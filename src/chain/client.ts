@@ -189,7 +189,9 @@ export async function tryReadAs<T = unknown>(
  */
 export async function getLogsChunked(args: {
   address: Address;
-  event: unknown;
+  event?: unknown;
+  /** Several events in the same scan, instead of `event`: one request per window, not one per event. */
+  events?: readonly unknown[];
   args?: Record<string, unknown>;
   fromBlock: bigint;
   toBlock: bigint;
@@ -205,7 +207,7 @@ export async function getLogsChunked(args: {
     try {
       const logs = await c.getLogs({
         address: args.address,
-        event: args.event as never,
+        ...(args.events ? { events: args.events as never } : { event: args.event as never }),
         args: args.args as never,
         fromBlock: from,
         toBlock: to,

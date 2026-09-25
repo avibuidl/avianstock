@@ -39,7 +39,11 @@
   "multicall3": null,
   "sweeper": "0x0c19E4f0A28d7b3C6e5aF21b9D843e07c5B16A92",
   "aviansStaking": "0x5aB1c0000000000000000000000000000000A51A",
+  "lockerRewards": "0x5aB1c000000000000000000000000000000010CE",
+  "unveiled": { "vaults": false, "traitMarket": false },
+  "usd": { "token": "0x5aB1c00000000000000000000000000000000D01" },
   "roost": "0x5aB1c00000000000000000000000000000000057",
+  "council": "0x2c9F4E17ba1DbAeF0FbC3D8a7c3ee6C1b09F5A84",
   "startBlock": 0,
   "allowlistProofs": null,
   "generated": {

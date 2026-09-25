@@ -44,7 +44,7 @@ export type ContractSet = {
 /**
  * Contracts we did not deploy but have to call.
  *
- * Swapping ETH for AVIANS goes through Uniswap's UniversalRouter, is quoted by
+ * Swapping ETH for AVIAN goes through Uniswap's UniversalRouter, is quoted by
  * its V4Quoter, and — when selling — needs Permit2 in the middle. None of those
  * addresses may be written in `src/`: the hygiene check forbids it and is
  * right to, because an address in the source is a deployment assumption that
@@ -92,8 +92,8 @@ export type Manifest = {
    */
   sweeper: Address | null;
   /**
-   * THE ROOST AND AVIANS STAKING (2026-09-18). Two of the nine creations in
-   * the deploy — the Roost is what the Nest and the Perch send every AVIANS
+   * THE ROOST AND AVIAN STAKING (2026-09-18). Two of the nine creations in
+   * the deploy — the Roost is what the Nest and the Perch send every AVIAN
    * fee to, and the staking contract is its first leg — so both are REQUIRED
    * and never null: a deployment without them is a deployment of the old
    * contracts, and the site refuses it rather than showing a screen that
@@ -101,10 +101,41 @@ export type Manifest = {
    */
   aviansStaking: Address;
   roost: Address;
+  /**
+   * THE LOCKERS' DISTRIBUTOR (2026-09-20). The Roost's third leg, deployed
+   * one nonce before the Roost and carried by it as an immutable; required
+   * like the other two, for the same reason.
+   */
+  lockerRewards: Address;
+  /**
+   * THE COUNCIL (2026-09-24). The protocol's second key: a timelock only the
+   * founder's multisig may propose to, holding the structural pointers, the
+   * royalty and the rescue. Every seat answers `council()` with this one
+   * address. Required, and null only on a deployment where no seat was ever
+   * named, which the site reads as "these pointers cannot move" and says so.
+   */
+  council: Address | null;
   /** The deploy block. Where the site's event reads start. */
   startBlock: number;
   /** Where `proofs.json` lives for this deployment, or null for no allowlist file. */
   allowlistProofs: string | null;
+  /**
+   * THE VEIL (2026-09-22). Two things on the chain are not spoken of on the
+   * site until the founder unveils them: the vault products (the Roost's
+   * third leg, its distributor, and the products themselves when they come)
+   * and the trait market (swaps, and the two provenance cells on the bird
+   * page). Both flags are required and read from this file alone: an
+   * unveiling is an edit to the deployed JSON, no rebuild, and nothing in
+   * the URL or the browser can flip one. The start-up checks ignore them.
+   */
+  unveiled: { vaults: boolean; traitMarket: boolean };
+  /**
+   * THE DOLLAR SOURCE (2026-09-22): one Uniswap v3 pool, WETH against a
+   * dollar stablecoin, named by its token. Null on a chain with none, and
+   * then the site shows no dollar figure anywhere. The generator writes it
+   * from a per-chain table; the address is never under `src/`.
+   */
+  usd: { token: Address } | null;
   generated?: { at?: string; from?: string };
 };
 
@@ -362,10 +393,11 @@ export function validateManifest(raw: unknown, expectedId: string): {
 
   // The Roost and the staking contract: required, addresses, and neither may
   // be one of the others — the same paste-error check the seven get.
-  const roostSet: Record<string, Address | null> = { aviansStaking: null, roost: null };
-  for (const key of ['aviansStaking', 'roost'] as const) {
+  const roostSet: Record<string, Address | null> = { aviansStaking: null, lockerRewards: null, roost: null };
+  for (const key of ['aviansStaking', 'lockerRewards', 'roost'] as const) {
     if (!(key in raw) || raw[key] === null) {
-      problems.push({ path: key, says: `required — this manifest predates 2026-09-18 (the Roost); regenerate it against the redeployed contracts` });
+      const since = key === 'lockerRewards' ? "2026-09-20 (the lockers' leg)" : '2026-09-18 (the Roost)';
+      problems.push({ path: key, says: `required — this manifest predates ${since}; regenerate it against the redeployed contracts` });
       continue;
     }
     const a = checkAddress(raw[key], key, problems);
@@ -378,6 +410,11 @@ export function validateManifest(raw: unknown, expectedId: string): {
   if (roostSet.aviansStaking && roostSet.roost && roostSet.aviansStaking.toLowerCase() === roostSet.roost.toLowerCase()) {
     problems.push({ path: 'roost', says: 'is the same address as aviansStaking' });
   }
+  for (const other of ['aviansStaking', 'roost'] as const) {
+    if (roostSet.lockerRewards && roostSet[other] && roostSet.lockerRewards.toLowerCase() === roostSet[other]!.toLowerCase()) {
+      problems.push({ path: 'lockerRewards', says: `is the same address as ${other}` });
+    }
+  }
 
   if (typeof raw.startBlock !== 'number' || !Number.isInteger(raw.startBlock) || raw.startBlock < 0) {
     problems.push({ path: 'startBlock', says: `must be a non-negative integer (the deploy block), got ${describe(raw.startBlock)}` });
@@ -387,6 +424,49 @@ export function validateManifest(raw: unknown, expectedId: string): {
     problems.push({ path: 'allowlistProofs', says: 'required — use null if this deployment serves no proofs file' });
   } else if (raw.allowlistProofs !== null && (typeof raw.allowlistProofs !== 'string' || raw.allowlistProofs === '')) {
     problems.push({ path: 'allowlistProofs', says: `must be a path or null, got ${describe(raw.allowlistProofs)}` });
+  }
+
+  // The veil: both flags, both booleans. A missing flag is not "veiled" by
+  // default, because a manifest that predates the veil should say so.
+  let unveiled: Manifest['unveiled'] = { vaults: false, traitMarket: false };
+  if (!isPlainObject(raw.unveiled)) {
+    problems.push({ path: 'unveiled', says: `required — { "vaults": false, "traitMarket": false } until the founder unveils either; got ${describe(raw.unveiled)}` });
+  } else {
+    const u = raw.unveiled as Record<string, unknown>;
+    for (const key of ['vaults', 'traitMarket'] as const) {
+      if (typeof u[key] !== 'boolean') problems.push({ path: `unveiled.${key}`, says: `must be true or false, got ${describe(u[key])}` });
+    }
+    if (typeof u.vaults === 'boolean' && typeof u.traitMarket === 'boolean') unveiled = { vaults: u.vaults, traitMarket: u.traitMarket };
+  }
+
+  // The council: an address, or null where no seat was ever named. Not one of
+  // ours to clash with: it is its own contract.
+  let council: Address | null = null;
+  if (!('council' in raw)) {
+    problems.push({ path: 'council', says: 'required — the Council timelock from the deploy, or null if no seat was ever named' });
+  } else if (raw.council !== null) {
+    council = checkAddress(raw.council, 'council', problems);
+    if (council) {
+      const clash = Object.entries(contracts).find(([, x]) => x && x.toLowerCase() === council!.toLowerCase());
+      if (clash) problems.push({ path: 'council', says: `is the same address as contracts.${clash[0]}` });
+    }
+  }
+
+  // The dollar source: a token address, or null for none.
+  let usd: Manifest['usd'] = null;
+  if (!('usd' in raw)) {
+    problems.push({ path: 'usd', says: 'required — { "token": "0x…" } for the chain\'s dollar stablecoin, or null for none' });
+  } else if (raw.usd !== null) {
+    if (!isPlainObject(raw.usd)) {
+      problems.push({ path: 'usd', says: `must be { "token": "0x…" } or null, got ${describe(raw.usd)}` });
+    } else {
+      const token = checkAddress((raw.usd as Record<string, unknown>).token, 'usd.token', problems);
+      if (token) {
+        const clash = Object.entries(contracts).find(([, x]) => x && x.toLowerCase() === token.toLowerCase());
+        if (clash) problems.push({ path: 'usd.token', says: `is the same address as contracts.${clash[0]}; a dollar stablecoin is none of ours` });
+        usd = { token };
+      }
+    }
   }
 
   if (problems.length) return { manifest: null, problems };
@@ -402,13 +482,33 @@ export function validateManifest(raw: unknown, expectedId: string): {
       multicall3,
       sweeper,
       aviansStaking: roostSet.aviansStaking!,
+      lockerRewards: roostSet.lockerRewards!,
       roost: roostSet.roost!,
+      council,
       startBlock: raw.startBlock as number,
       allowlistProofs: (raw.allowlistProofs ?? null) as string | null,
+      unveiled,
+      usd,
       generated: isPlainObject(raw.generated) ? (raw.generated as Manifest['generated']) : undefined,
     },
     problems: [],
   };
+}
+
+/**
+ * Whether the founder has unveiled one of the two veiled things on THIS
+ * deployment. Read from the active manifest and nothing else: never the URL,
+ * never localStorage, so a visitor cannot flip it and a stale tab cannot keep
+ * it. The dev switcher's toggle below is the one exception, in DEV builds only.
+ */
+export function unveiled(what: 'vaults' | 'traitMarket'): boolean {
+  return manifest().unveiled[what];
+}
+
+/** DEV only: the dev switcher's proof that an unveiling reverses everything with no other change. */
+export function setUnveiledForDev(what: 'vaults' | 'traitMarket', value: boolean): void {
+  if (!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV || !active) return;
+  active = { ...active, unveiled: { ...active.unveiled, [what]: value } };
 }
 
 // ── loading, at runtime ───────────────────────────────────────────────────
@@ -628,10 +728,13 @@ export function thirdParty(): ThirdPartySet | null { return manifest().thirdPart
 /** The Sweeper, or null: no panel, no reads, no call to it anywhere. */
 export function sweeperAddress(): Address | null { return manifest().sweeper; }
 
-/** The Roost and the AVIANS staking contract. Never null: see the type. */
-export function roostContracts(): { roost: Address; staking: Address } {
+/** The Council timelock, or null where no seat was ever named. */
+export function councilAddress(): Address | null { return manifest().council; }
+
+/** The Roost, the AVIAN staking contract and the lockers' distributor. Never null: see the type. */
+export function roostContracts(): { roost: Address; staking: Address; lockers: Address } {
   const m = manifest();
-  return { roost: m.roost, staking: m.aviansStaking };
+  return { roost: m.roost, staking: m.aviansStaking, lockers: m.lockerRewards };
 }
 
 /** The pool half of a deployment, or null when it has not been launched. */

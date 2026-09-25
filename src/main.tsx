@@ -15,6 +15,7 @@ import {
   type DeploymentIndex, type Problem,
 } from './chain/manifest';
 import { runStartupChecks } from './chain/startup';
+import { BEHIND_COUNCIL_CHANGE, behindCouncilChange } from './lib/council-drift';
 import { initWallet, onChainOrAccountChange } from './chain/provider';
 import { invalidateAll } from './chain/reads';
 import { invalidatePrices } from './chain/prices';
@@ -132,7 +133,9 @@ async function boot() {
       const startup = await runStartupChecks();
       if (startup.failures.length) {
         fail(
-          'This deployment does not check out.',
+          // Only pointers the council may move disagree, and everything else
+          // checks out: the manifest predates a council change (2026-09-24).
+          behindCouncilChange(startup.failures) ? BEHIND_COUNCIL_CHANGE : 'This deployment does not check out.',
           `public/deployments/${id}.json`,
           { checks: startup.failures, index, current: id },
         );

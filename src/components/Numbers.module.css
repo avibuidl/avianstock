@@ -1,0 +1,59 @@
+/* The numbers table: a heading, then label and value rows with a single
+   hairline under the group. Docs' "The numbers" and "The contracts" both draw
+   with it (moved out of Docs.module.css 2026-09-25, so the two are one table
+   and not two copies of it). The rows inside a group are separated by space,
+   not by rules. */
+.group { margin-top: var(--s6); padding-bottom: var(--s5); border-bottom: 1px solid var(--line); }
+.numbers { margin: var(--s3) 0 0; }
+.numberRow {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--s2) var(--s5);
+  padding: 6px 0;
+}
+.numberRow dd { margin: 0; font-family: var(--font-mono); color: var(--text-strong); font-weight: 500; }
+
+/* An address cell: the address, which copies itself, then the explorer link. */
+.value { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; max-width: 100%; }
+
+/* The address as its own copy control: the value's own type, no box, the
+   site's hover tone. The three faces share one grid cell, so "Copied" takes
+   the address's place without the row moving. */
+.addr {
+  display: inline-grid;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.addr > span { grid-area: 1 / 1; min-width: 0; overflow-wrap: anywhere; }
+.addr:hover, .addr:focus-visible { color: var(--accent); }
+.short { display: none; }
+.done { visibility: hidden; color: var(--confirm); }
+.copied .full, .copied .short { visibility: hidden; }
+.copied .done { visibility: visible; }
+
+/* The explorer link: a small square in the dim tone, the accent on hover. In
+   a row it takes no height of its own, so the row keeps the table's rhythm. */
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  flex: none;
+  margin: -5px 0;
+  color: var(--text-dim);
+}
+.tool:hover, .tool:focus-visible { color: var(--accent); }
+
+@media (max-width: 720px) {
+  .numberRow { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 0; }
+  /* The middle of an address goes, and the copy is still the whole of it. */
+  .full { display: none; }
+  .short { display: inline; }
+  .tool { width: 44px; height: 44px; margin: -12px 0; }
+}

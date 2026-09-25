@@ -1,8 +1,8 @@
 // The Treasury, from the owner's side.
 //
 // The withdraw control lives here rather than on the public Treasury card,
-// with the `claimable` figure that labels it. And so does the AVIANS row: the
-// Treasury's AVIANS position is not itemised on a public page. To be exact
+// with the `claimable` figure that labels it. And so does the AVIAN row: the
+// Treasury's AVIAN position is not itemised on a public page. To be exact
 // about what that means — the balance is a public fact on chain and anyone can
 // read it from an explorer. Keeping it here takes it off the site, and claims
 // nothing beyond that.
@@ -14,16 +14,23 @@ import {
   addressList, isAddressish, seconds, useAdminActions, whole,
 } from './Bits';
 import { avians, formatBps, formatEth, formatReward, parseAvians } from '../../lib/format';
+import { needsFloor, priceSourceLabel, readingPlan } from '../../lib/pricing';
+import { formatOpenAt, openingState } from '../../lib/opening';
+import { isDeployMix } from '../../lib/deploy-mix';
 import {
   claimAdmin, readRoute, setConversionConfig, setFloorPrice, setKeeperDropBps,
-  setPriceKeeper, setRoute, setTargets, setV3Route,
+  setPriceKeeper, setRoute, setTargets, setV3Route, takeRoostReading,
   type AdminRoute, type AdminState, type AdminTargetRow, type Address, type Amount,
   type TreasuryRow,
 } from '../../mock';
 import s from '../../screens/Admin.module.css';
 
+/** The ETH row: the one currency all three shares are about. */
+const eth = (admin: AdminState): TreasuryRow =>
+  admin.treasury.rows.find((r) => r.currency === null) ?? admin.treasury.rows[0];
+
 function money(row: TreasuryRow, v: Amount): string {
-  if (row.symbol === 'AVIANS') return avians(v);
+  if (row.symbol === 'AVIAN') return avians(v);
   if (row.currency === null) return `${formatEth(v)} ${row.symbol}`;
   return `${formatReward(v, row.decimals)} ${row.symbol}`;
 }
@@ -46,11 +53,24 @@ export function TreasuryPanel({ admin }: { admin: AdminState }) {
       <Routes admin={admin} actions={actions} />
       <Floors admin={admin} actions={actions} />
 
+      {/*
+        DEMOTED (2026-09-24). A keeper existed to keep floors fresh, and a
+        pair that prices itself from its pool has no floor to keep. The
+        control stays because a deployment could still have a floor-priced
+        pair; the line above it says plainly that this one does not, so the
+        owner is not left wondering what it is for.
+      */}
       <Control
         title="Price keeper"
         now={<Addr value={t.priceKeeper} />}
         note={<>May set floor prices, and may not drop a standing one by more than {formatBps(t.maxKeeperDropBps)}. The owner has neither limit.</>}
       >
+        <p className="tiny dim" style={{ margin: '10px 0 0' }}>
+          Only for floor-priced pairs.{' '}
+          {t.pairs.some((p) => needsFloor(p.source))
+            ? `${t.pairs.filter((p) => needsFloor(p.source)).length} on this deployment.`
+            : 'None on this deployment.'}
+        </p>
         <KeeperForm admin={admin} actions={actions} />
       </Control>
 
@@ -138,11 +158,116 @@ function Withdraw({
         </table>
       </div>
       <p className="tiny dim" style={{ marginTop: 10 }}>
-        The public card on the Contracts page shows the first two columns, and does not list AVIANS
+        The public card on the Contracts page shows the first two columns, and does not list AVIAN
         at all. Every figure here is on chain and readable by anyone who looks; this is where the
         site shows them, not where they are kept secret.
       </p>
+
+      {/*
+        THE THREE SHARES (2026-09-22), as the contract states them, with what
+        each one has to spend right now and the two clocks. Null on a Treasury
+        deployed before the Roost's tenth.
+      */}
+      {admin.treasury.roost ? (
+        <div className="inset" style={{ marginTop: 14 }}>
+          <div className="row row--wrap" style={{ gap: 10 }}>
+            <span className="small strong">The ETH, three ways</span>
+            <span className="spacer" />
+            <span className="tiny dim">
+              {formatBps(admin.treasury.roost.sharesBps.admin)} admin ·{' '}
+              {formatBps(admin.treasury.roost.sharesBps.rewards)} rewards ·{' '}
+              {formatBps(admin.treasury.roost.sharesBps.roost)} the Roost
+            </span>
+          </div>
+          <div className="row row--wrap" style={{ gap: 10, marginTop: 8 }}>
+            <span className="label">Admin&rsquo;s, outstanding</span>
+            <span className="num tiny">{money(eth(admin), eth(admin).claimable)}</span>
+            <span className="spacer" />
+            <span className="label">Next conversion spends</span>
+            <span className="num tiny">{money(eth(admin), eth(admin).convertible)}</span>
+            <span className="spacer" />
+            <span className="label">Next Roost buy spends</span>
+            <span className="num tiny">{formatEth(admin.treasury.roost.buyable)} ETH</span>
+          </div>
+          <p className="tiny dim" style={{ marginTop: 8 }}>
+            Ever: {formatEth(admin.treasury.roost.everSpent)} ETH spent for the Roost,{' '}
+            {avians(admin.treasury.roost.everBought)} delivered to it. Two clocks, one each, both on the
+            conversion&rsquo;s interval: the Roost&rsquo;s buy last ran{' '}
+            {admin.treasury.roost.lastBuyAt === 0 ? 'never' : new Date(admin.treasury.roost.lastBuyAt * 1000).toLocaleString()},
+            and may run again{' '}
+            {admin.treasury.roost.nextAllowedAt === 0 ? 'now' : new Date(admin.treasury.roost.nextAllowedAt * 1000).toLocaleString()}.
+            The conversion&rsquo;s clock is on the public card.
+          </p>
+
+          <Readings admin={admin} actions={actions} />
+        </div>
+      ) : null}
     </Control>
+  );
+}
+
+/**
+ * The AVIAN pool's history, and the one button on this page that is not the
+ * owner's (2026-09-24).
+ *
+ * A v4 pool keeps no history, so the hook keeps one and the Treasury records
+ * READINGS of it; a buy averages between two that are far enough apart. That
+ * makes a state nobody owns: no usable reading, and the fix is a call anyone
+ * at all may make. It is shown here because this is the page an owner looks
+ * at when the buy is not running, and it is labelled plainly as everyone's
+ * rather than dressed up as an owner control.
+ *
+ * The button appears only when `roostMeanTick()` refused AND a reading may
+ * actually be taken — `takeRoostReading` refuses `ReadingTooYoung` while the
+ * last one is under half an hour old, and a button whose only outcome is a
+ * refusal is worse than a sentence.
+ */
+function Readings({
+  admin, actions,
+}: { admin: AdminState; actions: ReturnType<typeof useAdminActions> }) {
+  const r = admin.treasury.readings;
+  if (!r) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const plan = readingPlan(r, now);
+  const usableFrom = r.lastAt === 0 ? null : new Date((r.lastAt + r.window) * 1000);
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <p className="tiny dim" style={{ margin: 0 }}>
+        {r.lastAt === 0
+          ? 'No reading has ever been taken.'
+          : `Last reading ${seconds(Math.max(0, now - r.lastAt))} ago (usable from ${usableFrom!.toLocaleTimeString()});`}
+        {r.lastAt !== 0 ? (r.prevAt === 0 ? ' no previous one.' : ` previous ${seconds(Math.max(0, now - r.prevAt))} ago.`) : ''}
+      </p>
+
+      {plan.kind === 'take' ? (
+        <div className={s.form}>
+          <ActionButton
+            ghost
+            actions={actions}
+            action={{
+              key: 'reading',
+              label: 'Take a reading',
+              run: (on) => takeRoostReading(on),
+              outcome: (x) => {
+                const at = (x as { at: number }).at;
+                return `Reading taken. The Roost’s buy opens at ${new Date((at + r.window) * 1000).toLocaleTimeString()}.`;
+              },
+            }}
+          />
+          <p className="tiny dim" style={{ margin: 'auto 0' }}>
+            Anyone may take this one, not only the owner. The buy opens{' '}
+            {seconds(r.window)} later.
+          </p>
+        </div>
+      ) : plan.kind === 'waiting' ? (
+        <p className="tiny dim" style={{ marginTop: 6 }}>
+          A reading is already on its way; the buy opens at{' '}
+          {new Date(plan.usableAt * 1000).toLocaleTimeString()}.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -189,14 +314,31 @@ function Conversion({
     />
   );
 
+  // OPEN BY THE CLOCK (2026-09-24). The contract field is still `enabled`,
+  // and it is a pause now: off holds both buttons shut, on lets the clock
+  // decide, and nothing here can open them early. So the toggle is labelled
+  // for what it does, with the sense inverted in the words only. On a
+  // Treasury from before the clock it was the switch, and says so.
+  const o = admin.treasury.opening;
+  const state = o ? openingState(o, Math.floor(Date.now() / 1000)) : null;
+  const now = !state ? (c.enabled ? 'on' : 'off')
+    : state.kind === 'paused' ? 'paused'
+      : state.kind === 'unknown' ? 'launch time unknown'
+        : state.kind === 'waiting' ? `opens at ${formatOpenAt(state.openAt)}`
+          : 'open';
+
   return (
     <Control
       title="Conversion"
-      now={c.enabled ? 'on' : 'off'}
-      note="All six go in one call, so the form sends what is on screen: including the fields you did not touch."
+      now={now}
+      note={o
+        ? 'Conversions open by the clock six hours after trading opens; this only pauses them. Nothing here opens them early.'
+        : 'All six go in one call, so the form sends what is on screen: including the fields you did not touch.'}
     >
       <div className={s.form}>
-        <Toggle label="Enabled" checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
+        {o
+          ? <Toggle label="Paused" checked={!form.enabled} onChange={(v) => setForm({ ...form, enabled: !v })} />
+          : <Toggle label="Enabled" checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />}
         {numberField('Interval, seconds', 'minInterval', `now ${seconds(c.minInterval)}, floor ${seconds(b.minIntervalFloor)}`)}
         {numberField('Per call, bps', 'maxPerCallBps', `now ${formatBps(c.maxPerCallBps)}, cap ${b.maxPerCallBpsCap} bps`)}
         {numberField('Slippage, bps', 'slippageBps', `now ${formatBps(c.slippageBps)}, cap ${b.slippageBpsCap} bps`)}
@@ -216,6 +358,11 @@ function Conversion({
           }}
         />
       </div>
+      {o ? (
+        <p className="tiny dim" style={{ margin: '8px 0 0' }}>
+          All six go in one call, so the form sends what is on screen: including the fields you did not touch.
+        </p>
+      ) : null}
     </Control>
   );
 }
@@ -249,7 +396,18 @@ function Targets({
     <Control
       title="Conversion targets"
       now={`${admin.treasury.targets.length}, ${admin.treasury.targets.map((t) => symbolOf(admin, t.token)).join(', ') || 'none'}`}
-      note="What the income is split into, and in what proportion. The weights are checked here so the contract's refusal is a shape nobody has to see."
+      note={<>
+        What the income is split into, and in what proportion. The weights are checked here so the contract&rsquo;s refusal is a shape nobody has to see.
+        {/* Only while it is true: the deploy sets these on mainnet alone, and
+            the owner may since have changed the mix. Read from the chain,
+            not from the form's unsaved rows. */}
+        {isDeployMix(admin.treasury.targets.map((t) => ({ symbol: symbolOf(admin, t.token), weightBps: t.weightBps }))) ? (
+          <>
+            <br />
+            Set by the deploy: NVDA, SPY, SPCX and AAPL at equal weights; change them here only for a different mix.
+          </>
+        ) : null}
+      </>}
     >
       {rows.map((r, i) => (
         <div className={s.form} key={`${r.token}:${i}`}>
@@ -475,57 +633,115 @@ function Floors({
   const [at, setAt] = useState(0);
   const [price, setPrice] = useState('');
   const pairs = admin.treasury.pairs;
-  const pair = pairs[at];
 
-  if (!pair) return null;
+  // PRICED BY THE POOLS (2026-09-24). Only a pair the Treasury cannot price
+  // from a pool's own history consults a floor, and `priceSource` says which
+  // those are. So the form is drawn for THOSE pairs and for no others: a
+  // floor written against a pool-priced pair would be read by nothing, and a
+  // form that invites one is a form that lies about what it does.
+  const floorPriced = pairs.filter((p) => needsFloor(p.source));
+  const pair = floorPriced[Math.min(at, floorPriced.length - 1)] ?? null;
+
+  if (pairs.length === 0) return null;
 
   let parsed: Amount | null = null;
   try { parsed = price.trim() === '' ? null : parseAvians(price); } catch { parsed = null; }
 
   const youAreKeeper = !!admin.you && admin.treasury.priceKeeper?.toLowerCase() === admin.you.toLowerCase();
-  const standing = pair.floorPriceE18;
+  const standing = pair?.floorPriceE18 ?? 0n;
   const keeperFloor = standing === 0n ? 0n
     : (standing * BigInt(10_000 - admin.treasury.maxKeeperDropBps)) / 10_000n;
 
   return (
     <Control
       title="Floor prices"
-      now={standing === 0n ? 'not set for this pair' : `${formatEth(standing)} per ${pair.targetSymbol}`}
-      note={<>A conversion refuses when the pair has no floor, or when the floor is older than the configured price age. Set to zero to clear one.</>}
+      now={floorPriced.length === 0
+        ? 'no floor is needed'
+        : `${floorPriced.length} of ${pairs.length} pairs keep one`}
+      note={<>A floor is consulted only where the Treasury cannot price a pair from a pool&rsquo;s own history. Every other pair reads its pool, and nothing here changes that.</>}
     >
-      <div className={s.form}>
-        <label className={s.field}>
-          <span className={s.label}>Pair</span>
-          <select className="select" value={at} onChange={(e) => setAt(whole(e.target.value) ?? 0)}>
-            {pairs.map((p, i) => (
-              <option key={`${p.currencySymbol}:${p.target}`} value={i}>
-                {p.currencySymbol} to {p.targetSymbol}
-                {p.floorPriceE18 === 0n ? ', no floor' : ''}
-              </option>
+      <div className="scroll-x" style={{ marginTop: 12 }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Pair</th>
+              <th>Priced by</th>
+              <th className="right">Floor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pairs.map((p) => (
+              <tr key={`${p.currencySymbol}:${p.target}`}>
+                <td>{p.currencySymbol} to {p.targetSymbol}</td>
+                <td className="small dim">{priceSourceLabel(p.source)}</td>
+                <td className="num">
+                  {!needsFloor(p.source)
+                    ? '\u2014'
+                    : p.floorPriceE18 === 0n
+                      ? 'not set'
+                      : `${formatEth(p.floorPriceE18)} ${p.targetSymbol} per ${p.currencySymbol}`}
+                </td>
+              </tr>
             ))}
-          </select>
-        </label>
-        <Field
-          label="Floor price, 1e18"
-          value={price}
-          placeholder="0.0"
-          invalid={price.trim() !== '' && parsed === null}
-          hint={pair.floorSetAt === 0 ? 'never set' : `set ${seconds(Math.max(0, Math.floor(Date.now() / 1000) - pair.floorSetAt))} ago`}
-          onChange={setPrice}
-        />
-        <ActionButton
-          actions={actions}
-          action={{
-            key: 'floor',
-            label: 'Set the floor',
-            disabled: parsed === null,
-            run: (on) => setFloorPrice(pair.currency, pair.target, parsed!, on),
-            outcome: () => 'Floor set.',
-          }}
-        />
+          </tbody>
+        </table>
       </div>
 
-      {youAreKeeper && !admin.isOwner ? (
+      {pair === null ? (
+        <div style={{ marginTop: 12 }}>
+          <Box tone="ok">
+            <p className="small" style={{ margin: 0 }}>
+              Every pair is priced by its pool; no floor is needed.
+            </p>
+          </Box>
+        </div>
+      ) : (
+        <>
+          <div className={s.form}>
+            <label className={s.field}>
+              <span className={s.label}>Pair</span>
+              <select className="select" value={Math.min(at, floorPriced.length - 1)} onChange={(e) => setAt(whole(e.target.value) ?? 0)}>
+                {floorPriced.map((p, i) => (
+                  <option key={`${p.currencySymbol}:${p.target}`} value={i}>
+                    {p.currencySymbol} to {p.targetSymbol}
+                    {p.floorPriceE18 === 0n ? ', no floor' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/*
+              THE DIRECTION, said in the label. The figure is how many target
+              tokens one unit of the currency buys — 3.24 NVDA per ETH — and
+              the label used to read "per NVDA", which is the reciprocal and
+              the wrong number by orders of magnitude.
+            */}
+            <Field
+              label={`Floor: ${pair.targetSymbol} per ${pair.currencySymbol}`}
+              value={price}
+              placeholder="0.0"
+              invalid={price.trim() !== '' && parsed === null}
+              hint={pair.floorSetAt === 0 ? 'never set' : `set ${seconds(Math.max(0, Math.floor(Date.now() / 1000) - pair.floorSetAt))} ago`}
+              onChange={setPrice}
+            />
+            <ActionButton
+              actions={actions}
+              action={{
+                key: 'floor',
+                label: 'Set the floor',
+                disabled: parsed === null,
+                run: (on) => setFloorPrice(pair.currency, pair.target, parsed!, on),
+                outcome: () => 'Floor set.',
+              }}
+            />
+          </div>
+          <p className="tiny dim" style={{ margin: '8px 0 0' }}>
+            Set to zero to clear one. A conversion of a floor-priced pair refuses when the floor is
+            missing, or older than the configured price age.
+          </p>
+        </>
+      )}
+
+      {youAreKeeper && !admin.isOwner && pair !== null ? (
         <div style={{ marginTop: 12 }}>
           <Note tone="warn">
             You are the price keeper, not the owner. A keeper may not drop a standing floor below{' '}
@@ -587,16 +803,18 @@ function KeeperForm({
           }}
         />
       </div>
-      {admin.treasury.priceKeeper === null ? (
-        <div style={{ marginTop: 12 }}>
-          <Box tone="warn">
-            <p className="small" style={{ margin: 0 }}>
-              No keeper is set, so only the owner can refresh a floor price: and a floor older
-              than {seconds(admin.treasury.conversion.maxPriceAge)} stops conversions.
-            </p>
-          </Box>
-        </div>
-      ) : <Tag>Keeper set</Tag>}
+      {admin.treasury.priceKeeper !== null ? <Tag>Keeper set</Tag>
+        : admin.treasury.pairs.some((p) => needsFloor(p.source)) ? (
+          <div style={{ marginTop: 12 }}>
+            <Box tone="warn">
+              <p className="small" style={{ margin: 0 }}>
+                No keeper is set, so only the owner can refresh a floor price: and a floor older
+                than {seconds(admin.treasury.conversion.maxPriceAge)} stops conversions of the
+                pairs that use one.
+              </p>
+            </Box>
+          </div>
+        ) : null}
     </>
   );
 }

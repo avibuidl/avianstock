@@ -46,7 +46,11 @@ const GOOD = () => ({
   multicall3: null,
   sweeper: null,
   aviansStaking: '0xa5a5111111111111111111111111111111111111',
+  lockerRewards: '0x10ce333333333333333333333333333333333333',
+  unveiled: { vaults: false, traitMarket: false },
+  usd: null,
   roost: '0xb0b0222222222222222222222222222222222222',
+  council: '0xc0c0333333333333333333333333333333333333',
   startBlock: 100,
   allowlistProofs: null,
 } as Record<string, unknown>);
@@ -190,11 +194,11 @@ test('a sweeper on one of the seven’s addresses is a paste error, and is named
 
 // ── the Roost pair (2026-09-18) ──────────────────────────────────────────
 
-test('aviansStaking and roost are required, and null is not an answer', () => {
-  for (const key of ['aviansStaking', 'roost']) {
+test('aviansStaking, lockerRewards and roost are required, and null is not an answer', () => {
+  for (const key of ['aviansStaking', 'lockerRewards', 'roost']) {
     const gone = GOOD(); delete gone[key];
     assert.deepEqual(paths(gone), [key], `${key} missing`);
-    assert.match(validateManifest(gone, 'local-fork').problems[0].says, /predates 2026-09-18/);
+    assert.match(validateManifest(gone, 'local-fork').problems[0].says, key === 'lockerRewards' ? /predates 2026-09-20/ : /predates 2026-09-18/);
     const nul = GOOD(); nul[key] = null;
     assert.deepEqual(paths(nul), [key], `${key} null`);
   }
@@ -218,6 +222,8 @@ test('a Roost on one of the seven’s, the sweeper’s or the staking’s addres
   assert.ok(validateManifest(onSweeper, 'local-fork').problems.some((p) => p.path === 'aviansStaking' && /same address as sweeper/.test(p.says)));
   const same = GOOD(); same.roost = same.aviansStaking;
   assert.ok(validateManifest(same, 'local-fork').problems.some((p) => p.path === 'roost' && /same address as aviansStaking/.test(p.says)));
+  const lockersOnRoost = GOOD(); lockersOnRoost.lockerRewards = lockersOnRoost.roost;
+  assert.ok(validateManifest(lockersOnRoost, 'local-fork').problems.some((p) => p.path === 'lockerRewards' && /same address as roost/.test(p.says)));
 });
 
 test('a manifest that still carries a lens is stale, and is refused rather than tolerated', () => {
@@ -376,7 +382,7 @@ test('every deployment the committed index lists exists on disk and is a manifes
 
 // ── the generator, and where the token comes from ─────────────────────────
 //
-// MAINNET-RUNBOOK step 0 lets the founder put AVIANS on chain weeks early, to
+// MAINNET-RUNBOOK step 0 lets the founder put AVIAN on chain weeks early, to
 // publish its address; step 1's Deploy.s.sol then reuses it and its broadcast
 // has no Avians CREATE. The generator must take the token from whichever
 // broadcast has it, and must not pick when both do and they differ — that is
@@ -393,8 +399,8 @@ const GENERATOR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'script
 const CHAIN = 4663;
 
 const A = (n: number) => `0x${n.toString(16).padStart(40, '0')}`;
-// The eight beside the token (2026-09-18: AviansStaking and TheRoost joined, between the Treasury and the Perch).
-const SIX = { TraitRegistry: A(2), BirdRenderer: A(3), TheNest: A(4), Treasury: A(5), AviansStaking: A(8), TheRoost: A(9), ThePerch: A(6), AvianStock: A(7) };
+// The nine beside the token (2026-09-18: AviansStaking and TheRoost joined, between the Treasury and the Perch; 2026-09-20: LockerRewards, one nonce before the Roost).
+const SIX = { TraitRegistry: A(2), BirdRenderer: A(3), TheNest: A(4), Treasury: A(5), AviansStaking: A(8), LockerRewards: A(0x8a), TheRoost: A(9), ThePerch: A(6), AvianStock: A(7) };
 const EARLY = A(0x1a);   // the token from step 0
 const HERE = A(0x1b);    // a token Deploy.s.sol would create itself
 
@@ -446,17 +452,23 @@ test('the token from DeployAvians.s.sol when it went first and Deploy.s.sol reus
   assert.match(r.manifest!.generated.from, /DeployAvians\.s\.sol.*Deploy\.s\.sol/, 'the manifest records both sources');
 });
 
-test('the Roost pair is read from the deploy broadcast into its own two fields, and a broadcast without them is refused', () => {
+test('the Roost’s three are read from the deploy broadcast into their own fields, and a broadcast without them is refused', () => {
   const r = generate({ 'Deploy.s.sol': run({ Avians: HERE, ...SIX }) });
   assert.equal(r.status, 0, r.stderr);
-  const m = r.manifest as unknown as { roost: string; aviansStaking: string };
+  const m = r.manifest as unknown as { roost: string; aviansStaking: string; lockerRewards: string };
   assert.equal(m.roost, A(9));
   assert.equal(m.aviansStaking, A(8));
+  assert.equal(m.lockerRewards, A(0x8a));
   const { TheRoost: _r, ...old } = SIX;
   const stale = generate({ 'Deploy.s.sol': run({ Avians: HERE, ...old }) });
   assert.equal(stale.status, 1);
   assert.match(stale.stderr, /no CREATE for TheRoost/);
   assert.match(stale.stderr, /predates the Roost/);
+  const { LockerRewards: _l, ...noLockers } = SIX;
+  const older = generate({ 'Deploy.s.sol': run({ Avians: HERE, ...noLockers }) });
+  assert.equal(older.status, 1);
+  assert.match(older.stderr, /no CREATE for LockerRewards/);
+  assert.match(older.stderr, /lockers' leg/);
 });
 
 test('two different tokens is refused, naming both files and both addresses', () => {
@@ -466,7 +478,7 @@ test('two different tokens is refused, naming both files and both addresses', ()
   });
   assert.equal(r.status, 1);
   assert.equal(r.manifest, null, 'nothing is printed as a manifest');
-  assert.match(r.stderr, /Two AVIANS tokens/);
+  assert.match(r.stderr, /Two AVIAN tokens/);
   assert.ok(r.stderr.includes(EARLY) && r.stderr.includes(HERE), 'both addresses are in the refusal');
   assert.match(r.stderr, /DeployAvians\.s\.sol/);
   assert.match(r.stderr, /AVIARY_AVIANS/, 'it says what was most likely missed');

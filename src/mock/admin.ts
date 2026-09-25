@@ -20,7 +20,7 @@ import {
   ADDRESSES, FREE_ALLOCATION, LOCK_SECONDS, MIN_PRICE, PRICE, REWARD_TARGET_BPS,
   REWARD_TOKENS, STOCK_REWARD_TOKENS, YOU, overlay, world,
 } from './fixtures';
-import { read } from './reads';
+import { mockOpening, read } from './reads';
 import { requireChain, sleep } from './wallet';
 
 const NOT_YOU = '0x00000000000000000000000000000000000000A1' as Address;
@@ -30,6 +30,8 @@ const e18 = (n: number | bigint) => BigInt(n) * 10n ** 18n;
 // loaded lazily — it is part of the owner chunk — so it cannot register a
 // subscription at start-up, and it does not need one.
 import { settled } from './writes';
+import { firstByAddress } from '../lib/dedupe';
+import { PRICE_FLOOR, PRICE_NONE, PRICE_V3_MEAN } from '../lib/pricing';
 
 function hash(): Hex {
   let h = '0x';
@@ -98,29 +100,59 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
       token: t.address, weightBps: REWARD_TARGET_BPS[i],
     }));
 
-    const pairs: AdminPairRow[] = STOCK_REWARD_TOKENS.map((t, i) => ({
-      currency: null,
-      currencySymbol: 'ETH',
-      target: t.address,
-      targetSymbol: t.symbol,
-      // One target deliberately has no route and no floor: it is the state an
-      // owner has to be able to spot, because it is why a conversion that looks
-      // configured refuses.
-      venue: i === 3 ? 0 : 1,
-      floorPriceE18: i === 3 ? 0n : e18(1) / BigInt(i + 2),
-      floorSetAt: i === 3 ? 0 : now - 900,
-    }));
+    // PRICED BY THE POOLS (2026-09-24). On the launch set every routed pair
+    // reads its own pool's half-hour mean, so no floor is needed and none is
+    // written; one scene gives a pair no pool history, which is the only
+    // state in which the floor form appears at all. The unrouted target keeps
+    // its place: it is the state an owner has to be able to spot, because it
+    // is why a conversion that looks configured refuses.
+    const floorPriced = s.treasury === 'floor-priced-pair';
+    const pairs: AdminPairRow[] = STOCK_REWARD_TOKENS.map((t, i) => {
+      const source = i === 3 ? PRICE_NONE
+        : floorPriced && i === 1 ? PRICE_FLOOR
+          : PRICE_V3_MEAN;
+      return {
+        currency: null,
+        currencySymbol: 'ETH',
+        target: t.address,
+        targetSymbol: t.symbol,
+        venue: i === 3 ? 0 : 1,
+        source,
+        // Only a floor-priced pair has a floor, and a fresh set has not had
+        // one written yet: the form is how it gets there.
+        floorPriceE18: source === PRICE_FLOOR ? e18(1) / BigInt(i + 2) : 0n,
+        floorSetAt: source === PRICE_FLOOR ? now - 900 : 0,
+      };
+    });
+
+    // The AVIAN pool's readings, as the public card reads them.
+    const readings = {
+      window: 1_800,
+      maxAge: 604_800,
+      lastAt: s.treasury === 'readings-absent' ? 0
+        : s.treasury === 'readings-too-young' ? now - 420
+          : now - 5_400,
+      prevAt: s.treasury === 'readings-absent' || s.treasury === 'readings-too-young' ? 0 : now - 9_000,
+      refusal: s.treasury === 'readings-absent' || s.treasury === 'readings-too-young'
+        ? 'NoUsableReading' : null,
+    };
 
     const ethIn = 4_182_000_000_000_000_000n;
+    // The Roost's tenth (2026-09-22): 10% of everything that arrived, 60% of
+    // it spent so far, the rest what the next buy would spend.
+    const roostSpent = ((ethIn * 1000n) / 10_000n * 6n) / 10n;
+    const roostBuyable = (ethIn * 1000n) / 10_000n - roostSpent;
     const ethClaimable = (ethIn * 2000n) / 10000n;
-    const rows: TreasuryRow[] = [
+    // AVIAN is also a listed reward token, so the list is deduped by address
+    // with the Treasury's own AVIAN row first, as the chain read does.
+    const rows: TreasuryRow[] = firstByAddress([
       {
         currency: null, symbol: 'ETH', decimals: 18,
         cumulativeIn: ethIn, balance: ethIn - 2_400_000_000_000_000_000n,
         claimable: ethClaimable, convertible: 356_400_000_000_000_000n,
       },
       {
-        currency: ADDRESSES.Avians, symbol: 'AVIANS', decimals: 18,
+        currency: ADDRESSES.Avians, symbol: 'AVIAN', decimals: 18,
         cumulativeIn: e18(2_140_000), balance: e18(2_140_000),
         claimable: e18(2_140_000), convertible: 0n,
       },
@@ -128,7 +160,7 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
         currency: t.address, symbol: t.symbol, decimals: t.decimals,
         cumulativeIn: 0n, balance: 0n, claimable: 0n, convertible: 0n,
       })),
-    ];
+    ] as TreasuryRow[], (r) => r.currency);
 
     return {
       you: who,
@@ -173,13 +205,25 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
       },
       treasury: {
         rows,
+        // The Roost's tenth (2026-09-22): the fixture's own figures, the same
+        // arithmetic the public card's read does, so the two cannot disagree.
+        roost: {
+          buyable: roostBuyable,
+          everSpent: roostSpent,
+          everBought: roostSpent * 2_000_000n,
+          lastBuyAt: roostSpent === 0n ? 0 : now - 200_000,
+          nextAllowedAt: roostSpent === 0n ? 0 : now - 200_000 + 86_400,
+          sharesBps: { admin: 2000, rewards: 7000, roost: 1000 },
+        },
+        // The figures a Treasury is born with (2026-09-24): nobody sets them
+        // to begin, and the owner's flag only pauses.
         conversion: {
-          enabled: true,
+          enabled: s.treasury !== 'paused',
           minInterval: overlay.conversionMinInterval ?? 86_400,
           maxPerCallBps: 2_000,
-          slippageBps: 100,
-          streamDuration: 7 * 86_400,
-          maxPriceAge: 3_600,
+          slippageBps: 300,
+          streamDuration: 604_800,
+          maxPriceAge: 86_400,
         },
         bounds: {
           minIntervalFloor: 86_400,
@@ -194,6 +238,8 @@ export function getAdmin(who: Address | null): Promise<AdminState> {
         },
         targets,
         pairs,
+        readings,
+        opening: mockOpening(s.treasury, now),
         priceKeeper: NOT_YOU,
         maxKeeperDropBps: 500,
       },
@@ -272,10 +318,6 @@ export const setAllowlisted = (_a: Address[], _b: boolean, on?: OnPhase) => send
 /** Actually sets it, so the pages that read `price` visibly follow. */
 export const setPrice = (price: Amount, on?: OnPhase) =>
   send(on, () => { overlay.price = price; return {}; });
-export const setDefaultRoyalty = (_r: Address, bps: number, on?: OnPhase) =>
-  send(on, () => { overlay.royaltyBps = bps; return {}; });
-export const deleteDefaultRoyalty = (on?: OnPhase) =>
-  send(on, () => { overlay.royaltyBps = 0; return {}; });
 export const setRenderer = (_r: Address, on?: OnPhase) => send(on, () => ({}));
 export const setTransferValidator = (_v: Address, on?: OnPhase) => send(on, () => ({}));
 
@@ -304,7 +346,7 @@ export async function configureTransferValidator(op: ValidatorOperation, on?: On
 
 export async function rescueFromCollection(token: Address | null, _to: Address, on?: OnPhase) {
   if (token && token.toLowerCase() === ADDRESSES.Avians.toLowerCase()) {
-    // Everything the collection holds in AVIANS is the free mint's backing.
+    // Everything the collection holds in AVIAN is the free mint's backing.
     throw new ContractError('NothingToRescue');
   }
   return send(on, () => ({}));

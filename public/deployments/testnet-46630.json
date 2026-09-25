@@ -18,15 +18,15 @@
     ]
   },
   "contracts": {
-    "Avians": "0xae9c597e6c3e2e7f54425528a3113fce5e11cb80",
-    "TraitRegistry": "0xc48e1934b540fdbba301b63123c2d4f3c1848af3",
-    "BirdRenderer": "0x89dafb547f01840fbcffe9a57bad76dd85ee5989",
-    "TheNest": "0xeadc5ce9b84d09fcb25be3339ef458bc457fff8f",
-    "Treasury": "0x133b18d9130655f6f02ecc5ae4f255cc88e22e87",
-    "ThePerch": "0x322709b7ba834441cec6de0f5a3a93c031022bc6",
-    "AvianStock": "0xf45e93cc501edba262d94fe1c1bf82b74d5cb152",
-    "AviansHook": "0x44f7dee7e115fd20d76af3d3463716099f1160cc",
-    "LiquidityVault": "0x9e2bd31c5103dbb4a13cef5a4208bab92e44a6aa"
+    "Avians": "0x7ef87c646157aec3f75a6ff3c56bf1741ae08a92",
+    "TraitRegistry": "0x79447e00d64cb3baee6ea3ed69156b385a5fd858",
+    "BirdRenderer": "0x40565f938c8faf4ea11f65d01fcfdc319ace52c1",
+    "TheNest": "0xaa9590931f3fc6dc7151d727b46b59842f28a020",
+    "Treasury": "0x606ad846d9ee082e78bfd1f1be2e73d227ac0723",
+    "ThePerch": "0xd8d16705c8fa78b58749bc8f583418dc88f7c5ac",
+    "AvianStock": "0xd69a8eac17894abd45a02e20659aee8f52f77f26",
+    "AviansHook": "0xe5f964d3f421ad711a8350655eb661f0aacc20cc",
+    "LiquidityVault": "0xd5167104dd7466fabeaa501d8f7c04a57af9b86b"
   },
   "thirdParty": {
     "PoolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
@@ -37,13 +37,20 @@
     "StateView": "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b"
   },
   "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
-  "sweeper": "0x6c75d97f1e1dd8db0efb7a95ed3161254312d5c0",
-  "aviansStaking": "0x63a6c9de7d5c3448f7a0b95c7b3570c3461ceb67",
-  "roost": "0xbe99bb771876d7952e28f481fca2956e2e913cdc",
-  "startBlock": 121665563,
+  "sweeper": "0xf4524be3ba1bb53fef26d83a85d905f85d423625",
+  "aviansStaking": "0xed5c1a8cf0f74d0420f0a6092fe56d9ad6ffa6cb",
+  "lockerRewards": "0xf84d521901c2d2ef34f1365def02fdd00a7e444e",
+  "roost": "0xbd5debbe93fd849c586f8156a2b957742aac56df",
+  "council": "0x6647a2000390a6f0888148b4bee2871e0407043a",
+  "startBlock": 123811041,
   "allowlistProofs": null,
+  "unveiled": {
+    "vaults": false,
+    "traitMarket": false
+  },
+  "usd": null,
   "generated": {
-    "at": "2026-09-19T11:47:45.631Z",
+    "at": "2026-09-25T07:25:04.076Z",
     "from": "../contracts/broadcast/Deploy.s.sol/46630/run-latest.json + ../contracts/broadcast/DeployLaunch.s.sol/46630/run-latest.json + ../contracts/broadcast/DeploySweeper.s.sol/46630/run-latest.json"
   }
 }

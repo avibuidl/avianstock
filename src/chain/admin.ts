@@ -27,8 +27,12 @@ import {
 } from './abis.admin.generated';
 import { encodeAbiParameters, encodeFunctionData, isAddress, keccak256 } from 'viem';
 import { guard, proofFor, selectorToName, tokenMeta } from './reads';
+import { asContractError } from './errors';
+import { sourceWithoutPriceSource } from '../lib/pricing';
+import { firstByAddress } from '../lib/dedupe';
 import type {
   AdminContract, AdminPairRow, AdminRewardToken, AdminRoute, AdminState, AdminTargetRow,
+  AdminTreasury,
   Address, AllowlistCheck, Amount, ForeignToken, Hex, RewardToken, TreasuryRow, V3Hop, V4Hop,
   ValidatorOperation,
 } from '../mock/types';
@@ -120,8 +124,12 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
     const listed = await readMany<Address[]>([nest('listedRewardTokens')], a)
       .then((r) => r[0] as Address[]);
 
-    // The Treasury's currencies: native, AVIANS, and every listed reward token.
-    const currencies: Address[] = [ZERO_ADDRESS, c.Avians, ...listed];
+    // The Treasury's currencies: native, AVIAN, and every listed reward token.
+    // AVIAN is itself a listed reward token (since 2026-09-18), so the list
+    // is deduped by address, the Treasury's own entry first.
+    const currencies: Address[] = firstByAddress(
+      [ZERO_ADDRESS, c.Avians, ...listed] as Address[], (x) => (x === ZERO_ADDRESS ? null : x),
+    );
     const erc20 = currencies.filter((x) => x !== ZERO_ADDRESS);
     const meta = await tokenMeta([...new Set([...erc20, ...listed])], a);
 
@@ -152,6 +160,53 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
         ], a),
         balancesOf(currencies, c.Treasury, a),
       ]);
+
+    // THE ROOST'S TENTH (2026-09-22), with `allowFailure`: a Treasury that
+    // predates the leg answers none of these and the panel shows the two
+    // shares it has. The same reads the public card makes.
+    const roostReads = [
+      tre('roostBuyable'), tre('roostOut', [ZERO_ADDRESS]), tre('aviansToRoost'), tre('lastRoostBuyAt'),
+      tre('ADMIN_SHARE_BPS'), tre('REWARDS_SHARE_BPS'), tre('ROOST_SHARE_BPS'),
+    ];
+    // PRICED BY THE POOLS (2026-09-24): the AVIAN pool's two readings, the
+    // window a buy averages over, and `roostMeanTick` tried for its revert —
+    // the owner page offers TAKE A READING from that name and from nothing
+    // else. Same `allowFailure` batch, same reason.
+    const readingReads = [
+      tre('lastReading'), tre('prevReading'), tre('TWAP_WINDOW'), tre('READING_MAX_AGE'),
+      tre('roostMeanTick'),
+    ];
+    // OPEN BY THE CLOCK (2026-09-24): the Conversion control says what the
+    // clock says beside the pause, because the pause is all it controls.
+    const openingReads = [tre('conversionsOpenAt'), tre('conversionsOpen')];
+    const roostAnswers = await tryReadMany<unknown>([...roostReads, ...readingReads, ...openingReads], a);
+    const roostFigure = (i: number): bigint | null => {
+      const x = roostAnswers[i];
+      if (!x.ok) return null;
+      if (typeof x.value === 'bigint') return x.value;
+      return typeof x.value === 'number' && Number.isInteger(x.value) ? BigInt(x.value) : null;
+    };
+    const roostFigures = roostReads.map((_, i) => roostFigure(i));
+
+    const readingAt = (i: number): number | null => {
+      const x = roostAnswers[i];
+      if (!x.ok || !Array.isArray(x.value)) return null;
+      return Number(x.value[1] ?? 0); /* count */ // a uint32 second
+    };
+    const rn = roostReads.length;
+    const readingLastAt = readingAt(rn);
+    const readingPrevAt = readingAt(rn + 1);
+    const readingWindow = roostFigure(rn + 2);
+    const meanAnswer = roostAnswers[rn + 4];
+    const readings: AdminTreasury['readings'] = readingLastAt !== null && readingPrevAt !== null && readingWindow !== null
+      ? {
+        window: Number(readingWindow), /* count */
+        maxAge: Number(roostFigure(rn + 3) ?? 604_800n), /* count */
+        lastAt: readingLastAt,
+        prevAt: readingPrevAt,
+        refusal: meanAnswer.ok ? null : asContractError(meanAnswer.error).errorName,
+      }
+      : null;
 
     const perCurrency = await readMany<bigint>(
       currencies.flatMap((currency) => [
@@ -206,14 +261,27 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
     // one of these per split, so the owner has to be able to see all of them —
     // an unset floor or a missing route is the commonest reason a conversion
     // that should work does not.
+    //
+    // `priceSource` arrived on 2026-09-24 and a Treasury deployed before it
+    // answers nothing, so these go through `allowFailure`: one missing getter
+    // must not take the other three down and blank the whole control. Where
+    // it does not answer, the pair is read as the old contract behaved — a
+    // routed pair consults a written floor, an unrouted one has no price at
+    // all — so the panel on an older deployment is exactly what it was.
     const pairCalls = currencies.flatMap((currency) => targets.map((t) => ({ currency, target: t.token })));
-    const pairData = pairCalls.length
-      ? await readMany<unknown>(pairCalls.flatMap(({ currency, target }) => [
+    const pairAnswers = pairCalls.length
+      ? await tryReadMany<unknown>(pairCalls.flatMap(({ currency, target }) => [
         tre('routeVenue', [currency, target]),
         tre('floorPrice', [currency, target]),
         tre('floorPriceSetAt', [currency, target]),
+        tre('priceSource', [currency, target]),
       ]), a)
       : [];
+    const pairData = pairAnswers.map((x) => (x.ok ? x.value : null));
+    const sourceAt = (i: number): number => {
+      const answered = pairAnswers[i * 4 + 3];
+      return answered.ok ? num(answered.value) : sourceWithoutPriceSource(num(pairData[i * 4]));
+    };
     const pairs: AdminPairRow[] = pairCalls.map(({ currency, target }, i) => ({
       currency: currency === ZERO_ADDRESS ? null : currency,
       currencySymbol: currency === ZERO_ADDRESS
@@ -221,9 +289,10 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
         : meta.get(currency.toLowerCase())?.symbol ?? '—',
       target,
       targetSymbol: meta.get(target.toLowerCase())?.symbol ?? '—',
-      venue: num(pairData[i * 3]),
-      floorPriceE18: pairData[i * 3 + 1] as bigint,
-      floorSetAt: num(pairData[i * 3 + 2]),
+      venue: num(pairData[i * 4]),
+      floorPriceE18: (pairData[i * 4 + 1] ?? 0n) as bigint,
+      floorSetAt: num(pairData[i * 4 + 2]),
+      source: sourceAt(i),
     }));
 
     const rewards: AdminRewardToken[] = listed.map((token, i) => {
@@ -297,6 +366,20 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
       },
       treasury: {
         rows,
+        roost: roostFigures.every((x) => x !== null)
+          ? {
+            buyable: roostFigures[0]!,
+            everSpent: roostFigures[1]!,
+            everBought: roostFigures[2]!,
+            lastBuyAt: Number(roostFigures[3]!), /* count */
+            nextAllowedAt: roostFigures[3]! === 0n ? 0 : Number(roostFigures[3]!) + cfg.minInterval, /* count */
+            sharesBps: {
+              admin: Number(roostFigures[4]!), /* count */
+              rewards: Number(roostFigures[5]!), /* count */
+              roost: Number(roostFigures[6]!), /* count */
+            },
+          }
+          : null,
         conversion: cfg,
         bounds: {
           minIntervalFloor: num(treasuryReads[4]),
@@ -314,6 +397,15 @@ export async function getAdmin(who: Address | null, at?: At): Promise<AdminState
         },
         targets,
         pairs,
+        readings,
+        opening: (() => {
+          const o = roostReads.length + readingReads.length;
+          const openAt = roostFigure(o);
+          const open = roostAnswers[o + 1];
+          return openAt !== null && open.ok
+            ? { openAt: Number(openAt), enabled: cfg.enabled, open: open.value === true } /* count */
+            : null;
+        })(),
         priceKeeper: orNull(treasuryReads[2]),
         maxKeeperDropBps: num(treasuryReads[3]),
       },
@@ -400,7 +492,7 @@ function int24At(word: bigint, shift: bigint): number {
  * both int24 (PositionInfoLibrary). The pool id is the keccak of the encoded
  * key.
  *
- * Which is ETH and which is AVIANS is read off the key rather than assumed:
+ * Which is ETH and which is AVIAN is read off the key rather than assumed:
  * currency0 is the lower address and the native currency is address zero, so
  * it is always currency0 — but "always" is the kind of word this file avoids.
  */
@@ -562,11 +654,11 @@ function refusalFor(holder: AdminContract, token: Address): string | null {
   const c = contracts();
   const is = (x: Address | null) => !!x && x.toLowerCase() === token.toLowerCase();
   if (holder === 'ThePerch') {
-    if (is(c.Avians)) return 'The perch refuses AVIANS by address — it is the pool.';
+    if (is(c.Avians)) return 'The perch refuses AVIAN by address — it is the pool.';
     if (is(c.AvianStock)) return 'The perch refuses the collection by address.';
   }
   if (holder === 'AvianStock' && is(c.Avians)) {
-    return 'Only the AVIANS above what the free mint requires as backing can leave.';
+    return 'Only the AVIAN above what the free mint requires as backing can leave.';
   }
   return null;
 }

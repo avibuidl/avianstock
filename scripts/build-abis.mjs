@@ -66,6 +66,8 @@ const SOURCES = [
     export: 'avianStockAbi',
     file: 'AvianStock.sol/AvianStock.json',
     functions: [
+      // THE COUNCIL (2026-09-24): the second key's seat, one address everywhere.
+      'council',
       // ERC-721
       'name', 'symbol', 'tokenURI', 'ownerOf', 'balanceOf',
       'isApprovedForAll', 'setApprovalForAll', 'safeTransferFrom', 'transferFrom',
@@ -74,13 +76,16 @@ const SOURCES = [
       // `totalSupply` is `totalMinted - burned` since the Perch started
       // burning, so anything comparing the two needs both.
       'totalMinted', 'burned', 'totalSupply', 'MAX_SUPPLY', 'WALLET_LIMIT', 'mintedBy',
-      'mintOpen', 'price', 'MIN_PRICE', 'AVIANS', 'MINT_SINK', 'registry', 'NEST',
+      'mintOpen', 'price', 'MIN_PRICE', 'AVIAN', 'MINT_SINK', 'registry', 'NEST',
       // Who holds what (2026-09-11). These were a separate lens for one day;
       // they are the collection's own views now, one SLOAD per id. Ids
       // 1-based, `stop` inclusive and free past `totalMinted`. Pages of at
       // most 2,000, each its own eth_call — see `readEach` in chain/client.ts.
       'tokensOfOwnerIn', 'ownersOf',
       'comboTaken', 'tokenCombo', 'traitsOf',
+      // As minted, and ever swapped (2026-09-21): two answers to two
+      // questions, listed after the six traits wherever the site lists them.
+      'isMintCombo', 'recomposed', 'mintCombo',
       // the bird's own wallet
       'accountOf', 'createAccount', 'ERC6551_REGISTRY', 'ACCOUNT_IMPLEMENTATION',
       'ACCOUNT_SALT',
@@ -90,6 +95,9 @@ const SOURCES = [
       // draw the owner's link. Reading WHO the owner is protects nothing; the
       // split is about the owner-only WRITES, and none of those are here.
       'owner', 'pendingOwner',
+      // THE OWNER'S SEAT (2026-09-24): its clock, public. The council may
+      // seat any key once `silentAt()` has passed.
+      'lastSeenAt', 'silentAt', 'SILENCE',
       // the free mint
       'freeMintOpen', 'FREE_ALLOCATION', 'freeMinted', 'reservedFree',
       'paidRemaining', 'requiredBacking', 'freeClaimed', 'allowlisted',
@@ -106,20 +114,22 @@ const SOURCES = [
       // the two doors, the list, the price
       'setMintOpen', 'setFreeMintOpen', 'setAllowlistRoot', 'setAllowlisted',
       'releaseFreeAllocation', 'setPrice',
-      // royalties, the art, enforcement
-      'setDefaultRoyalty', 'deleteDefaultRoyalty',
+      // the art, enforcement. The royalty left this list on 2026-09-24: it is
+      // the council's, and the Owner page shows it as a line.
       'setRenderer', 'lockRenderer', 'setTransferValidator', 'lockTransferValidator',
       'configureTransferValidator',
       // the sweep
       'rescue',
       // ownership, two-step everywhere
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
+      // THE OWNER'S SEAT (2026-09-24): a sign of life. A proposal is one too.
+      'stillHere',
       // and everything that reads back what the above set
       'mintOpen', 'freeMintOpen', 'price', 'MIN_PRICE', 'allowlistRoot', 'allowlisted',
       'renderer', 'rendererLocked', 'getTransferValidator', 'transferValidatorLocked',
       'freeAllocationReleased', 'freeReleaseAvailableAt', 'freeMintOpenedAt',
       'freeMinted', 'FREE_ALLOCATION', 'FREE_RELEASE_DELAY', 'requiredBacking',
-      'royaltyInfo', 'AVIANS', 'MINT_SINK',
+      'royaltyInfo', 'AVIAN', 'MINT_SINK',
     ],
   },
   {
@@ -134,6 +144,9 @@ const SOURCES = [
       'quoteSell', 'quoteBuyNext', 'quoteBuy',
       'sell', 'buyNext', 'buy',
       'owner', 'pendingOwner',
+      // THE OWNER'S SEAT (2026-09-24): its clock, public. The council may
+      // seat any key once `silentAt()` has passed.
+      'lastSeenAt', 'silentAt', 'SILENCE',
       // One bird in every hundred deposited is burnt — while more than
       // BURN_FLOOR birds are alive. Below the floor `burnsActive` is false,
       // the countdown reads 0 (meaning "no burns", never "next sale burns"),
@@ -146,6 +159,8 @@ const SOURCES = [
     admin: [
       'setFeeRecipient', 'rescueERC20',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
+      // THE OWNER'S SEAT (2026-09-24): a sign of life. A proposal is one too.
+      'stillHere',
       'feeRecipient', 'avians', 'nft',
     ],
   },
@@ -155,10 +170,12 @@ const SOURCES = [
     // BROODING, NOT STAKING (2026-09-11). Nothing is sent anywhere: a bird
     // broods in its holder's wallet, the tier cost is burned, and rewards are
     // delivered wherever `deliveryOf` says — the bird's own wallet by default,
-    // or the activator's by choice. The only approval is AVIANS to the Nest.
+    // or the activator's by choice. The only approval is AVIAN to the Nest.
     // There is no bird approval and never a reason to ask for one.
     functions: [
-      'COLLECTION', 'AVIANS',
+      // THE COUNCIL (2026-09-24): the second key's seat, one address everywhere.
+      'council',
+      'COLLECTION', 'AVIAN',
       'TIER_1_COST', 'TIER_2_COST', 'TIER_3_COST', 'tierCost', 'MAX_TIER',
       // the brood, per bird
       'broodOf', 'isBrooding', 'weightOf', 'deliveryOf', 'earned', 'pending',
@@ -175,6 +192,9 @@ const SOURCES = [
       // the writes — every one a holder's own
       'brood', 'broodTo', 'upgrade', 'redirect', 'settle', 'claim', 'donate',
       'owner', 'pendingOwner',
+      // THE OWNER'S SEAT (2026-09-24): its clock, public. The council may
+      // seat any key once `silentAt()` has passed.
+      'lastSeenAt', 'silentAt', 'SILENCE',
     ],
     events: [
       'Brooded', 'Upgraded', 'Redirected', 'Expired', 'Settled', 'ExpirySettled',
@@ -188,6 +208,8 @@ const SOURCES = [
       // There is no other reason for a bird to be there.
       'addRewardToken', 'retireRewardToken', 'restream', 'setFunder', 'rescueBird',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
+      // THE OWNER'S SEAT (2026-09-24): a sign of life. A proposal is one too.
+      'stillHere',
       'listedRewardTokens', 'isRewardToken', 'wasEverRewardToken', 'isFunder',
       // `rewardTokenCount` is what the panel shows against MAX_REWARD_TOKENS.
       // It was on the collector list only, and the panel's multicall threw
@@ -200,33 +222,51 @@ const SOURCES = [
   {
     export: 'theRoostAbi',
     file: 'TheRoost.sol/TheRoost.json',
-    // THE ROOST (2026-09-18). Where every AVIANS fee lands — the whole of every
-    // Perch fee and every brooding tier cost — split 40% to AVIANS stakers,
-    // 30% to brooding birds through the Nest, 20% burnt, 10% the admin's.
-    // Anyone may turn it once a day; the site offers the turn when it is due.
+    // THE ROOST (2026-09-18). Where every AVIAN fee lands — the whole of every
+    // Perch fee and every brooding tier cost — and is split five ways
+    // (2026-09-20): this week's three figures (35 / 30 / 20, rotating weekly
+    // between AVIAN stakers, brooding birds through the Nest, and the users
+    // of the vault products through LockerRewards), 10% the admin's, 5%
+    // burnt. Anyone may turn it once a day; the site offers the turn when it
+    // is due, and `deliverHeld` any time a held leg can move.
     functions: [
+      // THE COUNCIL (2026-09-24): the second key's seat, one address everywhere.
+      'council',
       'cumulativeIn', 'unallocated', 'allocated',
-      'stakingHeld', 'nestHeld', 'stakingReady', 'nestReady',
-      'toStaking', 'toNest', 'burned', 'adminClaimed', 'adminClaimable',
+      'stakingHeld', 'nestHeld', 'lockersHeld', 'stakingReady', 'nestReady', 'lockersReady',
+      'toStaking', 'toNest', 'toLockers', 'burned', 'adminClaimed', 'adminClaimable',
       'nextDistributionAt', 'lastDistribution', 'MIN_INTERVAL',
-      'STAKING_BPS', 'NEST_BPS', 'BURN_BPS', 'ADMIN_BPS', 'LEG_STAKING', 'LEG_NEST',
-      'NEST', 'STAKING', 'AVIANS', 'admin',
+      // the rotation: this week's figures, any second's, and when it next moves
+      'currentSplit', 'splitAt', 'nextRotationAt', 'weekAt', 'slotAt', 'GENESIS', 'WEEK',
+      'HIGH_BPS', 'MID_BPS', 'LOW_BPS', 'BURN_BPS', 'ADMIN_BPS',
+      'LEG_STAKING', 'LEG_NEST', 'LEG_LOCKERS',
+      'NEST', 'STAKING', 'LOCKERS', 'AVIAN', 'admin',
       'distribute', 'deliverHeld',
     ],
     events: ['Allocated', 'Delivered', 'Held', 'Burned', 'AdminClaimed'],
     // The admin's tenth. `rescueERC20` is owner tooling and stays off both.
-    admin: ['claimAdmin', 'admin', 'adminClaimable', 'adminClaimed', 'NEST', 'STAKING', 'AVIANS'],
+    admin: ['claimAdmin', 'admin', 'adminClaimable', 'adminClaimed', 'NEST', 'STAKING', 'LOCKERS', 'AVIAN'],
+  },
+  {
+    export: 'lockerRewardsAbi',
+    file: 'LockerRewards.sol/LockerRewards.json',
+    // THE LOCKERS' DISTRIBUTOR (2026-09-20). The Roost's third leg, streamed
+    // by weight to the users of the vault products once they exist. Nothing
+    // about it is on the site yet but the wiring: its two immutables, for
+    // the start-up cross-checks and the manifest generator's.
+    functions: ['ROOST', 'AVIAN'],
+    events: [],
   },
   {
     export: 'aviansStakingAbi',
     file: 'AviansStaking.sol/AviansStaking.json',
-    // AVIANS STAKING (2026-09-18). Stake AVIANS, earn AVIANS, by amount,
+    // AVIAN STAKING (2026-09-18). Stake AVIAN, earn AVIAN, by amount,
     // streamed over a week from each of the Roost's deliveries. No lock, no
     // cooldown, no fee, no owner — so no admin surface at all.
     functions: [
       'stakedOf', 'earned', 'totalStaked',
       'rewardRate', 'periodFinish', 'remainingReward', 'undelivered', 'escrowed',
-      'totalNotified', 'totalPaid', 'accounted', 'STREAM', 'ROOST', 'AVIANS',
+      'totalNotified', 'totalPaid', 'accounted', 'STREAM', 'ROOST', 'AVIAN',
       'stake', 'withdraw', 'claim', 'exit',
     ],
     events: ['Staked', 'Withdrawn', 'RewardPaid', 'RewardAdded'],
@@ -235,7 +275,9 @@ const SOURCES = [
     export: 'treasuryAbi',
     file: 'Treasury.sol/Treasury.json',
     functions: [
-      'STAKING', 'AVIANS', 'NATIVE', 'ADMIN_SHARE_BPS', 'MIN_INTERVAL_FLOOR',
+      // THE COUNCIL (2026-09-24): the second key's seat, one address everywhere.
+      'council',
+      'STAKING', 'AVIAN', 'NATIVE', 'ADMIN_SHARE_BPS', 'MIN_INTERVAL_FLOOR',
       'cumulativeIn', 'claimable', 'convertible', 'adminClaimed', 'convertedOut',
       'adminShareBps', 'lastConversionAt', 'targets', 'targetCount', 'routeVenue',
       'conversionConfig',
@@ -248,37 +290,84 @@ const SOURCES = [
       // no owner-only function in a collector ABI at all. `owner` and
       // `pendingOwner` stay: they are public views, and the header reads them.
       'owner', 'pendingOwner',
+      // THE OWNER'S SEAT (2026-09-24): its clock, public. The council may
+      // seat any key once `silentAt()` has passed.
+      'lastSeenAt', 'silentAt', 'SILENCE',
       // The price ticker (2026-09-13). Where the stock tokens trade: the v3
       // factory and WETH (immutables) and the route the owner set for each
       // reward token, whose one hop names the pool. Reads, all three.
       'V3_FACTORY', 'WETH', 'v3RouteOf',
+      // The v4 fallback (2026-09-22): a listed token with no v3 pool is priced
+      // through the Treasury's v4 route, whose one hop names the pool key.
+      'routeOf',
+      // THE ROOST'S TENTH (2026-09-22). A third share of the ETH, spent by
+      // anyone on AVIAN from the launch pool and sent whole to the Roost: what
+      // the next buy spends, what the leg has ever spent and delivered, its own
+      // daily clock, and the three shares as the contract states them.
+      'roostBuyable', 'roostOut', 'aviansToRoost', 'lastRoostBuyAt',
+      'ROOST_SHARE_BPS', 'REWARDS_SHARE_BPS', 'ADMIN_SHARE_BPS',
+      'buyForRoost',
+      // PRICED BY THE POOLS (2026-09-24). No floor and no keeper: a pair whose
+      // pool keeps a history is priced from it, and `priceSource` says which
+      // of the four kinds a pair is. A v4 pool keeps none, so the AVIAN pool's
+      // hook keeps one and the Treasury takes readings of it.
+      // `takeRoostReading` is ANYONE'S — which is why it sits on the collector
+      // surface beside `buyForRoost` and not on the owner's.
+      'priceSource', 'lastReading', 'prevReading', 'TWAP_WINDOW', 'READING_MAX_AGE',
+      'roostMeanTick', 'takeRoostReading',
+      // OPEN BY THE CLOCK (2026-09-24). Nobody switches conversions on: both
+      // permissionless buttons open six hours after trading opened, and these
+      // say when, and whether it has passed.
+      'conversionsOpenAt', 'conversionsOpen', 'OPENING_DELAY',
     ],
     // Every event is public whoever emitted it; the admin surface carries none.
     // `Converted` and `Streamed` are what `convertAndStream` says it did;
     // `AdminClaimed` is what the owner's withdrawal says.
-    events: ['Converted', 'Streamed', 'AdminClaimed'],
+    events: ['Converted', 'Streamed', 'AdminClaimed', 'BoughtForRoost', 'RoostReadingTaken'],
     admin: [
       'claimAdmin',
       'setConversionConfig', 'setTargets', 'setRoute', 'setV3Route',
       'setPriceKeeper', 'setKeeperDropBps', 'setFloorPrice',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
+      // THE OWNER'S SEAT (2026-09-24): a sign of life. A proposal is one too.
+      'stillHere',
       // read back what those set, and the bounds each one is validated against
       'conversionConfig', 'targets', 'targetCount', 'routeOf', 'v3RouteOf', 'routeVenue',
       'priceKeeper', 'maxKeeperDropBps', 'floorPrice', 'floorPriceSetAt',
       'claimable', 'cumulativeIn', 'convertible', 'adminShareBps', 'adminClaimed',
-      'ADMIN_SHARE_BPS', 'MIN_INTERVAL_FLOOR', 'MAX_PER_CALL_BPS_CAP',
+      'ADMIN_SHARE_BPS', 'REWARDS_SHARE_BPS', 'ROOST_SHARE_BPS',
+      'roostBuyable', 'roostOut', 'aviansToRoost', 'lastRoostBuyAt',
+      // Where each pair's reference price comes from, and the AVIAN pool's two
+      // readings: the owner page asks before it offers a floor form at all.
+      'priceSource', 'lastReading', 'prevReading', 'TWAP_WINDOW', 'READING_MAX_AGE',
+      'roostMeanTick',
+      // The owner's Enabled flag is a pause now; the panel says what the
+      // clock says beside it.
+      'conversionsOpenAt', 'conversionsOpen', 'OPENING_DELAY',
+      'MIN_INTERVAL_FLOOR', 'MAX_PER_CALL_BPS_CAP',
       'SLIPPAGE_BPS_CAP', 'MIN_PRICE_AGE', 'MAX_PRICE_AGE', 'MAX_TARGETS', 'MAX_HOPS',
-      'STAKING', 'AVIANS', 'NATIVE',
+      'STAKING', 'AVIAN', 'NATIVE',
     ],
+  },
+  {
+    // THE COUNCIL (2026-09-24). OpenZeppelin's TimelockController, proposed to
+    // by the founder's multisig only. The site never sends it anything: these
+    // are the reads for the card, and the three events are the pending list.
+    export: 'councilAbi',
+    file: 'Council.sol/Council.json',
+    functions: ['MULTISIG', 'STRUCTURAL_DELAY', 'RESCUE_DELAY', 'getTimestamp'],
+    events: ['CallScheduled', 'CallExecuted', 'Cancelled'],
   },
   {
     export: 'aviansHookAbi',
     file: 'AviansHook.sol/AviansHook.json',
     functions: [
+      // THE COUNCIL (2026-09-24): the second key's seat, one address everywhere.
+      'council',
       'LAUNCH_AT', 'isLaunched', 'WINDOW', 'windowEndsAt',
       'currentBuyFeeBps', 'buyFeeBpsAt', 'sellFeeBps',
       'MAX_BUY_PER_TX', 'FEE_BPS', 'MAX_EXTRA_FEE_BPS',
-      'POOL_FEE', 'TICK_SPACING', 'AVIANS', 'TREASURY',
+      'POOL_FEE', 'TICK_SPACING', 'AVIAN', 'TREASURY',
     ],
     events: [],
   },
@@ -294,6 +383,9 @@ const SOURCES = [
     functions: [
       'tokenId', 'unlockAt', 'isLocked', 'positionLiquidity', 'LOCK_DURATION',
       'owner', 'pendingOwner',
+      // THE OWNER'S SEAT (2026-09-24): its clock, public. The council may
+      // seat any key once `silentAt()` has passed.
+      'lastSeenAt', 'silentAt', 'SILENCE',
     ],
     // The receipt of a collection names what was actually paid. An event is
     // public whoever emits it, so it sits on the collector surface; the admin
@@ -302,6 +394,8 @@ const SOURCES = [
     admin: [
       'collectFees', 'extendLock', 'withdraw',
       'owner', 'pendingOwner', 'transferOwnership', 'acceptOwnership',
+      // THE OWNER'S SEAT (2026-09-24): a sign of life. A proposal is one too.
+      'stillHere',
       'tokenId', 'unlockAt', 'isLocked', 'positionLiquidity', 'LOCK_DURATION',
       'POSITION_MANAGER',
     ],
@@ -384,7 +478,7 @@ const SOURCES = [
   {
     export: 'permit2Abi',
     file: 'IAllowanceTransfer.sol/IAllowanceTransfer.json',
-    // Selling needs two approvals: AVIANS -> Permit2 the ordinary way, then
+    // Selling needs two approvals: AVIAN -> Permit2 the ordinary way, then
     // Permit2 -> the router through this.
     functions: ['approve', 'allowance'],
     events: [],
@@ -553,13 +647,17 @@ const READ_ONLY_ON_BOTH = [
   'price', 'MIN_PRICE', 'mintOpen', 'freeMintOpen', 'allowlistRoot', 'allowlisted',
   'getTransferValidator', 'freeAllocationReleased', 'freeReleaseAvailableAt',
   'freeMintOpenedAt', 'freeMinted', 'FREE_ALLOCATION', 'requiredBacking',
-  'royaltyInfo', 'AVIANS', 'MINT_SINK', 'feeRecipient', 'avians', 'nft',
+  'royaltyInfo', 'AVIAN', 'MINT_SINK', 'feeRecipient', 'avians', 'nft',
   'listedRewardTokens', 'isRewardToken', 'wasEverRewardToken', 'rewardData',
   'escrowedOf', 'totalWeight', 'totalBrooding', 'rewardTokenCount', 'MAX_REWARD_TOKENS',
-  'conversionConfig', 'targets', 'targetCount', 'routeVenue', 'v3RouteOf', 'claimable', 'costSink',
-  'admin', 'adminClaimable', 'adminClaimed', 'NEST',
+  'conversionConfig', 'targets', 'targetCount', 'routeVenue', 'v3RouteOf', 'routeOf', 'claimable', 'costSink',
+  'admin', 'adminClaimable', 'adminClaimed', 'NEST', 'LOCKERS',
   'cumulativeIn', 'convertible', 'adminShareBps', 'adminClaimed',
-  'ADMIN_SHARE_BPS', 'MIN_INTERVAL_FLOOR', 'STAKING', 'NATIVE',
+  'ADMIN_SHARE_BPS', 'REWARDS_SHARE_BPS', 'ROOST_SHARE_BPS',
+  'roostBuyable', 'roostOut', 'aviansToRoost', 'lastRoostBuyAt',
+  'priceSource', 'lastReading', 'prevReading', 'TWAP_WINDOW', 'READING_MAX_AGE', 'roostMeanTick',
+  'conversionsOpenAt', 'conversionsOpen', 'OPENING_DELAY',
+  'MIN_INTERVAL_FLOOR', 'STAKING', 'NATIVE',
   'tokenId', 'unlockAt', 'isLocked', 'positionLiquidity', 'LOCK_DURATION',
 ];
 

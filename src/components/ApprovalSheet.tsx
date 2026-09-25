@@ -67,7 +67,7 @@ export function ApprovalSheet({
 
         <h3 id="approve-title" style={{ marginTop: 16 }}>One approval first, then the {action}.</h3>
         <p className="small" style={{ marginTop: 10 }}>
-          {what} needs your permission to take AVIANS from your wallet. Choose how much to allow.
+          {what} needs your permission to take AVIAN from your wallet. Choose how much to allow.
         </p>
 
         <div className="stack" style={{ marginTop: 16, gap: 8 }} role="radiogroup" aria-label="Approval route">

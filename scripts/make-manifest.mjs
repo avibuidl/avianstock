@@ -118,12 +118,15 @@ if (!/^https?:\/\//.test(rpc)) die(`--rpc must be http or https, got ${rpc}`);
 /** HANDOVER section 10's creation order, and where each one is deployed. */
 const FROM_DEPLOY = ['Avians', 'TraitRegistry', 'BirdRenderer', 'TheNest', 'Treasury', 'ThePerch', 'AvianStock'];
 /**
- * The two the Roost added on 2026-09-18, created between the Treasury and the
- * Perch in the same run. They are manifest fields of their own (`aviansStaking`,
- * `roost`), required and never null: the Nest sends every tier cost to the
- * Roost and the Perch every fee, so a deployment without them is the old one.
+ * The three the Roost added, created between the Treasury and the Perch in
+ * the same run: the staking contract and the Roost on 2026-09-18, and the
+ * lockers' distributor on 2026-09-20 (one nonce before the Roost, which
+ * carries it as an immutable). Manifest fields of their own (`aviansStaking`,
+ * `lockerRewards`, `roost`), required and never null: the Nest sends every
+ * tier cost to the Roost and the Perch every fee, so a deployment without
+ * them is an old one.
  */
-const ROOST_PAIR = { aviansStaking: 'AviansStaking', roost: 'TheRoost' };
+const ROOST_PAIR = { aviansStaking: 'AviansStaking', lockerRewards: 'LockerRewards', roost: 'TheRoost' };
 const FROM_LAUNCH = ['AviansHook', 'LiquidityVault'];
 
 function readRun(script) {
@@ -174,14 +177,14 @@ if (!deploy.run) {
 }
 /**
  * THE TOKEN MAY HAVE GONE FIRST. MAINNET-RUNBOOK step 0: `DeployAvians.s.sol`
- * puts AVIANS on chain by itself, days or weeks early, so the address can be
+ * puts AVIAN on chain by itself, days or weeks early, so the address can be
  * published; step 1's `Deploy.s.sol` then reuses it through AVIARY_AVIANS and
  * its broadcast has no Avians CREATE at all. So the token comes from the
  * DeployAvians broadcast when there is one and from Deploy's otherwise. Both
  * with a token, and a different one each, is the runbook's own warning made
- * real — step 1 ran without AVIARY_AVIANS exported and minted a second AVIANS
+ * real — step 1 ran without AVIARY_AVIANS exported and minted a second AVIAN
  * — and is refused rather than chosen between. The cross-check below
- * (`token.AVIANS() == Avians`) is what catches a wrong pairing either way.
+ * (`token.AVIAN() == Avians`) is what catches a wrong pairing either way.
  */
 const early = readRun('DeployAvians.s.sol');
 const launch = readRun('DeployLaunch.s.sol');
@@ -200,7 +203,7 @@ if (early.run && !aviansEarly) {
 const aviansHere = deployed.get('Avians') ?? null;
 if (aviansEarly && aviansHere && aviansEarly.toLowerCase() !== aviansHere.toLowerCase()) {
   die(
-    `Two AVIANS tokens: ${early.path} put ${aviansEarly} on chain, and ${deploy.path} then created another at ${aviansHere}.`,
+    `Two AVIAN tokens: ${early.path} put ${aviansEarly} on chain, and ${deploy.path} then created another at ${aviansHere}.`,
     'Deploy.s.sol reuses the early token only when AVIARY_AVIANS is exported in the terminal that runs it',
     '(MAINNET-RUNBOOK step 0); without it, the collection is wired to the second token and the address',
     'already published is one nothing uses. Which of the two this deployment means is not the generator\'s',
@@ -229,9 +232,15 @@ for (const name of FROM_DEPLOY) {
 const roostPair = {};
 for (const [field, name] of Object.entries(ROOST_PAIR)) {
   const address = deployed.get(name);
-  if (!address) die(`${deploy.path} has no CREATE for ${name}. This deployment predates the Roost (2026-09-18); redeploy.`);
+  if (!address) die(`${deploy.path} has no CREATE for ${name}. This deployment predates the Roost (2026-09-18)${name === 'LockerRewards' ? "' lockers' leg (2026-09-20)" : ''}; redeploy.`);
   roostPair[field] = address;
 }
+// THE COUNCIL (2026-09-24): the Council timelock Deploy.s.sol creates last.
+// Null on a deployment that never named one; the site then says the
+// structural pointers cannot move, and the start-up line warns rather than
+// refuses.
+const council = deployed.get('Council') ?? null;
+
 for (const name of FROM_LAUNCH) {
   // Null as a PAIR: an explicit "this deployment has no pool yet", which the
   // site understands. A half-launched pool is refused.
@@ -262,6 +271,15 @@ for (const [field, address] of Object.entries(roostPair)) {
 // ── multicall3, if this chain has one at the canonical address ────────────
 
 const CANONICAL_MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+
+/**
+ * The dollar stablecoin per chain: one Uniswap v3 pool of it against WETH is
+ * the site's only dollar source (the flywheel snapshot's). Robinhood Chain's
+ * is USDG, Global Dollar (Paxos), 6 decimals. No entry means no dollars.
+ */
+const USD_TOKEN = {
+  4663: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
+};
 
 /**
  * The third-party contracts a swap needs, from HANDOVER section 10's measured
@@ -345,11 +363,22 @@ const manifest = {
   // HANDOVER section 5, "Collecting from many birds at once". Null = not
   // deployed on this chain yet; the site then shows no sweep panel at all.
   sweeper,
-  // The Roost and its first leg. Required: see ROOST_PAIR.
+  // The Roost, its first leg and its third. Required: see ROOST_PAIR.
   aviansStaking: roostPair.aviansStaking,
+  lockerRewards: roostPair.lockerRewards,
   roost: roostPair.roost,
+  council,
   startBlock,
   allowlistProofs: proofsServed,
+  // THE VEIL (2026-09-22). False until the founder says otherwise; unveiling
+  // is an edit to the deployed file, or these two variables on a regenerate.
+  unveiled: {
+    vaults: process.env.AVIARY_UNVEIL_VAULTS === '1',
+    traitMarket: process.env.AVIARY_UNVEIL_TRAIT_MARKET === '1',
+  },
+  // THE DOLLAR SOURCE: the chain's dollar stablecoin, from the table above;
+  // null where there is none, and then no dollar figure is shown.
+  usd: USD_TOKEN[chainId] ? { token: USD_TOKEN[chainId] } : null,
   generated: {
     at: new Date().toISOString(),
     // Relative to the dapp folder, never the machine's absolute path: this
@@ -361,19 +390,19 @@ const manifest = {
 // ── the same cross-check the site runs at start-up ────────────────────────
 
 const SELECTORS = [
-  ['token.AVIANS() == Avians', 'AvianStock', 'AVIANS', 'Avians'],
-  ['token.MINT_SINK() == ThePerch', 'AvianStock', 'MINT_SINK', 'ThePerch'],
+  ['token.AVIAN() == Avians', 'AvianStock', 'AVIAN', 'Avians'],
+  ['token.MINT_SINK() == ThePerch', 'AvianStock', 'MINT_SINK', 'ThePerch', true],
   // The collection tells the Nest about every transfer through this immutable.
-  ['token.NEST() == TheNest', 'AvianStock', 'NEST', 'TheNest'],
+  ['token.NEST() == TheNest', 'AvianStock', 'NEST', 'TheNest', true],
   ['token.registry() == TraitRegistry', 'AvianStock', 'registry', 'TraitRegistry'],
   ['amm.nft() == AvianStock', 'ThePerch', 'nft', 'AvianStock'],
   ['amm.avians() == Avians', 'ThePerch', 'avians', 'Avians'],
   ['staking.COLLECTION() == AvianStock', 'TheNest', 'COLLECTION', 'AvianStock'],
-  ['staking.AVIANS() == Avians', 'TheNest', 'AVIANS', 'Avians'],
-  ['treasury.STAKING() == TheNest', 'Treasury', 'STAKING', 'TheNest'],
-  ['treasury.AVIANS() == Avians', 'Treasury', 'AVIANS', 'Avians'],
-  ['hook.AVIANS() == Avians', 'AviansHook', 'AVIANS', 'Avians'],
-  ['hook.TREASURY() == Treasury', 'AviansHook', 'TREASURY', 'Treasury'],
+  ['staking.AVIAN() == Avians', 'TheNest', 'AVIAN', 'Avians'],
+  ['treasury.STAKING() == TheNest', 'Treasury', 'STAKING', 'TheNest', true],
+  ['treasury.AVIAN() == Avians', 'Treasury', 'AVIAN', 'Avians'],
+  ['hook.AVIAN() == Avians', 'AviansHook', 'AVIAN', 'Avians'],
+  ['hook.TREASURY() == Treasury', 'AviansHook', 'TREASURY', 'Treasury', true],
   // The Sweeper's one immutable. A sweeper built for another collection
   // would read every satchel of the wrong birds.
   ['sweeper.COLLECTION() == AvianStock', 'Sweeper', 'COLLECTION', 'AvianStock'],
@@ -381,16 +410,21 @@ const SELECTORS = [
   // construction, and the Nest's cost sink bound to it. The Perch's
   // `feeRecipient` is the Roost by default but owner-settable, so it is
   // checked below as a WARNING rather than here as a refusal.
-  ['roost.NEST() == TheNest', 'TheRoost', 'NEST', 'TheNest'],
+  ['roost.NEST() == TheNest', 'TheRoost', 'NEST', 'TheNest', true],
   ['roost.STAKING() == AviansStaking', 'TheRoost', 'STAKING', 'AviansStaking'],
-  ['roost.AVIANS() == Avians', 'TheRoost', 'AVIANS', 'Avians'],
-  ['aviansStaking.ROOST() == TheRoost', 'AviansStaking', 'ROOST', 'TheRoost'],
-  ['aviansStaking.AVIANS() == Avians', 'AviansStaking', 'AVIANS', 'Avians'],
-  ['nest.costSink() == TheRoost', 'TheNest', 'costSink', 'TheRoost'],
+  ['roost.AVIAN() == Avians', 'TheRoost', 'AVIAN', 'Avians'],
+  ['aviansStaking.ROOST() == TheRoost', 'AviansStaking', 'ROOST', 'TheRoost', true],
+  ['aviansStaking.AVIAN() == Avians', 'AviansStaking', 'AVIAN', 'Avians'],
+  // The lockers' leg (2026-09-20): the Roost names its distributor and the
+  // distributor names its Roost, so a pair from two deployments is refused.
+  ['roost.LOCKERS() == LockerRewards', 'TheRoost', 'LOCKERS', 'LockerRewards'],
+  ['lockerRewards.ROOST() == TheRoost', 'LockerRewards', 'ROOST', 'TheRoost', true],
+  ['lockerRewards.AVIAN() == Avians', 'LockerRewards', 'AVIAN', 'Avians'],
+  ['nest.costSink() == TheRoost', 'TheNest', 'costSink', 'TheRoost', true],
 ];
 
-/** Every address the cross-check can name: the seven, the pool pair, the Sweeper, the Roost pair. */
-const named = { ...contracts, Sweeper: sweeper, AviansStaking: roostPair.aviansStaking, TheRoost: roostPair.roost };
+/** Every address the cross-check can name: the seven, the pool pair, the Sweeper, the Roost's three. */
+const named = { ...contracts, Sweeper: sweeper, AviansStaking: roostPair.aviansStaking, LockerRewards: roostPair.lockerRewards, TheRoost: roostPair.roost };
 
 async function readAddress(target, fn) {
   const data = encodeFunctionData({
@@ -409,7 +443,9 @@ if (!skipVerify) {
   }
 
   const failures = [];
-  for (const [claim, holder, fn, expectName] of SELECTORS) {
+  // How many of the failures are pointers the council may move.
+  let drifted = 0;
+  for (const [claim, holder, fn, expectName, councilMay] of SELECTORS) {
     const target = named[holder];
     const expect = named[expectName];
     if (!target || !expect) continue;                 // no pool, or no sweeper, on this deployment
@@ -417,10 +453,41 @@ if (!skipVerify) {
       const actual = await readAddress(target, fn);
       if (actual.toLowerCase() !== expect.toLowerCase()) {
         failures.push(`  ${claim}\n      manifest says ${expect}\n      the chain says ${actual}`);
+        if (councilMay) drifted += 1;
       }
     } catch (e) {
       failures.push(`  ${claim}\n      the call failed: ${e.message}`);
     }
+  }
+
+  // THE COUNCIL (2026-09-24): every seat answers the one address. A seat
+  // answering zero was never named, which is a warning: its pointers are
+  // frozen, and the site says so. Another address is the council's own seat
+  // moved (`setCouncil`), which is drift like the pointers above.
+  const councilSeats = [
+    ['token.council() == council', 'AvianStock'],
+    ['hook.council() == council', 'AviansHook'],
+    ['treasury.council() == council', 'Treasury'],
+    ['staking.council() == council', 'TheNest'],
+    ['roost.council() == council', 'TheRoost'],
+  ];
+  const unnamedSeats = [];
+  for (const [claim, holder] of councilSeats) {
+    const target = named[holder];
+    if (!target) continue;                            // no pool on this deployment
+    try {
+      const actual = await readAddress(target, 'council');
+      if (/^0x0{40}$/i.test(actual)) { unnamedSeats.push(holder); continue; }
+      if (!council || actual.toLowerCase() !== council.toLowerCase()) {
+        failures.push(`  ${claim}\n      manifest says ${council ?? 'no council'}\n      the chain says ${actual}`);
+        drifted += 1;
+      }
+    } catch (e) {
+      failures.push(`  ${claim}\n      the call failed: ${e.message}`);
+    }
+  }
+  if (unnamedSeats.length) {
+    console.warn(`  WARNING: no council is named on ${unnamedSeats.join(', ')}; its structural pointers cannot move. The site says so on the council card.`);
   }
   for (const [name, address] of Object.entries(named)) {
     if (!address) continue;
@@ -440,6 +507,17 @@ if (!skipVerify) {
       the call failed: ${e.message}`);
   }
 
+  if (failures.length && drifted === failures.length) {
+    die(
+      `Only pointers the council may move disagree with ${rpc}, and everything else checks out:`,
+      '',
+      ...failures,
+      '',
+      'The chain is past a council change this broadcast predates. Nothing was',
+      'written: point --broadcast at the broadcast that deployed the new',
+      'contract, or regenerate once the change is in the deploy you mean.',
+    );
+  }
   if (failures.length) {
     die(
       `These addresses do not check out against ${rpc}:`,
@@ -521,7 +599,8 @@ console.log(`  Avians     ${avians} — ${aviansEarly ? 'the token went first (D
 console.log(`  startBlock ${startBlock}`);
 console.log(`  multicall3 ${multicall3 ?? 'none — JSON-RPC batching'}`);
 console.log(`  sweeper    ${sweeper ?? 'none — no DeploySweeper broadcast, so the site shows no sweep panel'}`);
-console.log(`  roost      ${roostPair.roost} — every AVIANS fee lands here; staking at ${roostPair.aviansStaking}`);
+console.log(`  council    ${council ?? 'none — no seat was ever named, so the structural pointers cannot move'}${council ? ' — the second key: the structural pointers, the royalty and the rescue, each after a public delay' : ''}`);
+console.log(`  roost      ${roostPair.roost} — every AVIAN fee lands here; staking at ${roostPair.aviansStaking}, the lockers' distributor at ${roostPair.lockerRewards}`);
 if (thirdParty) {
   for (const [name, address] of Object.entries(thirdParty)) console.log(`  ${name.padEnd(16)} ${address}`);
 }

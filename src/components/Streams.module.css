@@ -1,0 +1,24 @@
+/* The streams, in compact form on the landing page (2026-09-22). The rows
+   are the site's .reward-row; this file only folds a compact row's head to
+   one column on a phone, the state under the symbol. The full rows on the
+   Nest are untouched by it. */
+
+.block {
+  margin-top: 28px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 20px;
+}
+.block :global(.reward-row):first-child { border-top: 0; }
+/* The heading, and the card's calls on its right (2026-09-25). On a phone
+   the calls drop under the heading and share its width. */
+.top { display: flex; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); flex-wrap: wrap; }
+.top h4 { margin: 0; }
+.calls { display: flex; gap: var(--s2); }
+
+@media (max-width: 720px) {
+  .block { padding: 16px; }
+  .compact .head { flex-wrap: wrap; row-gap: 4px; }
+  .calls { flex-basis: 100%; }
+  .calls :global(.btn) { flex: 1 1 0; }
+}

@@ -51,7 +51,7 @@ const abiOf = (name) => {
 const ABIS = [
   'avianStockAbi', 'theNestAbi', 'thePerchAbi', 'aviansAbi', 'treasuryAbi', 'liquidityVaultAbi',
   'sweeperAbi', 'accountV3Abi', 'aviansHookAbi',
-  // The Roost and AVIANS staking (2026-09-18): Allocated/Delivered/Held/Burned, Staked/Withdrawn/RewardPaid/RewardAdded.
+  // The Roost and AVIAN staking (2026-09-18): Allocated/Delivered/Held/Burned, Staked/Withdrawn/RewardPaid/RewardAdded.
   'theRoostAbi', 'aviansStakingAbi',
 ].map(abiOf);
 const events = ABIS.flatMap((abi) => abi.filter((e) => e.type === 'event'));

@@ -15,9 +15,9 @@ import {
 } from './Bits';
 import { avians, formatBps, formatCount, parseAvians } from '../../lib/format';
 import {
-  checkAllowlist, configureTransferValidator, deleteDefaultRoyalty, encodeValidatorOperation,
+  checkAllowlist, configureTransferValidator, encodeValidatorOperation,
   lockRenderer, lockTransferValidator, releaseFreeAllocation, setAllowlistRoot,
-  setAllowlisted, setDefaultRoyalty, setFreeMintOpen, setMintOpen, setPrice,
+  setAllowlisted, setFreeMintOpen, setMintOpen, setPrice,
   setRenderer, setTransferValidator,
   type AdminState, type Address, type AllowlistCheck, type Amount, type Hex,
   type ValidatorOperation,
@@ -102,7 +102,7 @@ export function Collection({ admin }: { admin: AdminState }) {
         </div>
       </Control>
 
-      <RoyaltyControl admin={admin} actions={actions} />
+      <RoyaltyControl admin={admin} />
       <RendererControl admin={admin} actions={actions} />
       <ValidatorControl admin={admin} actions={actions} />
       <ValidatorConfig admin={admin} actions={actions} />
@@ -130,7 +130,7 @@ function PriceControl({
     >
       <div className={s.form}>
         <Field
-          label="New price, AVIANS"
+          label="New price, AVIAN"
           value={v}
           placeholder="100,000"
           invalid={v.trim() !== '' && (parsed === null || tooLow)}
@@ -315,60 +315,18 @@ function AllowlistControl({
 
 // ── royalty ───────────────────────────────────────────────────────────────
 
-function RoyaltyControl({
-  admin, actions,
-}: { admin: AdminState; actions: ReturnType<typeof useAdminActions> }) {
+/**
+ * The royalty is the council's since 2026-09-24, so this is a line and not a
+ * form: the receiver and the rate as they are, and who may change them.
+ */
+function RoyaltyControl({ admin }: { admin: AdminState }) {
   const r = admin.collection.royalty;
-  const [receiver, setReceiver] = useState('');
-  const [bps, setBps] = useState('');
-  const bpsValue = whole(bps);
-  const ok = isAddressish(receiver) && bpsValue !== null && bpsValue <= 10_000;
-
   return (
     <Control
       title="Default royalty"
       now={r.bps === 0 ? 'none' : <>{formatBps(r.bps)} to <Addr value={r.receiver} /></>}
-      note="ERC-2981. A marketplace may honour it or ignore it; the collection only states it."
-    >
-      <div className={s.form}>
-        <Field
-          label="Receiver"
-          value={receiver}
-          placeholder="0x…"
-          invalid={receiver !== '' && !isAddressish(receiver)}
-          onChange={setReceiver}
-        />
-        <Field
-          label="Royalty, bps"
-          value={bps}
-          placeholder="500"
-          hint={bpsValue === null ? 'a whole number, 10,000 = 100%' : formatBps(bpsValue)}
-          invalid={bps !== '' && (bpsValue === null || bpsValue > 10_000)}
-          onChange={setBps}
-        />
-        <ActionButton
-          actions={actions}
-          action={{
-            key: 'royalty',
-            label: 'Set the royalty',
-            disabled: !ok,
-            run: (on) => setDefaultRoyalty(receiver.trim() as Address, bpsValue!, on),
-            outcome: () => 'Royalty set.',
-          }}
-        />
-        <ActionButton
-          ghost
-          actions={actions}
-          action={{
-            key: 'royalty-del',
-            label: 'Remove it',
-            disabled: r.bps === 0,
-            run: (on) => deleteDefaultRoyalty(on),
-            outcome: () => 'Royalty removed.',
-          }}
-        />
-      </div>
-    </Control>
+      note="The royalty is the council's; the cap is 10%. ERC-2981: a marketplace may honour it or ignore it; the collection only states it."
+    />
   );
 }
 

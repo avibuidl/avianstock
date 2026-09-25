@@ -8,7 +8,7 @@ import type {
   Address, Amount, Bird, BroodEntry, BroodState, BroodTokenLine, CollectionState, Deployment,
   ErrorName, Hex, LaunchState, PerchState, SettleMove, SettlePreview, SweepState, TokenId, TraitIndices,
   RewardSplit, TransferSafety, TreasuryRow, TreasuryState, VaultState, WalletState,
-  OwnerStatus,
+  OwnerStatus, Opening,
 } from './types';
 import { ContractError } from './errors';
 import { scenario } from './scenario';
@@ -215,7 +215,7 @@ export function getVault(): Promise<VaultState> {
  * The Treasury, as the contract now computes it.
  *
  * THE SHARE RULE CHANGED ON 2026-09-08: `adminShareBps` is 2,000 for native
- * ETH and 10,000 — all of it — for EVERY ERC-20, AVIANS included. Nothing in
+ * ETH and 10,000 — all of it — for EVERY ERC-20, AVIAN included. Nothing in
  * this system pays the Treasury in an ERC-20; stock tokens bought during a
  * conversion go straight to the incubator inside the same transaction and
  * never rest here. So an ERC-20 that turns up is an accidental deposit and
@@ -259,7 +259,7 @@ export function getOwnerStatus(who: Address | null): Promise<OwnerStatus> {
 export function getRewardSplit(): Promise<RewardSplit> {
   return read(() => ({
     listed: REWARD_TOKENS,
-    // The targets are the stock tokens only: AVIANS is listed but delivered by
+    // The targets are the stock tokens only: AVIAN is listed but delivered by
     // the Roost, never converted into.
     parts: STOCK_REWARD_TOKENS.map((t, i) => ({ address: t.address, weightBps: REWARD_TARGET_BPS[i] })),
   }));
@@ -283,7 +283,7 @@ export function getTreasury(): Promise<TreasuryState> {
     const cap = (ethBalance * maxPerCallBps) / 10000n;
     const ethConvertible = t === 'nothing-convertible' ? 0n : (free < cap ? free : cap);
 
-    // AVIANS: an ERC-20, so 100% is the admin's and nothing is convertible.
+    // AVIAN: an ERC-20, so 100% is the admin's and nothing is convertible.
     const aviansIn = 2_140_000n * 10n ** 18n;
     // An accidental ERC-20 deposit — the case the new rule exists for.
     const nvdaIn = t === 'accidental-deposit' ? 131_800_000_000_000_000_000n : 0n;
@@ -295,7 +295,7 @@ export function getTreasury(): Promise<TreasuryState> {
         claimable: ethClaimable, convertible: ethConvertible,
       },
       {
-        currency: ADDRESSES.Avians, symbol: 'AVIANS', decimals: 18,
+        currency: ADDRESSES.Avians, symbol: 'AVIAN', decimals: 18,
         cumulativeIn: aviansIn, balance: aviansIn,
         claimable: aviansIn, convertible: 0n,
       },
@@ -320,10 +320,47 @@ export function getTreasury(): Promise<TreasuryState> {
     const minInterval = overlay.conversionMinInterval ?? 86_400;
     const lastConversionAt = t === 'cooling-down' ? now - 3_600 : now - 200_000;
 
+    // THE ROOST'S TENTH (2026-09-22): 10% of everything that ever arrived,
+    // less what buys have spent, capped per call like a conversion. Its own
+    // clock, and the AVIAN it has bought at the fixture pool's price
+    // (1 ETH = 2,000,000 AVIAN, as `swap.ts` quotes it).
+    const roostShare = (ethIn * 1000n) / 10_000n;
+    const roostSpent = overlay.roostBought !== null ? overlay.roostSpent
+      : t === 'roost-buy-empty' ? roostShare : (roostShare * 6n) / 10n;
+    const roostFree = roostShare > roostSpent ? roostShare - roostSpent : 0n;
+    const roostCap = (ethBalance * maxPerCallBps) / 10000n;
+    const lastRoostBuyAt = t === 'roost-buy-cooling' ? now - 3_600
+      : roostSpent === 0n ? 0 : now - 200_000;
+
+    // PRICED BY THE POOLS (2026-09-24). `TWAP_WINDOW` is half an hour and
+    // `READING_MAX_AGE` a week, as the contract has them. The launch set has
+    // two readings far enough apart to average over, so `roostMeanTick`
+    // answers and the card offers the buy.
+    const readings = {
+      window: 1_800,
+      maxAge: 604_800,
+      lastAt: t === 'readings-absent' ? 0
+        : t === 'readings-too-young' ? now - 420
+          : now - 5_400,
+      prevAt: t === 'readings-absent' || t === 'readings-too-young' ? 0 : now - 9_000,
+      refusal: t === 'readings-absent' || t === 'readings-too-young' ? 'NoUsableReading' : null,
+    };
+
     return {
       rows,
+      chainNow: now,
+      readings,
+      opening: mockOpening(t, now),
+      roost: {
+        buyable: roostFree < roostCap ? roostFree : roostCap,
+        everSpent: roostSpent,
+        everBought: roostSpent * 2_000_000n,
+        lastBuyAt: lastRoostBuyAt,
+        nextAllowedAt: lastRoostBuyAt === 0 ? 0 : lastRoostBuyAt + minInterval,
+        sharesBps: { admin: 2000, rewards: 7000, roost: 1000 },
+      },
       conversion: {
-        enabled: t !== 'disabled',
+        enabled: t !== 'paused',
         minInterval,
         lastConversionAt,
         nextAllowedAt: lastConversionAt + minInterval,
@@ -337,6 +374,20 @@ export function getTreasury(): Promise<TreasuryState> {
 }
 
 /**
+ * When the two buttons open, per scene (2026-09-24). "Opens in two hours" is
+ * anchored once, when the module loads, so its countdown runs down between
+ * reads instead of restarting at two hours on every poll.
+ */
+const OPENS_LATER_AT = Math.floor(Date.now() / 1000) + 2 * 3_600;
+export function mockOpening(t: string, now: number): Opening {
+  const enabled = t !== 'paused';
+  const openAt = t === 'launch-unknown' ? 0
+    : t === 'opens-later' ? OPENS_LATER_AT
+      : now - 3 * 86_400;
+  return { openAt, enabled, open: enabled && openAt !== 0 && now >= openAt };
+}
+
+/**
  * What the Contracts screen lists: this deployment's own addresses, and the
  * third-party ones it sits on.
  *
@@ -345,10 +396,11 @@ export function getTreasury(): Promise<TreasuryState> {
  * refuses to mount the app if one of them fails.
  */
 export function getDeployment(): Promise<Deployment> {
-  return read(() => ({
-    addresses: ADDRESSES,
-    thirdParty: THIRD_PARTY,
-  }));
+  return read(() => {
+    // The Docs "The contracts" section's failure state (2026-09-25).
+    if (scenario().deployment === 'fails') throw new ContractError('ReadFailed');
+    return { addresses: ADDRESSES, thirdParty: THIRD_PARTY };
+  });
 }
 
 export function getSupply(): Promise<{ total: Amount; inPool: Amount; burned: Amount }> {

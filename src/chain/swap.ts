@@ -1,11 +1,11 @@
-// ETH ↔ AVIANS, through Uniswap v4.
+// ETH ↔ AVIAN, through Uniswap v4.
 //
-// WHY THIS EXISTS. After launch every AVIANS is in the pool, so a collector who
+// WHY THIS EXISTS. After launch every AVIAN is in the pool, so a collector who
 // arrives with none is told to approve a token they have no way to get. The
 // mint page's own instructions were unfollowable. This is the missing step.
 //
 // THE POOL. One pool, and the hook will accept no other: native ETH is
-// `currency0` (the zero address sorts below every token), AVIANS is
+// `currency0` (the zero address sorts below every token), AVIAN is
 // `currency1`, the LP fee is `POOL_FEE` and the spacing is `TICK_SPACING`, both
 // read off the hook rather than written here. A BUY is therefore zero-for-one.
 //
@@ -19,7 +19,7 @@
 //
 // EXACT-IN ONLY, both directions. Exact-out exists in the router and in the
 // tests; it is not offered here, because it needs a maximum-in and a sweep and
-// it answers a question a collector buying AVIANS to mint with does not have.
+// it answers a question a collector buying AVIAN to mint with does not have.
 
 import {
   encodeAbiParameters, encodeFunctionData, encodePacked, parseAbiParameters, type Abi,
@@ -126,11 +126,11 @@ export async function getSwapState(who: Address | null, at?: At): Promise<SwapSt
       readMany<unknown>([
         h('LAUNCH_AT'), h('isLaunched'), h('WINDOW'), h('windowEndsAt'),
         h('currentBuyFeeBps'), h('sellFeeBps'), h('MAX_BUY_PER_TX'),
-        h('POOL_FEE'),
+        h('POOL_FEE'), h('FEE_BPS'),
       ], a),
       who ? client().getBalance({ address: who, blockNumber: a.blockNumber }) : Promise.resolve(0n),
       // Two allowances stand between a wallet and a sell, and they are
-      // different things: the ERC-20 one lets Permit2 move AVIANS at all, and
+      // different things: the ERC-20 one lets Permit2 move AVIAN at all, and
       // the Permit2 one lets the ROUTER spend through it. Read both, so the UI
       // can say which of the two steps is outstanding rather than "approve".
       who
@@ -167,6 +167,7 @@ export async function getSwapState(who: Address | null, at?: At): Promise<SwapSt
       sellFeeBps: Number(r[5] as bigint), /* count */
       maxBuyPerTx: r[6] as Amount,
       poolFeeBps: Number(r[7] as bigint) / (FEE_DENOMINATOR / 10_000), /* count */
+      feeBps: Number(r[8] as bigint), /* count */
       ethBalance,
       aviansBalance,
       allowanceToPermit2: toPermit2,
@@ -255,8 +256,8 @@ export function buildQuote(o: {
     hookFeeEth,
     poolFeeBps: state.poolFeeBps,
     poolFee,
-    /** In the window only, and only on buys. */
-    launchExtraBps: buy ? Math.max(0, state.buyFeeBps - state.sellFeeBps) : 0,
+    /** In the window only, and only on buys: what a buy pays above its floor right now. */
+    launchExtraBps: buy ? Math.max(0, state.buyFeeBps - state.feeBps) : 0,
     at: Math.floor(Date.now() / 1000),
   };
 }
@@ -264,7 +265,7 @@ export function buildQuote(o: {
 // ── the cap, which no view can answer ────────────────────────────────────
 
 /**
- * `MAX_BUY_PER_TX` is measured in `afterSwap` against the AVIANS the curve
+ * `MAX_BUY_PER_TX` is measured in `afterSwap` against the AVIAN the curve
  * actually moved, and it ACCUMULATES over every buy in one transaction. There
  * is no getter for the running total — it lives in transient storage for the
  * length of the transaction — so anything that bundles swaps has to add them up
@@ -341,22 +342,22 @@ export async function swap(
   const deadline = BigInt((await pin()).timestamp + DEADLINE_SECONDS);
 
   const { hash } = await run({
-    where: direction === 'buy' ? 'buying AVIANS' : 'selling AVIANS',
+    where: direction === 'buy' ? 'buying AVIAN' : 'selling AVIAN',
     to: router,
     abi: universalRouterAbi,
     functionName: 'execute',
     args: [commands, inputs, deadline],
-    // A buy pays in native ETH; a sell pays in AVIANS through Permit2.
+    // A buy pays in native ETH; a sell pays in AVIAN through Permit2.
     value: zeroForOne ? amountIn : undefined,
   }, { on });
   return { hash };
 }
 
-/** Step one of two for a sell: let Permit2 move AVIANS at all. Exact amount. */
+/** Step one of two for a sell: let Permit2 move AVIAN at all. Exact amount. */
 export async function approveAviansForPermit2(amount: Amount, on?: OnPhase) {
   const { avians, permit2 } = requirePool();
   const { hash } = await run({
-    where: 'approving Permit2 to move AVIANS',
+    where: 'approving Permit2 to move AVIAN',
     to: avians, abi: aviansAbi, functionName: 'approve', args: [permit2, amount],
   }, { on });
   return { hash };
@@ -407,7 +408,7 @@ export async function simulateSwap(direction: 'buy' | 'sell', amountIn: Amount, 
       value: zeroForOne ? amountIn : undefined,
     });
   } catch (e) {
-    throw asContractError(e, { where: direction === 'buy' ? 'buying AVIANS' : 'selling AVIANS' });
+    throw asContractError(e, { where: direction === 'buy' ? 'buying AVIAN' : 'selling AVIAN' });
   }
 }
 

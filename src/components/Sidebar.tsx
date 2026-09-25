@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
 import { Address } from './Primitives';
+import { shortAddress } from '../lib/format';
 import { href, useRoute, type Route } from '../router';
 import { NETWORK, canSwap, useConnection, useOwnerStatus } from '../mock';
 
@@ -23,7 +24,7 @@ const NAV: { label: string; route: Route; icon: IconName; needsWallet?: boolean 
   { label: 'My Birds', route: { name: 'birds' }, icon: 'wallet', needsWallet: true },
   { label: 'The Nest', route: { name: 'nest' }, icon: 'nest' },
   { label: 'The Roost', route: { name: 'roost' }, icon: 'home' },
-  { label: 'Contracts', route: { name: 'contracts' }, icon: 'lock' },
+  { label: 'The Bird Engine', route: { name: 'engine' }, icon: 'cycle' },
   { label: 'Docs', route: { name: 'docs' }, icon: 'info' },
 ];
 
@@ -47,6 +48,18 @@ export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: 
   const links = [...nav, ...(showAdmin ? [{ label: 'Owner', route: { name: 'admin' } as Route, icon: 'sliders' as IconName }] : [])];
 
   const close = () => setOpen(false);
+
+  // The rail (app.css) opens on :hover and :focus-within. After a page or a
+  // control is picked the pointer is still on the column and the link still
+  // has focus, so it stayed open until the pointer wandered off. `shut`
+  // overrides both from the click until the pointer leaves or focus comes
+  // back in; the link is blurred so a Tab afterwards starts from the page.
+  const [shut, setShut] = useState(false);
+  const shutRail = (e: React.MouseEvent<HTMLElement>) => {
+    if (!(e.target as HTMLElement).closest('a, button')) return;
+    setShut(true);
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
 
   // The drawer: Escape closes it and hands focus back to the burger; opening
   // it puts focus on the first page. A followed link closes it through the
@@ -84,7 +97,7 @@ export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: 
           aria-label={open ? 'Close the menu' : 'Open the menu'}
           onClick={() => setOpen((v) => !v)}
         >
-          <Icon name={open ? 'cross' : 'sliders'} size={14} />
+          <Icon name={open ? 'cross' : 'menu'} size={14} />
         </button>
         <span className="spacer" />
         <WalletChip onClick={onWallet} />
@@ -92,7 +105,14 @@ export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: 
 
       {open ? <div className="side__scrim" onClick={close} aria-hidden="true" /> : null}
 
-      <aside id="site-nav" className={`side${open ? ' side--open' : ''}`} aria-label="Site">
+      <aside
+        id="site-nav"
+        className={`side${open ? ' side--open' : ''}${shut ? ' side--shut' : ''}`}
+        aria-label="Site"
+        onClickCapture={shutRail}
+        onMouseLeave={() => setShut(false)}
+        onFocus={() => setShut(false)}
+      >
         {brand}
         <nav className="side__nav" aria-label="Pages">
           {links.map((n, i) => (
@@ -100,6 +120,10 @@ export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: 
               key={n.label}
               ref={i === 0 ? first : undefined}
               href={href(n.route)}
+              // The name, whether or not the label is drawn: on the rail
+              // (app.css) the span is display: none, which takes it out of
+              // the accessibility tree as well as off the screen.
+              aria-label={n.label}
               aria-current={route.name === n.route.name ? 'page' : undefined}
               onClick={close}
             >
@@ -116,10 +140,11 @@ export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: 
             <button
               type="button"
               className="side__navAction"
+              aria-label="Trade AVIAN"
               onClick={() => { close(); onTrade(); }}
             >
-              <Icon name="arrow" size={14} />
-              <span>Trade AVIANS</span>
+              <Icon name="swap" size={14} />
+              <span>Trade AVIAN</span>
             </button>
           ) : null}
         </nav>
@@ -137,7 +162,7 @@ function WalletChip({ onClick }: { onClick: () => void }) {
 
   if (c.status === 'connected') {
     return (
-      <button type="button" className="wchip" onClick={onClick}>
+      <button type="button" className="wchip" onClick={onClick} aria-label={`Wallet ${shortAddress(c.address)}, ${NETWORK.chainName}`}>
         <span className="dot" aria-hidden="true" />
         <Address value={c.address} />
         <span className="wchip__net">{NETWORK.chainName}</span>
@@ -147,7 +172,7 @@ function WalletChip({ onClick }: { onClick: () => void }) {
 
   if (c.status === 'wrong-network' || c.status === 'unknown-network') {
     return (
-      <button type="button" className="wchip wchip--bad" onClick={onClick}>
+      <button type="button" className="wchip wchip--bad" onClick={onClick} aria-label={`Wallet ${shortAddress(c.address)}, wrong network`}>
         <span className="dot dot--bad" aria-hidden="true" />
         <Address value={c.address} />
         <span className="wchip__net" style={{ color: 'var(--refusal)' }}>Wrong network</span>
@@ -157,13 +182,13 @@ function WalletChip({ onClick }: { onClick: () => void }) {
 
   if (c.status === 'connecting') {
     return (
-      <span className="wchip"><Icon name="dots" size={14} /> Waiting for your wallet…</span>
+      <span className="wchip" aria-label="Waiting for your wallet"><Icon name="dots" size={14} /><span className="wchip__text">Waiting for your wallet…</span></span>
     );
   }
 
   return (
-    <button type="button" className="btn btn--small" onClick={onClick}>
-      <Icon name="wallet" size={14} /> {c.status === 'no-wallet' ? 'No wallet found' : 'Connect wallet'}
+    <button type="button" className="btn btn--small" onClick={onClick} aria-label={c.status === 'no-wallet' ? 'No wallet found' : 'Connect wallet'}>
+      <Icon name="wallet" size={14} /><span>{c.status === 'no-wallet' ? 'No wallet found' : 'Connect wallet'}</span>
     </button>
   );
 }

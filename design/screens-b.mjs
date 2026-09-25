@@ -26,14 +26,14 @@ export const Perch = doc({
 <div class="page">
   <p class="eyebrow">The perch</p>
   <h2>It never closes.</h2>
-  <p class="lede" style="max-width:900px">It buys any bird for <span class="num">90,000 AVIANS</span>, sells the next one
+  <p class="lede" style="max-width:900px">It buys any bird for <span class="num">90,000 AVIAN</span>, sells the next one
     out of its own holdings for <span class="num">110,000</span>, and a bird you name for <span class="num">115,000</span>.
     Half of every fee is burned; half goes to the Treasury. The prices do not move with supply, demand or time.</p>
 
   <div class="three">
     <div class="panel">
       <div class="row"><h3>Sell a bird</h3><span class="spacer"></span><span class="num" style="color:${C.mossLight}">90,000</span></div>
-      <p class="small dim" style="margin-top:6px">You receive 90,000 AVIANS each, instantly. The 10% fee is on the
+      <p class="small dim" style="margin-top:6px">You receive 90,000 AVIAN each, instantly. The 10% fee is on the
         perch&rsquo;s side, not yours.</p>
       <div class="tiles" style="margin-top:18px">
         <span class="tile on"><img class="px" src="${A(2)}" alt=""></span>
@@ -45,7 +45,7 @@ export const Perch = doc({
       </div>
       <div class="row" style="margin-top:18px;padding-top:14px;border-top:1px solid ${C.slate}">
         <span class="small">2 selected</span><span class="spacer"></span>
-        <span class="num" style="font-size:17px">180,000 AVIANS</span></div>
+        <span class="num" style="font-size:17px">180,000 AVIAN</span></div>
       <div class="note ok small" style="margin-top:12px">${icon('check', C.mossLight, 14)}
         <span>The perch is already approved for your birds.</span></div>
       <button class="btn wide" style="margin-top:16px">Sell 2 birds to the perch</button>
@@ -70,7 +70,7 @@ export const Perch = doc({
       </div>
       <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid ${C.slate}">
         <span class="small">You pay</span><span class="spacer"></span>
-        <span class="num" style="font-size:17px">110,000 AVIANS</span></div>
+        <span class="num" style="font-size:17px">110,000 AVIAN</span></div>
       <button class="btn wide" style="margin-top:16px">Buy Avian #214</button>
       <p class="tiny dim" style="margin-top:12px">Ask for two and you get #214 and #219 — the two lowest, in order. You
         see exactly which birds before you sign.</p>
@@ -78,7 +78,7 @@ export const Perch = doc({
 
     <div class="panel">
       <div class="row"><h3>Buy a bird you name</h3><span class="spacer"></span><span class="num" style="color:${C.amber}">115,000</span></div>
-      <p class="small dim" style="margin-top:6px">The extra 5,000 AVIANS is what picking costs. All or nothing: one bird
+      <p class="small dim" style="margin-top:6px">The extra 10,000 AVIAN is what picking costs. All or nothing: one bird
         gone from the pool and the whole purchase is refused.</p>
       <div class="row" style="gap:10px;margin-top:16px">
         <span class="tag">${M.poolSize} birds in the perch</span>
@@ -89,10 +89,10 @@ export const Perch = doc({
       </div>
       <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid ${C.slate}">
         <span class="small">Avian #263</span><span class="spacer"></span>
-        <span class="num" style="font-size:17px">115,000 AVIANS</span></div>
+        <span class="num" style="font-size:17px">115,000 AVIAN</span></div>
       <button class="btn wide" style="margin-top:16px">Buy Avian #263</button>
       <div class="note warn small" style="margin-top:12px">${icon('warn', C.amber, 14)}
-        <span>Approve 115,000 AVIANS to the perch first — it doesn&rsquo;t check your allowance before it pulls.</span></div>
+        <span>Approve 115,000 AVIAN to the perch first — it doesn&rsquo;t check your allowance before it pulls.</span></div>
     </div>
   </div>
 
@@ -100,8 +100,8 @@ export const Perch = doc({
     <div>
       <p class="eyebrow" style="margin:0">The perch can always pay</p>
       <p class="small" style="margin-top:10px;max-width:760px">It must hold <span class="num">${M.backingRequired}
-        AVIANS</span> to buy back every bird that isn&rsquo;t already in it. It holds
-        <span class="num">${M.poolHolds} AVIANS</span>. The second is never less than the first — that is a property of
+        AVIAN</span> to buy back every bird that isn&rsquo;t already in it. It holds
+        <span class="num">${M.poolHolds} AVIAN</span>. The second is never less than the first — that is a property of
         the contract, proved in the test suite, not a promise from us.</p>
       <div class="bar" style="margin-top:16px"><i style="width:96.3%"></i></div>
       <div class="row" style="margin-top:8px">
@@ -114,7 +114,7 @@ export const Perch = doc({
         <span class="num">50%</span></div>
       <div class="row" style="margin-top:6px"><span class="small">To the Treasury</span><span class="spacer"></span>
         <span class="num">50%</span></div>
-      <p class="tiny dim" style="margin-top:12px">Burned AVIANS leave the supply. Nobody can print them back.</p>
+      <p class="tiny dim" style="margin-top:12px">Burned AVIAN leave the supply. Nobody can print them back.</p>
     </div>
   </div>
 </div>`,
@@ -161,8 +161,8 @@ export const Nest = doc({
   <div class="says">
     <div>
       <h4>The tier cost is burned. It does not come back.</h4>
-      <p class="small">Not escrowed, not refunded, not returned when the bird comes home. It is destroyed — the AVIANS
-        supply falls by exactly that amount. Brooding the same bird again at the same tier costs the same AVIANS again.</p>
+      <p class="small">Not escrowed, not refunded, not returned when the bird comes home. It is destroyed — the AVIAN
+        supply falls by exactly that amount. Brooding the same bird again at the same tier costs the same AVIAN again.</p>
     </div>
     <div>
       <h4>The weight is lost on unstake.</h4>
@@ -181,14 +181,14 @@ export const Nest = doc({
       <h3>Send a bird to brood</h3>
       <p class="eyebrow" style="margin:20px 0 10px">Choose a tier</p>
       <div class="tiers">
-        <div class="tier"><div class="num" style="font-size:15px">5,000</div>
-          <div class="tiny dim" style="margin-top:4px">AVIANS, burned</div>
+        <div class="tier"><div class="num" style="font-size:15px">10,000</div>
+          <div class="tiny dim" style="margin-top:4px">AVIAN, burned</div>
           <div style="margin-top:10px;font-weight:600;color:${C.chalk}">Tier 1 · 1x weight</div></div>
-        <div class="tier on"><div class="num" style="font-size:15px">15,000</div>
-          <div class="tiny dim" style="margin-top:4px">AVIANS, burned</div>
+        <div class="tier on"><div class="num" style="font-size:15px">30,000</div>
+          <div class="tiny dim" style="margin-top:4px">AVIAN, burned</div>
           <div style="margin-top:10px;font-weight:600;color:${C.chalk}">Tier 2 · 2x weight</div></div>
-        <div class="tier"><div class="num" style="font-size:15px">25,000</div>
-          <div class="tiny dim" style="margin-top:4px">AVIANS, burned</div>
+        <div class="tier"><div class="num" style="font-size:15px">50,000</div>
+          <div class="tiny dim" style="margin-top:4px">AVIAN, burned</div>
           <div style="margin-top:10px;font-weight:600;color:${C.chalk}">Tier 3 · 3x weight</div></div>
       </div>
 
@@ -213,10 +213,10 @@ export const Nest = doc({
 
       <div class="row" style="margin-top:18px;padding-top:14px;border-top:1px solid ${C.slate}">
         <span class="small">1 bird at Tier 2</span><span class="spacer"></span>
-        <span class="num" style="font-size:17px">15,000 AVIANS</span></div>
+        <span class="num" style="font-size:17px">30,000 AVIAN</span></div>
       <div class="row"><span class="tiny dim">burned, not held</span><span class="spacer"></span>
-        <span class="tiny dim">approved: 200,000 AVIANS</span></div>
-      <button class="btn wide" style="margin-top:16px">${icon('burn', C.ink)} Send to the nest — burn 15,000 AVIANS</button>
+        <span class="tiny dim">approved: 200,000 AVIAN</span></div>
+      <button class="btn wide" style="margin-top:16px">${icon('burn', C.ink)} Send to the nest — burn 30,000 AVIAN</button>
     </div>
 
     <div>
@@ -273,7 +273,7 @@ export const Nest = doc({
   <div class="counters">
     <div><div class="num" style="font-size:22px">${M.totalStaked}</div><div class="tiny dim" style="margin-top:4px">BIRDS BROODING RIGHT NOW</div></div>
     <div><div class="num" style="font-size:22px">${M.totalWeight}</div><div class="tiny dim" style="margin-top:4px">TOTAL WEIGHT</div></div>
-    <div><div class="num" style="font-size:22px">${M.totalBurned}</div><div class="tiny dim" style="margin-top:4px">AVIANS BURNED BY TIERS, EVER</div></div>
+    <div><div class="num" style="font-size:22px">${M.totalBurned}</div><div class="tiny dim" style="margin-top:4px">AVIAN BURNED BY TIERS, EVER</div></div>
     <div><div class="num" style="font-size:22px">4</div><div class="tiny dim" style="margin-top:4px">REWARD TOKENS LISTED</div></div>
   </div>
 </div>`,

@@ -1,4 +1,4 @@
-// Trading AVIANS, without a chain.
+// Trading AVIAN, without a chain.
 //
 // The launch window is NOT modelled again here — it comes from the existing
 // `launch` and `windowElapsed` axes, the same ones First Light and the Docs
@@ -14,7 +14,7 @@ import type {
 } from './types';
 import { ContractError } from './errors';
 import { scenario } from './scenario';
-import { MAX_BUY_PER_TX, buyFeeBpsAt, overlay, world } from './fixtures';
+import { FEE_BPS, MAX_BUY_PER_TX, buyFeeBpsAt, overlay, world } from './fixtures';
 import { read } from './reads';
 import { requireChain, sleep } from './wallet';
 import { settled } from './writes';
@@ -27,7 +27,7 @@ const BPS = 10_000n;
 /**
  * A price, so the mock can quote. Flat rather than a curve: this is a fixture,
  * and a fake curve would only invite someone to read a shape into it.
- * 1 ETH buys 2,000,000 AVIANS before fees.
+ * 1 ETH buys 2,000,000 AVIAN before fees.
  */
 const AVIANS_PER_ETH = 2_000_000n;
 
@@ -58,6 +58,7 @@ export function getSwapState(_who: Address | null): Promise<SwapState> {
       windowSeconds: launch.windowSeconds,
       windowEndsAt: launch.windowEndsAt,
       buyFeeBps: buyFeeBpsAt(now, launch.launchAt),
+      feeBps: FEE_BPS,
       sellFeeBps: SELL_FEE_BPS,
       poolFeeBps: POOL_FEE_BPS,
       maxBuyPerTx: MAX_BUY_PER_TX,
@@ -93,7 +94,7 @@ export async function quoteSwap(
     const afterPool = intoCurve - (intoCurve * BigInt(POOL_FEE_BPS)) / BPS;
     amountOut = afterPool * AVIANS_PER_ETH;
   } else {
-    // AVIANS in: the pool takes its cut of the input, the curve turns the rest
+    // AVIAN in: the pool takes its cut of the input, the curve turns the rest
     // into ETH, and the hook takes its cut of that ETH on the way out.
     const afterPool = amountIn - (amountIn * BigInt(POOL_FEE_BPS)) / BPS;
     const eth = afterPool / AVIANS_PER_ETH;
@@ -112,7 +113,7 @@ export async function quoteSwap(
     hookFeeEth,
     poolFeeBps: POOL_FEE_BPS,
     poolFee: (intoCurve * BigInt(POOL_FEE_BPS)) / BPS,
-    launchExtraBps: buy ? Math.max(0, state.buyFeeBps - SELL_FEE_BPS) : 0,
+    launchExtraBps: buy ? Math.max(0, state.buyFeeBps - FEE_BPS) : 0,
     at: Math.floor(Date.now() / 1000),
   };
 }

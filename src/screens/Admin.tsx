@@ -23,7 +23,9 @@ import { Collection } from '../components/admin/Collection';
 import { Nest } from '../components/admin/Nest';
 import { Ownership } from '../components/admin/Ownership';
 import { PerchAndVault } from '../components/admin/PerchAndVault';
+import { CouncilCard } from '../components/Council';
 import { RoostPanel } from '../components/admin/RoostPanel';
+import { YourSeat } from '../components/admin/Seat';
 import { Sweeps } from '../components/admin/Sweeps';
 import { TreasuryPanel } from '../components/admin/TreasuryPanel';
 import { shortAddress } from '../lib/format';
@@ -38,6 +40,8 @@ const SECTIONS = [
   { id: 'nest', label: 'The nest' },
   { id: 'perch', label: 'The perch and the lock' },
   { id: 'roost', label: 'The Roost' },
+  { id: 'council', label: 'The council' },
+  { id: 'seat', label: 'Your seat' },
 ] as const;
 
 export function Admin({ onConnect }: { onConnect: () => void }) {
@@ -175,11 +179,11 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
 
         {a.isPendingOwner && !a.isOwner ? (
           <div style={{ marginTop: 18 }}>
-            <Box tone="accent" title="You are the incoming owner">
+            <Box tone="accent" title="You are the proposed owner">
               <p className="small" style={{ margin: 0 }}>
-                Ownership is two-step, so nothing is yours until you accept it. Until then the
-                contracts refuse you every other call on this page, and the sections below say so
-                rather than pretending otherwise.
+                The owner has proposed this wallet, and the council seats a proposed key a day
+                later; nobody accepts a transfer alone. Until then the contracts refuse you every
+                call on this page, and the sections below say so rather than pretending otherwise.
               </p>
             </Box>
           </div>
@@ -197,6 +201,12 @@ export function Admin({ onConnect }: { onConnect: () => void }) {
             <div className={s.sec} style={{ marginTop: 40 }} id="nest"><Nest admin={a} /></div>
             <div className={s.sec} style={{ marginTop: 40 }} id="perch"><PerchAndVault admin={a} /></div>
             <div className={s.sec} style={{ marginTop: 40 }} id="roost"><RoostPanel admin={a} /></div>
+            {/* The second key, read-only here as everywhere: the owner cannot
+                press any of it, and the panel says so in its first line. */}
+            <div className={s.sec} style={{ marginTop: 40 }} id="council"><CouncilCard owner /></div>
+            {/* The exception, right under it: the two things that ARE the
+                owner's, the thirty-day clock and the proposal of a successor. */}
+            <div className={s.sec} id="seat"><YourSeat you={a.you} /></div>
           </>
         ) : null}
 

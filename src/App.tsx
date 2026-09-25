@@ -30,7 +30,7 @@ import { Nest } from './screens/Nest';
 import { Roost } from './screens/Roost';
 import { YourBirds } from './screens/YourBirds';
 import { FirstLight } from './screens/FirstLight';
-import { Contracts } from './screens/Contracts';
+import { BirdEngine } from './screens/BirdEngine';
 
 /**
  * The owner's panel, loaded on demand.
@@ -54,7 +54,7 @@ export function App() {
   useScrollReset(route);
 
   const openWallet = () => setWalletOpen(true);
-  // The fixes no one screen owns. A refusal for want of AVIANS opens the trade
+  // The fixes no one screen owns. A refusal for want of AVIAN opens the trade
   // modal from any screen; a wrong network opens the wallet dialog.
   const siteFixes = useMemo<FixHandlers>(() => ({
     'get-avians': () => setTradeOpen(true),
@@ -80,7 +80,7 @@ export function App() {
 
           <main id="main">
             <ErrorBoundary where={route.name}>
-            {route.name === 'landing' ? <Landing />
+            {route.name === 'landing' ? <Landing onTrade={() => setTradeOpen(true)} />
               : route.name === 'compose' ? <Compose onConnect={openWallet} />
                 : route.name === 'flock' ? <Flock />
                   : route.name === 'bird' ? <BirdDetail id={route.id} onConnect={openWallet} />
@@ -89,10 +89,9 @@ export function App() {
                         : route.name === 'roost' ? <Roost onConnect={openWallet} />
                         : route.name === 'birds' ? <YourBirds onConnect={openWallet} />
                           : route.name === 'first-light' ? <FirstLight />
-                            : route.name === 'docs' ? <Docs />
-                              : route.name === 'admin'
-                                ? <Suspense fallback={null}><Admin onConnect={openWallet} /></Suspense>
-                                  : <Contracts />}
+                            : route.name === 'docs' ? <Docs at={route.at} />
+                              : route.name === 'engine' ? <BirdEngine onConnect={openWallet} at={route.at} />
+                                : <Suspense fallback={null}><Admin onConnect={openWallet} /></Suspense>}
             </ErrorBoundary>
           </main>
 

@@ -1,0 +1,22 @@
+/* "Your seat" (2026-09-24): one control in the page's own box, three parts
+   ruled apart by a hairline, the same way a control's note sits under its
+   title. Nothing here has a colour of its own: the warning is the site's. */
+
+.line { margin: 8px 0 0; }
+
+/* A press, its progress, and its note; then the form, the same. */
+.part { margin-top: var(--s4); padding-top: var(--s1); border-top: 1px solid var(--line); }
+
+/* The run's dots and count, or what came of it. Under the press rather than
+   beside it, so a phone gets the whole line and the row never moves. */
+.progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s2);
+  margin-top: 10px;
+}
+
+.proposed { margin: 12px 0 0; }
+/* The six, each with its own proposal, when they disagree. */
+dl.list { margin-top: 8px; grid-template-columns: minmax(120px, auto) 1fr; }

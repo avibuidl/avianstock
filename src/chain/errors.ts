@@ -94,6 +94,14 @@ function toErrorArgs(name: string, values: readonly unknown[] | undefined): Erro
   if (nextAt !== undefined) args.at = nextAt;
   if (typeof a.staked === 'bigint') args.staked = a.staked;
   if (typeof a.wanted === 'bigint') args.wanted = a.wanted;
+  // The Treasury's clock and readings (2026-09-24): `ConversionsNotOpen(openAt)`,
+  // `ReadingTooYoung(at, usableAt)`, `NoUsableReading(lastAt, prevAt)` and
+  // `PriceUnsettled(token, meanTick, spotTick)`. Each sentence names a time
+  // from these, and an argument that is not mapped here never reaches it.
+  for (const k of ['openAt', 'at', 'usableAt', 'lastAt', 'prevAt', 'meanTick', 'spotTick', 'lastSeenAt', 'silentAt'] as const) {
+    const v = toNumber(a[k]);
+    if (v !== undefined) args[k] = v;
+  }
   return args;
 }
 
@@ -248,6 +256,13 @@ export function asContractError(e: unknown, o: AsErrorOptions = {}): ContractErr
     return new ContractError('UserRejected');
   }
 
+  // The wallet cannot pay: the value plus the network fee is more than it
+  // holds, and the node refused before anything was broadcast. Asked BEFORE
+  // the revert data, because a node's own words carry the sender's address
+  // ("insufficient funds for gas * price + value: address 0x… have 0"), and
+  // the data scan below would read that address as a revert selector.
+  if (isInsufficientFunds(e)) return new ContractError('InsufficientFunds');
+
   const data = extractRevertData(e);
   if (data) {
     const decoded = decodeRevert(data);
@@ -331,6 +346,27 @@ function isTransport(e: unknown): boolean {
     if (o.code === -32603 && /timeout|timed out/i.test(String(o.message ?? ''))) return true;
     if (o.code === -32005 || o.code === 429 || o.code === 503 || o.code === 502) return true;
     if (typeof o.status === 'number' && [408, 429, 500, 502, 503, 504].includes(o.status)) return true;
+    return walk(o.cause, depth + 1) || walk(o.error, depth + 1);
+  };
+  return walk(e, 0);
+}
+
+/**
+ * viem's `InsufficientFundsError`, anywhere in the cause chain: viem wraps it
+ * in a `TransactionExecutionError` or a `ContractFunctionExecutionError`, and
+ * a wallet may hand back only the node's own words. Named by the class where
+ * it survives, and by the message where only the text does.
+ */
+const INSUFFICIENT_FUNDS = /exceeds the balance of the account|insufficient funds/i;
+export function isInsufficientFunds(e: unknown): boolean {
+  const seen = new Set<unknown>();
+  const walk = (x: unknown, depth: number): boolean => {
+    if (!x || typeof x !== 'object' || depth > 6 || seen.has(x)) return false;
+    seen.add(x);
+    const o = x as Record<string, unknown>;
+    if (o.name === 'InsufficientFundsError') return true;
+    const text = `${typeof o.shortMessage === 'string' ? o.shortMessage : ''} ${typeof o.message === 'string' ? o.message : ''}`;
+    if (INSUFFICIENT_FUNDS.test(text)) return true;
     return walk(o.cause, depth + 1) || walk(o.error, depth + 1);
   };
   return walk(e, 0);

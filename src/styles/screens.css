@@ -5,6 +5,9 @@
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--s2); }
 .pool-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); }
+/* The picker on the wider card: five across, so a row more of the holding is
+   in view at the same height as the picture beside it. */
+.pool-grid--pick { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
 .tile {
   position: relative;
@@ -28,21 +31,24 @@ a.tile:hover { color: inherit; }
 
 /* ── the perch ────────────────────────────────────────────────────────── */
 
-/* Two buys, a little wider than the thirds they used to be, centred on the
-   page — the sell panel that made three moved to My Birds. */
+/* Two buys, centred on the page: the next bird at 440px, and the picker
+   wider (2026-09-21) so its grid shows five birds across instead of four.
+   The sell panel that made three moved to My Birds. */
 .perch-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 440px));
+  grid-template-columns: minmax(0, 440px) minmax(0, 560px);
   justify-content: center;
   gap: var(--s5);
   align-items: start;
   margin-top: var(--s6);
 }
 
+/* One column since the fee-split card came off it (2026-09-22): the
+   backing bar and its two figures have the panel to themselves. */
 .solvency {
   margin-top: var(--s5);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s7);
   align-items: center;
 }
@@ -54,10 +60,42 @@ a.tile:hover { color: inherit; }
    solvency card is arranged. One column under 1080px. */
 .treasury {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  /* 440px since the three shares moved into this column (2026-09-22): a
+     row's state line and its button fit on one line at that width. */
+  grid-template-columns: minmax(0, 1fr) 440px;
   gap: var(--s6);
   align-items: start;
 }
+
+/* A card a page opens at (#/bird-engine/roost) stops clear of the phone's header. */
+.anchor, .engine__cell, .engine__cell > [id] { scroll-margin-top: calc(var(--header-h) + var(--s4)); }
+
+/* The Nest's "Brooding now" heading: "Settle all" on its right, and the
+   settle preview, when pressed, on a line of its own under it. */
+.now-head > .box { flex: 1 1 100%; margin-top: var(--s3); }
+
+/* ── the bird engine ─────────────────────────────────────────────────── */
+
+/*
+  Two by two (2026-09-25): the Treasury beside the Roost, then the streams
+  beside the figures. Each row is one height: a cell's card stretches to its
+  neighbour's, the way the homepage's three cards do. One column under 1080px.
+*/
+.engine {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
+  margin-top: var(--s6);
+}
+.engine__cell { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.engine__cell > * { flex: 1 1 auto; }
+/* The Roost card's own wrapper, and the card in it. */
+.engine__cell > div:not([class]) { display: flex; flex-direction: column; }
+.engine__cell > div:not([class]) > .panel { flex: 1 1 auto; }
+/* The Treasury card at half the page: its figures over its presses. */
+.engine .treasury { grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; }
+/* The streams block keeps its homepage spacing everywhere but here, in a cell. */
+.engine .engine__streams > * { margin-top: 0; }
 
 .two-up {
   display: grid;
@@ -85,15 +123,20 @@ a.tile:hover { color: inherit; }
 
 .reward-row { padding: var(--s4) 0; border-top: 1px solid var(--line); }
 
+/* The hairlines belong to the CELLS, not to the strip behind them: with the
+   grid's own background showing through, a row that is not full (three
+   counters in four columns, since the Roost lost one) drew a solid block of
+   line colour where the missing cell was. Each cell outlines itself instead,
+   neighbouring outlines meet in the 1px gap, and an absent cell is absent. */
 .counters {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
   margin-top: var(--s5);
 }
-.counters > div { background: var(--ink); padding: var(--s4); }
+.counters > div { background: var(--ink); padding: var(--s4); outline: 1px solid var(--line); }
+/* Three of them, so the strip still spans the page: the Roost's, veiled. */
+.counters--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* ── your birds ───────────────────────────────────────────────────────── */
 
@@ -161,8 +204,28 @@ a.tile:hover { color: inherit; }
   padding-top: var(--s4);
 }
 
-.trait-row { padding: var(--s3) 0; border-top: 1px solid var(--line); }
-.trait-row:first-child { border-top: 0; padding-top: 0; }
+/* The bird's traits, four across, the category small above the value: the
+   composer's cell (Compose.module.css, .traits), here as a global class.
+   Two across on a phone. */
+.trait-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s4) var(--s3);
+  margin: 16px 0 0;
+}
+.trait-grid > div { min-width: 0; }
+.trait-grid dt {
+  display: flex; align-items: center; gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.trait-grid dd { margin: 6px 0 0; font-size: 15.5px; font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+
+/* The owner's address on the picture card: whole where the card is wide
+   enough for 42 characters of mono beside the word, the short form where it
+   is not. */
+.bird-detail__addr--short { display: none; }
 
 /* ── first light ──────────────────────────────────────────────────────── */
 
@@ -195,22 +258,28 @@ a.tile:hover { color: inherit; }
   .solvency { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
   .treasury { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
   .two-up { grid-template-columns: minmax(0, 1fr); }
+  .engine { grid-template-columns: minmax(0, 1fr); }
   .bird-detail { grid-template-columns: minmax(0, 1fr); }
   .fl-grid { grid-template-columns: minmax(0, 1fr); }
   .gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .bird-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .counters--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 720px) {
   .page { padding: var(--s5) var(--s4) var(--s7); }
+  .counters--3 { grid-template-columns: minmax(0, 1fr); }
   .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bird-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bird-card__pick { width: 36px; height: 36px; }
-  .pool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pool-grid, .pool-grid--pick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .fl-pair { grid-template-columns: minmax(0, 1fr); }
   .tiers { grid-template-columns: minmax(0, 1fr); }
   .lock-facts { grid-template-columns: minmax(0, 1fr); }
+  .trait-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bird-detail__addr { display: none; }
+  .bird-detail__addr--short { display: inline; }
 }
 
 /* The perch's whole holding, in a box three rows of tiles tall that scrolls

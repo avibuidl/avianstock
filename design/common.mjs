@@ -250,8 +250,8 @@ export const NAMES = {
   pl: ['Ashling', 'Frostcap', 'Cardinal', 'Rosefinch', 'Kingfisher', 'Tidewater', 'Amethyst', 'Vesper', 'Mosswing', 'Lichen', 'Emberdown', 'Kestrel'],
   ey: ['Wideawake', 'Drowse', 'Sidelong', 'Doleful', 'Thunderbrow', 'Wink', 'Sunglasses', 'Bandit', 'Rosy Shades', 'Aviators', 'Mirrorshade', 'Anaglyph', 'Scholar', 'Monocle', 'Foxfire'],
   bk: ['Seedcracker', 'Hooktip', 'Grosbeak', 'Needlepoint', 'Upsweep', 'Spoonbill', 'Notchbill', 'Songgape', 'Crossbill'],
-  nk: ['Bare Throat', 'Scarf', 'Cravat', 'Bandolier', 'Chain', 'Amulet'],
-  hw: ['Bare', 'Wool Cap', 'Dockhand', 'Beanie', 'Corsair', 'Drover', 'Stovepipe', 'Crest', 'Knife', 'Spark', 'Warcrest', 'Ramshorn', 'Seedling', 'Sovereign', 'Wildfire', 'Aureole'],
+  nk: ['None', 'Scarf', 'Cravat', 'Bandolier', 'Chain', 'Amulet'],
+  hw: ['None', 'Wool Cap', 'Dockhand', 'Beanie', 'Corsair', 'Drover', 'Stovepipe', 'Crest', 'Knife', 'Spark', 'Warcrest', 'Ramshorn', 'Seedling', 'Sovereign', 'Wildfire', 'Aureole'],
 };
 
 /** The packed uint48 the register keys on. */

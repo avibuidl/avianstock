@@ -63,14 +63,29 @@ export type Scenario = {
    */
   treasury:
     | 'flowing'              // healthy: ETH convertible, something streamed already
-    | 'disabled'             // guard 1
+    // OPEN BY THE CLOCK (2026-09-24). `flowing` is open: trading opened more
+    // than six hours ago and nobody has paused. The owner's flag is a pause
+    // now, not a switch, so what used to be "disabled" is "paused".
+    | 'paused'               // guard 1: open by the clock, held shut by the owner
+    | 'launch-unknown'       // no route names a hook, so the Treasury cannot know the launch time
+    | 'opens-later'          // the clock is known: both buttons open in two hours
     | 'cooling-down'         // guard 2
     | 'nothing-staked'       // guard 3
     | 'no-rewards'           // guard 4
     | 'no-targets'           // guard 5
     | 'nothing-convertible'  // guard 6
     | 'accidental-deposit'   // an ERC-20 turned up; 100% of it is the admin's
-    | 'nothing-claimable';   // the owner has already withdrawn
+    | 'nothing-claimable'    // the owner has already withdrawn
+    // Priced by the pools (2026-09-24). `flowing` is the launch set: every
+    // pair reads its own pool, and the readings are usable. These four are the
+    // states that set does not have.
+    | 'floor-priced-pair'     // one pair has no pool history, so it keeps a floor
+    | 'readings-absent'       // nobody has ever taken one
+    | 'readings-too-young'    // one was just taken; the buy opens when it ages
+    | 'pool-unsettled'        // the AVIAN pool has strayed from its own mean
+    // The Roost's tenth (2026-09-22): waiting on its own clock, and spent out.
+    | 'roost-buy-cooling'
+    | 'roost-buy-empty';
   /**
    * The admin panel. Each value is a state the screen has to be able to draw —
    * including the two where the connected wallet is not the owner, because
@@ -91,19 +106,26 @@ export type Scenario = {
     | 'lock-expired';         // the vault's position can leave
 
   /**
-   * Trading AVIANS. The launch window is NOT here — it comes from `launch` and
+   * Trading AVIAN. The launch window is NOT here — it comes from `launch` and
    * `windowElapsed`, which First Light and the Docs timeline already use, so
    * there is one model of the window and not two. What is here is everything
    * those cannot say.
    */
   swap:
     | 'ready'            // both approvals granted; a sell can go straight through
-    | 'needs-approval'   // step one outstanding: AVIANS -> Permit2
+    | 'needs-approval'   // step one outstanding: AVIAN -> Permit2
     | 'needs-permit2'    // step two outstanding: Permit2 -> the router
     | 'quote-fails'      // the node will not answer a quote
     | 'no-pool';         // this deployment has no pool at all
 
   satchel: 'empty' | 'holds-tokens' | 'holds-birds';
+  /**
+   * Bird #1204's two attribute rows (2026-09-21). 'as-minted': Mint Combo
+   * Yes, Recomposed No, the bird every other id is. 'swapped': a trait-market
+   * swap changed its headwear, so No / Yes. 'restored': swapped and later
+   * swapped back to its minted combination, so Yes / Yes.
+   */
+  recompose: 'as-minted' | 'swapped' | 'restored';
   operatorWhitelist: 'applied' | 'missing';
 
   /**
@@ -115,18 +137,72 @@ export type Scenario = {
   ticker: 'all' | 'one-missing' | 'reduced-motion';
 
   /**
-   * The Roost (2026-09-18). 'ready': AVIANS waiting to be split and both legs
-   * deliverable; 'nest-held': the Nest's leg held ("nothing is brooding");
+   * The Roost (2026-09-18). 'ready': AVIAN waiting to be split and the
+   * stakers' and brooders' legs deliverable; 'nest-held': the Nest's leg held ("nothing is brooding");
    * 'too-soon': turned five hours ago, so the next turn is nineteen away.
    */
   roost: 'ready' | 'nest-held' | 'nest-held-brooding' | 'too-soon';
-  /** AVIANS staking: a stake with a live stream three and a half days in, or nothing staked. */
+  /**
+   * THE ROTATION (2026-09-20). Which week of the three-week cycle the Roost
+   * is in: the three figures 35 / 30 / 20 sit on stakers / brooders / vault
+   * users in week 0, then move one place a week. Each week's fixture puts
+   * the rotation a different distance away, so the countdown reads
+   * differently too. The lockers' leg is held in every scene: the vault
+   * products come after launch, so "nothing is locked" is the truth for now.
+   */
+  rotation: 'week-0' | 'week-1' | 'week-2';
+  /** AVIAN staking: a stake with a live stream three and a half days in, or nothing staked. */
   /**
    * 'held-with-staker' (2026-09-19): the stakers' leg of an earlier turn is
    * held at the Roost and the wallet has since staked, so the DELIVER button
    * is live; 'held-nobody-staked': the same leg held with nobody staked yet.
    */
   staking: 'mid-week' | 'nothing-staked' | 'held-with-staker' | 'held-nobody-staked';
+
+  /**
+   * THE FLYWHEEL SNAPSHOT (2026-09-22), the landing page's live figures.
+   * 'live': a day in, with birds burnt and every token paid something.
+   * 'first-day': nothing paid, nothing brooding, nothing split, nothing
+   * burnt, the Roost never turned. 'no-usd': the live day on a deployment
+   * with no dollar source (the testnet): every dollar figure absent.
+   * 'turn-due': the live day with the next turn due now, the countdown at zero.
+   */
+  flywheel: 'live' | 'first-day' | 'no-usd' | 'turn-due';
+
+  /**
+   * THE STAKERS' STREAM (part 19), the staking contract's own AVIAN stream on
+   * the flywheel views. 'streaming': funded and running; 'ended': its week
+   * ran out; 'unfunded': the Roost has never funded it (periodFinish 0);
+   * 'unlisted': the Nest does not list AVIAN while stakers have been paid,
+   * so the headline must count them on their own.
+   */
+  stakers: 'streaming' | 'ended' | 'unfunded' | 'unlisted';
+
+  /**
+   * THE COUNCIL (2026-09-24), the protocol's second key, read-only on the
+   * site. 'quiet': a seat named, nothing waiting; 'replacement': the hook's
+   * Treasury moves in two days; 'rescue': the owner's proposal is seated in
+   * one; 'silent-rescue': the admin key moves after the owner's silence, in
+   * three; 'three': three waiting, the rescue last (the price band's left
+   * half scrolls); 'overdue': one past its time and not executed; 'none':
+   * one seat, the Nest, where no council was ever named.
+   */
+  council: 'quiet' | 'replacement' | 'rescue' | 'silent-rescue' | 'three' | 'overdue' | 'none';
+
+  /**
+   * THE OWNER'S SEAT (2026-09-24), the "Your seat" control on the Owner page.
+   * 'today': heard from five minutes ago; 'quiet-26': heard from 26 days ago,
+   * four days before the council may act alone; 'proposed': a fresh key
+   * proposed on all six; 'disagree': the six name different keys;
+   * 'midway': "Still here" three seats into its six.
+   */
+  seat: 'today' | 'quiet-26' | 'proposed' | 'disagree' | 'midway';
+
+  /**
+   * THE DEPLOYMENT READ (2026-09-25), the addresses in Docs' "The
+   * contracts". 'fails': that one read fails and the rest of the site reads.
+   */
+  deployment: 'ok' | 'fails';
 
   /** Force the next write to fail with this. Cleared after one throw. */
   nextError: ErrorName | null;
@@ -152,10 +228,17 @@ export const DEFAULT_SCENARIO: Scenario = {
   admin: 'owner',
   swap: 'needs-approval',
   satchel: 'holds-birds',
+  recompose: 'as-minted',
   operatorWhitelist: 'applied',
   ticker: 'all',
   roost: 'ready',
+  rotation: 'week-0',
   staking: 'mid-week',
+  flywheel: 'live',
+  stakers: 'streaming',
+  council: 'quiet',
+  seat: 'today',
+  deployment: 'ok',
   nextError: null,
 };
 
@@ -175,7 +258,7 @@ export const PRESETS: Preset[] = [
   { group: 'The free door', name: 'Released to the paid mint', patch: { freeMint: 'released', paidMint: 'open', launch: 'after' } },
 
   { group: 'The paid door', name: 'Closed', patch: { paidMint: 'closed', freeMint: 'closed', launch: 'after' } },
-  { group: 'The paid door', name: 'Open, no AVIANS', patch: { paidMint: 'open', freeMint: 'closed', balance: 'none', approvals: 'none', launch: 'after' } },
+  { group: 'The paid door', name: 'Open, no AVIAN', patch: { paidMint: 'open', freeMint: 'closed', balance: 'none', approvals: 'none', launch: 'after' } },
   { group: 'The paid door', name: 'Open, needs approval', patch: { paidMint: 'open', freeMint: 'closed', balance: 'enough', approvals: 'none', approvalRoute: 'approve', launch: 'after' } },
   { group: 'The paid door', name: 'Open, ready', patch: { paidMint: 'open', freeMint: 'closed', balance: 'enough', approvals: 'sufficient', combo: 'available', launch: 'after' } },
   { group: 'The paid door', name: 'Combination just went', patch: { paidMint: 'open', freeMint: 'closed', combo: 'taken', launch: 'after' } },
@@ -201,17 +284,30 @@ export const PRESETS: Preset[] = [
   { group: 'The perch', name: 'Below the burn floor', patch: { burnClock: 'below-floor' } },
 
   { group: 'Collecting', name: 'Nothing granted yet', patch: { sweeper: 'none-granted', rewards: 'accruing', satchel: 'holds-tokens' } },
+  { group: 'A bird’s rows', name: 'Avian #1204 as minted: Mint Combo Yes, Recomposed No', patch: { recompose: 'as-minted' } },
+  { group: 'A bird’s rows', name: 'Avian #1204 recomposed: a swap changed its headwear', patch: { recompose: 'swapped' } },
+  { group: 'A bird’s rows', name: 'Avian #1204 swapped back to its minted combination: Yes / Yes', patch: { recompose: 'restored' } },
   { group: 'Collecting', name: 'Some granted, with stock to collect', patch: { sweeper: 'some-granted', rewards: 'accruing' } },
   { group: 'Collecting', name: 'A token that will be skipped', patch: { sweeper: 'some-granted', rewards: 'one-paused' } },
   { group: 'Collecting', name: 'Everything swept already', patch: { sweeper: 'all-swept', rewards: 'accruing' } },
 
   { group: 'The Treasury', name: 'Flowing', patch: { treasury: 'flowing' } },
-  { group: 'The Treasury', name: 'Conversion disabled', patch: { treasury: 'disabled' } },
+  { group: 'The Treasury', name: 'Launch time unknown', patch: { treasury: 'launch-unknown' } },
+  { group: 'The Treasury', name: 'Opens in two hours', patch: { treasury: 'opens-later' } },
+  { group: 'The Treasury', name: 'Open', patch: { treasury: 'flowing' } },
+  { group: 'The Treasury', name: 'Paused by the owner', patch: { treasury: 'paused' } },
   { group: 'The Treasury', name: 'Cooling down', patch: { treasury: 'cooling-down' } },
   { group: 'The Treasury', name: 'Nothing brooding', patch: { treasury: 'nothing-staked' } },
   { group: 'The Treasury', name: 'No reward tokens', patch: { treasury: 'no-rewards' } },
   { group: 'The Treasury', name: 'No targets set', patch: { treasury: 'no-targets' } },
   { group: 'The Treasury', name: 'Nothing convertible', patch: { treasury: 'nothing-convertible' } },
+  { group: 'The Treasury', name: 'The Roost’s tenth, waiting on its own clock', patch: { treasury: 'roost-buy-cooling' } },
+  { group: 'The Treasury', name: 'The Roost’s tenth, spent until more arrives', patch: { treasury: 'roost-buy-empty' } },
+  { group: 'The Treasury', name: 'Priced by the pools: the launch set', patch: { treasury: 'flowing' } },
+  { group: 'The Treasury', name: 'One pair keeps a floor', patch: { treasury: 'floor-priced-pair' } },
+  { group: 'The Treasury', name: 'No reading has been taken', patch: { treasury: 'readings-absent' } },
+  { group: 'The Treasury', name: 'A reading is on its way', patch: { treasury: 'readings-too-young' } },
+  { group: 'The Treasury', name: 'The AVIAN pool is moving', patch: { treasury: 'pool-unsettled' } },
   { group: 'The Treasury', name: 'An accidental ERC-20 deposit', patch: { treasury: 'accidental-deposit' } },
   { group: 'The Treasury', name: 'An ERC-20 turned up', patch: { treasury: 'accidental-deposit' } },
 
@@ -242,7 +338,7 @@ export const PRESETS: Preset[] = [
   { group: 'The ticker', name: 'No reward tokens listed — no band', patch: { ticker: 'all', rewards: 'none-listed' } },
   { group: 'The ticker', name: 'Reduced motion', patch: { ticker: 'reduced-motion', rewards: 'accruing' } },
 
-  { group: 'The Roost', name: 'Ready to turn, both legs deliverable', patch: { roost: 'ready', staking: 'mid-week' } },
+  { group: 'The Roost', name: 'Ready to turn, the stakers’ and brooders’ legs deliverable', patch: { roost: 'ready', staking: 'mid-week' } },
   { group: 'The Roost', name: 'The Nest leg held — nothing is brooding', patch: { roost: 'nest-held', brood: 'none' } },
   { group: 'The Roost', name: 'Too soon to turn', patch: { roost: 'too-soon' } },
   { group: 'The Roost', name: 'Staked, mid-week stream', patch: { staking: 'mid-week' } },
@@ -250,7 +346,40 @@ export const PRESETS: Preset[] = [
   { group: 'The Roost', name: 'A held stakers’ leg, and a staker present: DELIVER is live', patch: { staking: 'held-with-staker', roost: 'ready' } },
   { group: 'The Roost', name: 'A held stakers’ leg, nobody staked yet', patch: { staking: 'held-nobody-staked', roost: 'ready' } },
   { group: 'The Roost', name: 'A held brooding leg, with birds brooding: DELIVER on the nest', patch: { roost: 'nest-held-brooding', brood: 'mixed', rewards: 'accruing' } },
-  { group: 'The Roost', name: 'A brooding bird’s unsettled AVIANS ticking', patch: { brood: 'brooding', rewards: 'accruing' } },
+  { group: 'The Roost', name: 'Week 0 of the cycle: 35 / 30 / 20', patch: { rotation: 'week-0', roost: 'ready' } },
+  { group: 'The Roost', name: 'Week 1 of the cycle: 30 / 20 / 35', patch: { rotation: 'week-1', roost: 'ready' } },
+  { group: 'The Roost', name: 'Week 2 of the cycle: 20 / 35 / 30', patch: { rotation: 'week-2', roost: 'ready' } },
+  { group: 'The Roost', name: 'The lockers’ leg held: nothing is locked until the vault products', patch: { roost: 'too-soon', rotation: 'week-0' } },
+  { group: 'The Roost', name: 'A brooding bird’s unsettled AVIAN ticking', patch: { brood: 'brooding', rewards: 'accruing' } },
+
+  { group: 'The council', name: 'A seat named, nothing waiting', patch: { council: 'quiet' } },
+  { group: 'The council', name: 'A replacement waiting: the hook\u2019s Treasury, two days to go', patch: { council: 'replacement' } },
+  { group: 'The council', name: 'The owner\u2019s proposal waiting: the admin key, one day to go', patch: { council: 'rescue' } },
+  { group: 'The council', name: 'The silent rescue waiting: the admin key, three days to go', patch: { council: 'silent-rescue' } },
+  { group: 'The council', name: 'A seat with no council: the Nest', patch: { council: 'none' } },
+
+  { group: 'The price band', name: 'No change waiting: the prices alone', patch: { council: 'quiet' } },
+  { group: 'The price band', name: 'One change waiting: the band splits', patch: { council: 'replacement' } },
+  { group: 'The price band', name: 'The rescue waiting, in its stronger tone', patch: { council: 'silent-rescue' } },
+  { group: 'The price band', name: 'Three changes waiting: the council half scrolls', patch: { council: 'three' } },
+  { group: 'The price band', name: 'Past its time, not executed: lands any moment', patch: { council: 'overdue' } },
+
+  { group: 'Docs', name: 'The contracts: the deployment read fails', patch: { deployment: 'fails' } },
+
+  { group: 'Your seat', name: 'Heard from today', patch: { seat: 'today' } },
+  { group: 'Your seat', name: 'Heard from 26 days ago: four days before the council may act alone', patch: { seat: 'quiet-26' } },
+  { group: 'Your seat', name: 'A fresh key proposed on all six', patch: { seat: 'proposed' } },
+  { group: 'Your seat', name: 'The six disagree on the proposal', patch: { seat: 'disagree' } },
+  { group: 'Your seat', name: '“Still here” mid-way: 3 of 6', patch: { seat: 'midway' } },
+
+  { group: 'The Bird Engine, on the homepage', name: 'A live day: birds burnt, every token paid something', patch: { flywheel: 'live' } },
+  { group: 'The Bird Engine, on the homepage', name: 'The first day: nothing paid, brooding, split or burnt', patch: { flywheel: 'first-day' } },
+  { group: 'The Bird Engine, on the homepage', name: 'No dollar source: the testnet, ETH figures only', patch: { flywheel: 'no-usd' } },
+  { group: 'The Bird Engine, on the homepage', name: 'A turn due now: the countdown at zero', patch: { flywheel: 'turn-due' } },
+  { group: 'The stakers\u2019 stream', name: 'Streaming', patch: { stakers: 'streaming' } },
+  { group: 'The stakers\u2019 stream', name: 'Ended', patch: { stakers: 'ended' } },
+  { group: 'The stakers\u2019 stream', name: 'Never funded', patch: { stakers: 'unfunded' } },
+  { group: 'The stakers\u2019 stream', name: 'AVIAN not listed on the Nest, stakers paid', patch: { stakers: 'unlisted' } },
 
   { group: 'Satchels', name: 'Empty satchel', patch: { satchel: 'empty' } },
   { group: 'Satchels', name: 'Holds tokens', patch: { satchel: 'holds-tokens' } },

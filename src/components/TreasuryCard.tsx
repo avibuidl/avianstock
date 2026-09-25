@@ -1,13 +1,18 @@
-// The Treasury card. On the nest, where the streams come from; it was on
-// Contracts until 2026-09-18.
+// The Treasury card. On the Bird Engine page since 2026-09-25, beside the
+// Roost's; it was on the nest before that, and on Contracts until 2026-09-18.
 //
-// Two figures people confuse for each other, and one button anybody may press.
+// Two figures, and the two shares of the ETH anybody may act on: the
+// rewards' (CONVERT) and the Roost's (BUY), one row each so the two buttons
+// read as peers. The protocol's share has no row: claiming it is the owner's.
+//
+// NOTHING BUT WHAT IS LIVE (2026-09-25). The card states figures, the clock,
+// the two rows and a row's reason when its button is refused. Every
+// explanation it used to carry is gone; the Docs page has them.
 //
 // RECEIVED vs BALANCE. The contract derives `cumulativeIn` as
 // `balance + adminClaimed + convertedOut`, so "everything that ever arrived"
 // and "what is here now" differ by exactly what has been taken out. That is an
-// identity, not an approximation, which is why the sentence under the table can
-// state it flatly.
+// identity, not an approximation.
 //
 // THE CONVERT BUTTON IS PUBLIC. `convertAndStream` is callable by anyone and
 // that is a selling point, so it is drawn for every visitor rather than hidden
@@ -22,7 +27,7 @@
 // There is no `isOwner` in this file, no `owner()` read behind it, and no
 // import of `claimAdmin`.
 //
-// AND NO AVIANS ROW. The Treasury's AVIANS position is not itemised on a
+// AND NO AVIAN ROW. The Treasury's AVIAN position is not itemised on a
 // public page — the owner sees it on the admin panel instead. Being plain
 // about what that is and is not: the balance is a public fact on chain and
 // anyone can read it from a block explorer in a few seconds. Leaving it out
@@ -31,26 +36,61 @@
 // there is something to go and look for, which is the opposite of the point.
 
 import { useState } from 'react';
-import { ErrorState, PanelSkeleton, Note } from './Primitives';
+import s from './TreasuryCard.module.css';
+import { ErrorState, PanelSkeleton } from './Primitives';
 import { useTx } from './Tx';
 import { avians, formatCountdown, formatEth, formatReward } from '../lib/format';
+import { readingPlan } from '../lib/pricing';
+import { clockState, formatOpenAt } from '../lib/opening';
 import {
-  ADDRESSES, convertAndStream, useNow, useTreasury,
+  ADDRESSES, buyForRoost, convertAndStream, takeRoostReading, useNow, useTreasury,
   type Amount, type TreasuryRow, type TreasuryState,
 } from '../mock';
 
-/** 86,400 -> "24 hours". The conversion interval, which the owner sets. */
-function formatHours(seconds: number): string {
-  const h = Math.round(seconds / 3600); /* count */
-  if (h >= 48 && h % 24 === 0) return `${h / 24} days`;
-  return `${h} hour${h === 1 ? '' : 's'}`;
-}
-
 /** One amount, in the currency's own units. Never a bare number. */
 function money(row: TreasuryRow, v: Amount): string {
-  if (row.symbol === 'AVIANS') return avians(v);
+  if (row.symbol === 'AVIAN') return avians(v);
   if (row.currency === null) return `${formatEth(v)} ${row.symbol}`;
   return `${formatReward(v, row.decimals)} ${row.symbol}`;
+}
+
+/** A row's one-line reason; `clock` when it is the opening clock, which both rows share. */
+type Blocked = { short: string; clock?: boolean };
+
+/**
+ * THE CLOCK (2026-09-24). Nobody switches conversions on: both buttons open by
+ * themselves six hours after trading opened on the AVIAN pool. Until they do,
+ * both say the same sentence the line above them says, and nothing else —
+ * a per-button reason before the clock has passed would be answering a
+ * question nobody can act on yet. Null once the clock has passed, or on a
+ * Treasury from before the clock.
+ */
+function clockBlocked(t: TreasuryState, now: number): Blocked | null {
+  if (!t.opening) return null;
+  const c = clockState(t.opening, now);
+  if (c.kind === 'unknown') {
+    return {
+      clock: true,
+      short: 'The Treasury does not know when trading opened yet',
+    };
+  }
+  if (c.kind === 'waiting') {
+    return {
+      clock: true,
+      short: `Conversions open at ${formatOpenAt(c.openAt)} (${formatCountdown(c.openAt - now)})`,
+    };
+  }
+  return null;
+}
+
+/**
+ * The owner's flag. A pause since 2026-09-24, and the switch that had not been
+ * thrown on a Treasury from before: the words have to match the contract the
+ * card is reading.
+ */
+function pausedBecause(t: TreasuryState): Blocked | null {
+  if (t.conversion.enabled) return null;
+  return { short: t.opening ? 'Paused' : 'Not switched on yet' };
 }
 
 /**
@@ -59,65 +99,79 @@ function money(row: TreasuryRow, v: Amount): string {
  * write's own simulation to answer, and it produces a better sentence than a
  * disabled button could.
  */
-function blockedBecause(t: TreasuryState, now: number): { short: string; long: string } | null {
-  if (!t.conversion.enabled) {
-    return {
-      short: 'Not switched on yet',
-      long: 'Conversion is off at deployment. The owner turns it on once the pool and the streams are running. Income still arrives in the meantime.',
-    };
-  }
+function blockedBecause(t: TreasuryState, now: number): Blocked | null {
+  const clock = clockBlocked(t, now);
+  if (clock) return clock;
+  const paused = pausedBecause(t);
+  if (paused) return paused;
   if (t.conversion.nextAllowedAt > now) {
-    return {
-      short: `Ready in ${formatCountdown(t.conversion.nextAllowedAt - now)}`,
-      // The INTERVAL is the owner's to set; the FLOOR under it is not. So the
-      // first half of this sentence is read and the second half is a constant,
-      // and they are different kinds of fact.
-      long: `One conversion every ${formatHours(t.conversion.minInterval)}, on one clock shared by every currency. The owner cannot configure it any faster than once a day.`,
-    };
+    return { short: `Ready in ${formatCountdown(t.conversion.nextAllowedAt - now)}` };
   }
   if (t.totalWeight === 0n) {
-    return {
-      short: 'Nothing is brooding',
-      long: 'A stream cannot start while no bird is brooding, so there is nobody to convert this income for yet.',
-    };
+    return { short: 'Nothing is brooding' };
   }
   if (t.rewardTokenCount === 0) {
-    return {
-      short: 'No reward tokens yet',
-      long: 'No reward token is listed on the nest yet, so a conversion would have nowhere to send anything.',
-    };
+    return { short: 'No reward tokens yet' };
   }
   if (t.targetCount === 0) {
-    return {
-      short: 'No targets configured',
-      long: 'The owner sets which reward tokens the income is split into. Until that is done there is nothing for a conversion to buy.',
-    };
+    return { short: 'No targets configured' };
   }
   return null;
 }
 
+/**
+ * Why the Roost's buy cannot run, from the reads that are cheap. Its own
+ * clock, the same enable switch as a conversion, and its own share: the
+ * route and the floor are the write's simulation to answer, and the refusal
+ * says it better than a disabled button could.
+ */
+function roostBlockedBecause(t: TreasuryState, now: number): Blocked | null {
+  if (!t.roost) return null;
+  const clock = clockBlocked(t, now);
+  if (clock) return clock;
+  const paused = pausedBecause(t);
+  if (paused) return paused;
+  if (t.roost.nextAllowedAt > now) {
+    return { short: `Ready in ${formatCountdown(t.roost.nextAllowedAt - now)}` };
+  }
+  if (t.roost.buyable === 0n) {
+    return { short: 'Spent for now' };
+  }
+  return null;
+}
+
+/** The wall clock when a read landed, so the chain's clock can be carried forward from it. */
+const landed = new WeakMap<TreasuryState, number>();
+function wallAt(t: TreasuryState): number {
+  let at = landed.get(t);
+  if (at === undefined) { at = Math.floor(Date.now() / 1000); landed.set(t, at); }
+  return at;
+}
+
 export function TreasuryCard() {
   const treasury = useTreasury();
-  const now = useNow(1000);
+  const wall = useNow(1000);
   const tx = useTx();
   const [busy, setBusy] = useState<string | null>(null);
-  const [showEmpty, setShowEmpty] = useState(false);
 
   const t = treasury.data;
+  // The chain's clock, carried forward by the wall clock since the read: both
+  // cooldowns are the chain's timestamps, not this machine's.
+  const now = t ? t.chainNow + Math.max(0, wall - wallAt(t)) : wall;
   const blocked = t ? blockedBecause(t, now) : null;
+  const roostBlocked = t ? roostBlockedBecause(t, now) : null;
+  // Whether the buy can be priced at all: `roostMeanTick()` answered, or a
+  // reading is wanted, or one is already on its way. A Treasury that predates
+  // the readings reads 'unavailable' and the buy is offered as it always was.
+  const plan = readingPlan(t?.readings ?? null, now);
 
-  // A currency that has never received anything and holds nothing is not
-  // information — it is the absence of it, and the listed reward tokens are
-  // permanently in that state because nothing ever pays the Treasury in one.
-  // Hiding them silently would be the same failure as showing a zero for a read
-  // that did not happen, so the count stays visible and one click brings them
-  // back. The rule is derived, not a list of symbols: the moment anything does
-  // arrive in one of them, its row appears on its own.
+  // A currency that has never received anything and holds nothing stays out
+  // of the table (2026-09-25: no disclosure to bring it back). The rule is
+  // derived, not a list of symbols: the moment anything arrives in one of
+  // them, its row appears on its own.
   //
-  // AVIANS is the one exception, and it is not derived — it is named, because
-  // the decision is about that currency and nothing else. It is filtered before
-  // the split, so it is not in the visible table and not in the hidden count
-  // either; the disclosure below would otherwise be a signpost to it.
+  // AVIAN is the one exception, and it is not derived: it is named, because
+  // the decision is about that currency and nothing else.
   //
   // Matched by ADDRESS, out of the manifest, rather than by the symbol string:
   // a symbol is a read off a contract, and the one currency this card must not
@@ -125,13 +179,35 @@ export function TreasuryCard() {
   const avianAddress = ADDRESSES.Avians?.toLowerCase();
   const rows = (t?.rows ?? [])
     .filter((r) => !r.currency || r.currency.toLowerCase() !== avianAddress);
-  const active = rows.filter((r) => r.cumulativeIn > 0n || r.balance > 0n);
-  const empty = rows.filter((r) => r.cumulativeIn === 0n && r.balance === 0n);
-  const shown = showEmpty ? [...active, ...empty] : active;
+  const shown = rows.filter((r) => r.cumulativeIn > 0n || r.balance > 0n);
+
+  const doBuyForRoost = async () => {
+    setBusy('roost');
+    await tx.run('Buying AVIAN for the Roost', (on) => buyForRoost(on), {
+      // The route and floor refusals are the conversion's too, and the two
+      // need different sentences: this says which call asked.
+      context: { roostBuy: true, now },
+      outcome: (r) => `Bought and sent to the Roost: ${avians((r as { amountOut: Amount }).amountOut)} for ${formatEth((r as { amountIn: Amount }).amountIn)} ETH.`,
+    });
+    setBusy(null);
+  };
+
+  const doTakeReading = async () => {
+    setBusy('reading');
+    await tx.run('Taking a reading of the AVIAN pool', (on) => takeRoostReading(on), {
+      outcome: (r) => {
+        const at = (r as { at: number }).at;
+        const opens = new Date((at + (t?.readings?.window ?? 1_800)) * 1000);
+        return `Reading taken. The Roost’s buy opens at ${opens.toLocaleTimeString()}.`;
+      },
+    });
+    setBusy(null);
+  };
 
   const doConvert = async (row: TreasuryRow) => {
     setBusy(`convert:${row.symbol}`);
     await tx.run(`Converting ${row.symbol} into rewards`, (on) => convertAndStream(row.currency, on), {
+      context: { now },
       outcome: () => `Converted and streamed to the nest.`,
     });
     setBusy(null);
@@ -141,10 +217,6 @@ export function TreasuryCard() {
     <section className="panel treasury" aria-labelledby="tre-h">
       <div>
         <h3 id="tre-h" style={{ fontSize: 20 }}>The Treasury</h3>
-        <p className="small dim" style={{ marginTop: 8 }}>
-          Where the project&rsquo;s ETH income lands: the pool&rsquo;s fee and marketplace
-          royalties. It is converted to reward tokens for the nest.
-        </p>
 
         {treasury.loading && !t ? (
           <div style={{ marginTop: 16 }}><PanelSkeleton lines={4} /></div>
@@ -174,25 +246,6 @@ export function TreasuryCard() {
                 </tbody>
               </table>
             </div>
-
-            <p className="tiny dim" style={{ marginTop: 14 }}>
-              Received is everything that has ever arrived. Balance is what is here now. The
-              difference has been claimed or converted.
-            </p>
-
-            {empty.length > 0 ? (
-              <button
-                type="button"
-                className="btn btn--ghost btn--small"
-                style={{ marginTop: 12 }}
-                aria-expanded={showEmpty}
-                onClick={() => setShowEmpty((v) => !v)}
-              >
-                {showEmpty
-                  ? `Hide ${empty.length} ${empty.length === 1 ? 'currency' : 'currencies'} with nothing in them`
-                  : `Show ${empty.length} ${empty.length === 1 ? 'currency that has' : 'currencies that have'} never received anything`}
-              </button>
-            ) : null}
           </>
         )}
       </div>
@@ -206,60 +259,107 @@ export function TreasuryCard() {
         the table is left as three columns of pure figures.
       */}
       <div className="treasury__side">
+        {/*
+          THE TWO SHARES ANYBODY MAY PRESS: one row each, with its own state
+          and its own button, matched: same size, and filled only while the
+          press would do something. No percentages (2026-09-25), and no row
+          for the protocol's share: claiming it is the owner's, on `#/admin`.
+        */}
+        {/*
+          THE CLOCK'S LINE (2026-09-24), above both buttons: when they open,
+          and then that they have. The pause is not in it — the line states
+          the clock, and a paused button says so on its own row.
+        */}
+        {t?.opening ? (() => {
+          const c = clockState(t.opening, now);
+          return (
+            <p className={`small ${c.kind === 'open' ? 'strong' : 'dim'}`} style={{ margin: '0 0 10px' }}>
+              {c.kind === 'unknown' ? 'The Treasury does not know when trading opened yet'
+                : c.kind === 'waiting' ? `Conversions open at ${formatOpenAt(c.openAt)} (${formatCountdown(c.openAt - now)})`
+                  : 'Conversions open'}
+            </p>
+          );
+        })() : null}
+
         {t ? (
-          shown.some((r) => r.convertible > 0n) ? (
-            <div className="stack" style={{ gap: 10 }}>
-              {shown.filter((r) => r.convertible > 0n).map((r) => (
-                <div key={r.symbol} className="inset">
-                  <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className="strong">{r.symbol}</span>
-                    <span className="spacer" />
+          <div className={s.shares}>
+            <div className={s.share}>
+              <span className={`small ${s.what}`}>reward tokens for the nest</span>
+              <div className={s.foot}>
+                <p className={`tiny dim ${s.state}`}>
+                  {shown.some((r) => r.convertible > 0n)
+                    ? (blocked
+                      ? blocked.short
+                      : shown.filter((r) => r.convertible > 0n)
+                        .map((r) => `${money(r, r.convertible)} available to convert`).join(' · '))
+                    : 'Nothing to convert right now'}
+                </p>
+                <span className={s.buttons}>
+                  {shown.filter((r) => r.convertible > 0n).map((r) => (
                     <button
+                      key={r.symbol}
                       type="button"
-                      className="btn btn--small"
+                      className={`btn btn--compact${blocked ? ' btn--ghost' : ''}`}
                       disabled={!!blocked || !!busy || tx.busy}
                       onClick={() => doConvert(r)}
                     >
                       {busy === `convert:${r.symbol}` ? 'Converting…' : 'Convert to rewards'}
                     </button>
-                  </div>
-                  <p className="tiny dim" style={{ margin: '8px 0 0' }}>
-                    {blocked
-                      ? blocked.short
-                      : `${money(r, r.convertible)} available to convert. Anyone may press this.`}
-                  </p>
-                </div>
-              ))}
+                  ))}
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="inset">
-              <span className="strong">Nothing to convert right now.</span>
-              <p className="tiny dim" style={{ margin: '8px 0 0' }}>
-                The button appears here once ETH has arrived.
-              </p>
-            </div>
-          )
-        ) : null}
 
-        {blocked ? (
-          <div style={{ marginTop: 14 }}>
-            <Note tone="info">
-              <strong className="strong">{blocked.short}.</strong> {blocked.long}
-            </Note>
+            {t.roost ? (
+              <div className={s.share}>
+                <span className={`small ${s.what}`}>AVIAN for the Roost</span>
+                <div className={s.foot}>
+                  <p className={`tiny dim ${s.state}`}>
+                    {roostBlocked?.clock
+                      ? roostBlocked.short
+                      : plan.kind === 'take'
+                      ? 'The pool’s price has not been read yet'
+                      : plan.kind === 'waiting'
+                        ? `Opens in ${formatCountdown(Math.max(0, plan.usableAt - now))}`
+                        : roostBlocked
+                          ? roostBlocked.short
+                          : `${formatEth(t.roost.buyable)} ETH to spend on AVIAN`}
+                  </p>
+                  <span className={s.buttons}>
+                    {/*
+                      ONE BUTTON, TWO CALLS (2026-09-24). A v4 pool keeps no
+                      history, so the buy averages the AVIAN pool between two
+                      readings the Treasury holds. With no usable one there is
+                      nothing to price against and the buy can only refuse —
+                      so the reading takes the buy's place, at the same size,
+                      ghosted because it is the step before the thing itself.
+                    */}
+                    {plan.kind === 'take' && !roostBlocked?.clock ? (
+                      <button
+                        type="button"
+                        className="btn btn--compact btn--ghost"
+                        disabled={!!busy || tx.busy}
+                        onClick={doTakeReading}
+                      >
+                        {busy === 'reading' ? 'Reading…' : 'Take a reading'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`btn btn--compact${roostBlocked || plan.kind === 'waiting' ? ' btn--ghost' : ''}`}
+                        disabled={!!roostBlocked || plan.kind === 'waiting' || !!busy || tx.busy}
+                        onClick={doBuyForRoost}
+                      >
+                        {busy === 'roost' ? 'Buying…' : 'Buy for the Roost'}
+                      </button>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        {/*
-          A FLOOR, not the setting. The note above this one states the interval
-          that is actually configured, read live, and the two read as though they
-          disagreed when the owner set three days; so this one says which kind of
-          fact it is. `MIN_INTERVAL_FLOOR` is one day and is a constant, so "at
-          most once a day" is true whatever the owner does.
-        */}
-        <p className="tiny dim" style={{ marginTop: 14 }}>
-          Anyone may trigger a conversion, at most once a day. That limit is in the contract, not a
-          setting.
-        </p>
       </div>
     </section>
   );

@@ -82,6 +82,13 @@
 .btn--danger:hover:not(:disabled), a.btn--danger:hover { background: var(--wash-bad); border-color: var(--crimson-light); color: var(--refusal); }
 
 .btn--small { padding: var(--s2) var(--s3); min-height: 40px; font-size: 13.5px; }
+/* Inside a card of small labels (2026-09-22, the flywheel snapshot): the
+   same hairline, corners, hover and focus ring at a third of the height, so
+   a call to action sits beside figures without swamping them. */
+.btn--compact { padding: var(--s1) var(--s3); min-height: 32px; font-size: 12.5px; white-space: nowrap; }
+/* Its label on one line, whatever it sits beside: in a row with a sentence
+   (the Nest's "Settle all", 2026-09-25) the sentence wraps, never the press. */
+.row > .btn--compact, .row > * > .btn--compact { flex-shrink: 0; }
 .btn--wide { width: 100%; }
 
 /* A disabled control still has to be readable — it is telling you something. */
@@ -97,6 +104,7 @@
 @media (max-width: 720px) {
   .btn { min-height: 48px; }
   .btn--small { min-height: 44px; }
+  .btn--compact { min-height: 36px; }
 }
 
 .field {
@@ -253,7 +261,12 @@
   gap: 6px;
 }
 
-.scroll-x { overflow-x: auto; }
+/* A table wider than its card scrolls inside it. `position: relative` makes
+   the box the containing block of anything absolutely positioned inside
+   (a `.sr-only` column name, say), so that too is clipped here; without it
+   the hidden "Revoke" header on My Birds escaped the scroll and pushed the
+   page to 530px at a 375px viewport (2026-09-25). */
+.scroll-x { overflow-x: auto; position: relative; }
 
 /* ── an amount that has not been read yet ─────────────────────────────── */
 

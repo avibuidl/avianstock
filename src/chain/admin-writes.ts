@@ -31,7 +31,7 @@ import {
 } from './abis.admin.generated';
 import { adminAddress, encodeValidatorOperation } from './admin';
 import type {
-  AdminContract, AdminTargetRow, Address, Amount, Hex, OnPhase, TokenId, V3Hop, V4Hop,
+  AdminContract, AdminTargetRow, Address, Amount, Hex, OnPhase, OwnedSeat, TokenId, V3Hop, V4Hop,
   ValidatorOperation,
 } from '../mock/types';
 
@@ -100,20 +100,6 @@ export async function setPrice(newPrice: Amount, on?: OnPhase) {
   return { hash };
 }
 
-export async function setDefaultRoyalty(receiver: Address, bps: number, on?: OnPhase) {
-  const { hash } = await run({
-    where: 'setting the royalty', ...fac(), functionName: 'setDefaultRoyalty', args: [receiver, bps],
-  }, { on });
-  return { hash };
-}
-
-export async function deleteDefaultRoyalty(on?: OnPhase) {
-  const { hash } = await run({
-    where: 'removing the royalty', ...fac(), functionName: 'deleteDefaultRoyalty', args: [],
-  }, { on });
-  return { hash };
-}
-
 export async function setRenderer(renderer: Address, on?: OnPhase) {
   const { hash } = await run({
     where: 'pointing the collection at a renderer',
@@ -171,7 +157,7 @@ export async function configureTransferValidator(op: ValidatorOperation, on?: On
 /**
  * Sweep something out of the collection.
  *
- * `address(0)` means the collection's ETH. For AVIANS only the excess over
+ * `address(0)` means the collection's ETH. For AVIAN only the excess over
  * `requiredBacking()` can leave, and the panel shows held, required and
  * sweepable as three separate figures rather than one.
  */
@@ -193,7 +179,7 @@ export async function setFeeRecipient(recipient: Address, on?: OnPhase) {
   return { hash };
 }
 
-/** The perch refuses AVIANS and the collection by address. Everything else goes. */
+/** The perch refuses AVIAN and the collection by address. Everything else goes. */
 export async function rescueFromPerch(token: Address, to: Address, on?: OnPhase) {
   const { simulated, hash } = await run<bigint>({
     where: 'sweeping the perch', ...amm(), functionName: 'rescueERC20', args: [token, to],
@@ -425,6 +411,38 @@ export async function transferOwnership(contract: AdminContract, to: Address, on
     functionName: 'transferOwnership', args: [to],
   }, { on });
   return { hash };
+}
+
+/**
+ * THE OWNER'S SEAT (2026-09-24). The seat control sends these to each owned
+ * seat in turn, one signature each. They are owner calls, so they live here
+ * with the owner ABIs; the seat's clock is read in `council.ts`.
+ */
+const SEAT_CONTRACT: Record<OwnedSeat['id'], AdminContract | null> = {
+  collection: 'AvianStock', perch: 'ThePerch', nest: 'TheNest', treasury: 'Treasury',
+  vault: 'LiquidityVault',
+  // Not in any manifest yet: the trait market is part 10's, held back.
+  traitMarket: null,
+};
+function seatContract(id: OwnedSeat['id']): AdminContract {
+  const c = SEAT_CONTRACT[id];
+  if (!c) throw new Error(`no owned seat "${id}" on this deployment`);
+  return c;
+}
+
+/** `stillHere()`: a sign of life on one seat, whose thirty days start again. */
+export async function stillHere(id: OwnedSeat['id'], on?: OnPhase) {
+  const contract = seatContract(id);
+  const { hash } = await run({
+    where: `saying still here on ${contract}`, ...abiFor(contract),
+    functionName: 'stillHere', args: [],
+  }, { on });
+  return { hash };
+}
+
+/** `transferOwnership(key)`: path A's proposal on one seat. The council seats it a day later. */
+export async function proposeOwner(id: OwnedSeat['id'], key: Address, on?: OnPhase) {
+  return transferOwnership(seatContract(id), key, on);
 }
 
 /** Called by the PENDING owner, which is why they can open this panel at all. */

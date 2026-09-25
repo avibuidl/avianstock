@@ -186,17 +186,17 @@ export async function run<T>(
 
 export async function approveAviansForMint(amount: Amount, on?: OnPhase) {
   const { hash } = await run({
-    where: 'approving AVIANS for the mint',
+    where: 'approving AVIAN for the mint',
     to: contracts().Avians, abi: aviansAbi, functionName: 'approve',
     args: [contracts().AvianStock, amount],
   }, { on });
   return { hash };
 }
 
-/** The only approval brooding needs: AVIANS to the Nest, for the tier costs. */
+/** The only approval brooding needs: AVIAN to the Nest, for the tier costs. */
 export async function approveAviansForNest(amount: Amount, on?: OnPhase) {
   const { hash } = await run({
-    where: 'approving AVIANS for the nest',
+    where: 'approving AVIAN for the nest',
     to: contracts().Avians, abi: aviansAbi, functionName: 'approve',
     args: [contracts().TheNest, amount],
   }, { on });
@@ -204,12 +204,12 @@ export async function approveAviansForNest(amount: Amount, on?: OnPhase) {
 }
 
 /**
- * Buying from the perch pulls AVIANS with `transferFrom`, so it needs its own
+ * Buying from the perch pulls AVIAN with `transferFrom`, so it needs its own
  * allowance — the mint's approval is to the collection and does not carry.
  */
 export async function approveAviansForPerch(amount: Amount, on?: OnPhase) {
   const { hash } = await run({
-    where: 'approving AVIANS for the perch',
+    where: 'approving AVIAN for the perch',
     to: contracts().Avians, abi: aviansAbi, functionName: 'approve',
     args: [contracts().ThePerch, amount],
   }, { on });
@@ -656,7 +656,7 @@ export async function buyNamed(ids: TokenId[], on?: OnPhase) {
 /**
  * The AMM does NOT pre-check the buyer's allowance the way the mint does —
  * HANDOVER section 7 says so — so a short allowance arrives as a bare
- * `TransferFromFailed`. Checking it here turns that into "Approve N AVIANS".
+ * `TransferFromFailed`. Checking it here turns that into "Approve N AVIAN".
  */
 async function preflightBuy(guarded: Guarded, quote: string, args: readonly unknown[]) {
   await assertCanReceiveNfts(guarded.account);
@@ -689,9 +689,9 @@ async function who(): Promise<Address> {
 // ── the nest — HANDOVER section 5 ────────────────────────────────────
 //
 // BROODING IS NOT CUSTODIAL (2026-09-11). Nothing here moves a bird. A holder
-// burns AVIANS to brood birds they hold, rewards are delivered wherever
+// burns AVIAN to brood birds they hold, rewards are delivered wherever
 // `deliveryOf` says on every settle, and the brood ends the moment the bird
-// changes hands. The one approval any of it needs is AVIANS to the Nest, for
+// changes hands. The one approval any of it needs is AVIAN to the Nest, for
 // the tier costs. There is no bird approval to the Nest and never a reason to
 // ask for one: `setApprovalForAll` with the Nest as operator is refused below
 // as a site bug.
@@ -747,7 +747,7 @@ async function tierCosts(tiers: Tier[]): Promise<bigint[]> {
   }) as Promise<bigint[]>;
 }
 
-/** AVIANS balance and allowance to the Nest must both cover `burn`. */
+/** AVIAN balance and allowance to the Nest must both cover `burn`. */
 async function assertCanBurn(account: Address, burn: bigint) {
   const c = contracts();
   const [balance, allowance] = await Promise.all([
@@ -1072,6 +1072,58 @@ export async function convertAndStream(currency: Address | null, on?: OnPhase) {
     args: [currency ?? ZERO_ADDRESS],
   }, { on });
   return { converted: simulated, hash };
+}
+
+/**
+ * Spend the Roost's tenth (2026-09-22): anyone, at most once a day on this
+ * leg's own clock. Buys AVIAN from the launch pool and sends the whole of it
+ * to the Roost, where the next turn splits it like any other inflow.
+ * Simulated first, so `CoolingDown`, `NothingToBuyForRoost`, `NoRoute` and
+ * the floor's refusals arrive by name before a wallet opens. The receipt is
+ * the contract's own `BoughtForRoost`, which carries both amounts; the
+ * simulated return says the same and is the fallback when a node hands back
+ * no logs.
+ */
+export async function buyForRoost(on?: OnPhase) {
+  const { simulated, hash, logs } = await run<readonly [bigint, bigint]>({
+    where: 'buying AVIAN for the Roost',
+    to: contracts().Treasury, abi: treasuryAbi, functionName: 'buyForRoost', args: [],
+  }, { on });
+  const events = parseEventLogs({
+    abi: treasuryAbi as unknown as Abi, logs: logs as never, eventName: 'BoughtForRoost' as never,
+  }) as unknown as { args: { amountIn?: bigint; amountOut?: bigint } }[];
+  const e = events[0]?.args;
+  const pair = Array.isArray(simulated) ? simulated : [0n, 0n];
+  return {
+    amountIn: (e?.amountIn ?? pair[0] ?? 0n) as Amount,
+    amountOut: (e?.amountOut ?? pair[1] ?? 0n) as Amount,
+    hash,
+  };
+}
+
+/**
+ * A reading of the AVIAN pool's history (2026-09-24). Permissionless, like
+ * the buy it unblocks: the Treasury averages between two readings and a v4
+ * pool keeps no history of its own, so somebody has to record one. An
+ * ordinary day needs nobody — `buyForRoost` takes the next reading itself —
+ * and this button exists for the day after a week of quiet.
+ *
+ * The receipt needs the reading's own timestamp, and the event carries it;
+ * the simulation returns nothing at all, so there is no fallback tuple to
+ * fall back to and the block's own clock stands in.
+ */
+export async function takeRoostReading(on?: OnPhase) {
+  const { hash, logs } = await run<void>({
+    where: 'taking a reading of the AVIAN pool',
+    to: contracts().Treasury, abi: treasuryAbi, functionName: 'takeRoostReading', args: [],
+  }, { on });
+  const events = parseEventLogs({
+    abi: treasuryAbi as unknown as Abi, logs: logs as never, eventName: 'RoostReadingTaken' as never,
+  }) as unknown as { args: { at?: number } }[];
+  return {
+    at: Number(events[0]?.args?.at ?? Math.floor(Date.now() / 1000)), /* count */
+    hash,
+  };
 }
 
 export async function createSatchel(id: TokenId, on?: OnPhase) {

@@ -52,16 +52,6 @@
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5); }
 .step { border-top: 1px solid var(--line-strong); padding-top: var(--s4); }
 
-/* The brooding paragraph beside the disclosure it must never be seen without. */
-.brood {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 460px;
-  gap: var(--s7);
-  align-items: start;
-  padding-top: var(--s7);
-  padding-bottom: var(--s7);
-}
-
 .faq {
   border-top: 1px solid var(--line);
   padding: var(--s5) 0;
@@ -81,7 +71,6 @@
   .heroCopy { padding-bottom: 0; }
   .four { grid-template-columns: minmax(0, 1fr); }
   .sec { padding: var(--s7) var(--s4); }
-  .brood { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
   .faq { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
 }
 

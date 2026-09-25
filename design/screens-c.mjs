@@ -80,7 +80,7 @@ export const FirstLight = doc({
     <div class="side">
       <div class="panel">
         <h3 style="font-size:20px">The per-transaction cap</h3>
-        <div class="num" style="font-size:28px;margin-top:12px">50,000,000 AVIANS</div>
+        <div class="num" style="font-size:28px;margin-top:12px">50,000,000 AVIAN</div>
         <p class="small" style="margin-top:8px">No single transaction may buy more than that while the window is running.
           The cap is per <em>transaction</em>, not per swap — several swaps bundled into one router call are added
           together.</p>
@@ -92,9 +92,9 @@ export const FirstLight = doc({
       </div>
 
       <div class="panel">
-        <div class="row"><h3 style="font-size:20px">Get AVIANS</h3><span class="spacer"></span>
+        <div class="row"><h3 style="font-size:20px">Get AVIAN</h3><span class="spacer"></span>
           <span class="tag hot">${icon('warn', C.amber, 11)} ${pct(bpsAt(NOW))}% RIGHT NOW</span></div>
-        <p class="small" style="margin-top:8px">Buying AVIANS mints nothing. They are two different acts: get the token
+        <p class="small" style="margin-top:8px">Buying AVIAN mints nothing. They are two different acts: get the token
           first, compose a bird second.</p>
         <button class="btn wide ghost" style="margin-top:14px">Open the pool ${icon('ext', C.chalk, 14)}</button>
         <p class="tiny dim" style="margin-top:12px">The 1% is a property of <em>this</em> pool, not a tax on the token.
@@ -107,7 +107,7 @@ export const FirstLight = doc({
         <dl class="kv" style="margin-top:14px;grid-template-columns:130px 1fr">
           <dt>Locked for</dt><dd>365 days minimum</dd>
           <dt>Unlocks in</dt><dd>361 days</dd>
-          <dt>In the pool</dt><dd>800,000,000 AVIANS</dd>
+          <dt>In the pool</dt><dd>800,000,000 AVIAN</dd>
         </dl>
         <p class="tiny dim" style="margin-top:12px">The lock can be extended. It cannot be shortened.</p>
       </div>
@@ -352,7 +352,7 @@ export const SystemStates = doc({
         <div class="tiny dim" style="letter-spacing:.1em;margin-bottom:8px">PRESETS</div>
         ${preset('Before launch')}${preset('First Light · second 3')}${preset('First Light · second 138', true)}
         ${preset('Free door · on the list')}${preset('Free door · not on the list')}
-        ${preset('Already claimed')}${preset('Paid mint · no AVIANS')}${preset('Paid mint · needs approval')}
+        ${preset('Already claimed')}${preset('Paid mint · no AVIAN')}${preset('Paid mint · needs approval')}
         ${preset('Paid mint · ready')}${preset('Combination just went')}${preset('Wallet cap reached')}
         ${preset('Sold out')}${preset('Perch empty')}${preset('Nothing brooding')}
         ${preset('Brooding · nothing streams yet')}${preset('Brooding · AAPL paused')}
@@ -398,19 +398,19 @@ export const SystemStates = doc({
         ${card('FREE DOOR', 'Not on the list',
     'This wallet isn&rsquo;t on the flocklist. That door is 2,000 birds, one per listed wallet — but the paid mint is a separate door, and your bird is composed exactly the same way.')}
         ${card('FREE DOOR', 'Already claimed',
-    'You&rsquo;ve already claimed yours — one per wallet on the list. You can compose as many more as you like at 100,000 AVIANS each.')}
+    'You&rsquo;ve already claimed yours — one per wallet on the list. You can compose as many more as you like at 100,000 AVIAN each.')}
         ${card('FREE DOOR', 'All 2,000 claimed',
     'All 2,000 flocklist birds are claimed. The paid mint is the door now.')}
 
         ${card('PAID DOOR', 'The paid mint is closed',
-    'Birds already minted are still trading, and the perch is still buying at 90,000 AVIANS — that part never closes.')}
+    'Birds already minted are still trading, and the perch is still buying at 90,000 AVIAN — that part never closes.')}
         ${card('PAID DOOR', 'Sold out',
     'All 5,555 are composed. The 1,866,240 combinations nobody chose stay unchosen forever. The perch is still open.')}
         ${card('PAID DOOR', 'This wallet has minted its limit',
     'The number comes from the contract, not from us. Read live, never assumed.')}
 
-        ${card('PAYMENT', 'Not enough AVIANS',
-    'You need 100,000 AVIANS to compose a bird. You&rsquo;ve got 41,200. The exact figure comes back inside the error itself.', 'bad')}
+        ${card('PAYMENT', 'Not enough AVIAN',
+    'You need 100,000 AVIAN to compose a bird. You&rsquo;ve got 41,200. The exact figure comes back inside the error itself.', 'bad')}
         ${card('PAYMENT', 'One approval first',
     'Exact amount or a large one, side by side, with what each means. And where the wallet supports it: one signature and no approval transaction at all.')}
         ${card('PAYMENT', 'A permit that did not take',

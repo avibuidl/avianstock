@@ -22,18 +22,27 @@
 //     the wrong thing, which is the worst failure this application has.
 
 import { client, pin, readMany, tryReadMany, type At } from './client';
-import { contracts, manifest, poolContracts, roostContracts, sweeperAddress } from './manifest';
+import { contracts, councilAddress, manifest, poolContracts, roostContracts, sweeperAddress, unveiled } from './manifest';
 import {
   theNestAbi, aviansHookAbi, thePerchAbi, avianStockAbi, sweeperAbi, traitRegistryAbi, treasuryAbi,
-  theRoostAbi, aviansStakingAbi,
+  theRoostAbi, aviansStakingAbi, lockerRewardsAbi,
 } from './abis.generated';
 import { setAccountConfig, verifyDerivation } from './safety';
 import { pinFeeCurve } from './launch';
+import { decodeUsd, usdReads, usdSource } from './prices';
+import { formatReward } from '../lib/format';
 import { COUNTS } from '../art/traits';
 import type { Address, Deployment } from '../mock/types';
 import type { Hex } from 'viem';
 
-export type Check = { claim: string; ok: boolean; expected?: string; actual?: string };
+export type Check = {
+  claim: string; ok: boolean; expected?: string; actual?: string;
+  /**
+   * The council may move this one after its public delay (2026-09-24). When
+   * only these fail, the manifest is behind a council change, not wrong.
+   */
+  drift?: boolean;
+};
 
 export type StartupResult = {
   checks: Check[];
@@ -63,7 +72,7 @@ export async function runStartupChecks(): Promise<StartupResult> {
 
   // ── there is code at every address ──
   const sweeper = sweeperAddress();
-  const { roost, staking: aviansStaking } = roostContracts();
+  const { roost, staking: aviansStaking, lockers: lockerRewards } = roostContracts();
   const addresses = [...Object.entries(c), ['Sweeper', sweeper] as const, ['TheRoost', roost] as const, ['AviansStaking', aviansStaking] as const]
     .filter(([, v]) => !!v) as [string, Address][];
   const codes = await Promise.all(addresses.map(([, address]) =>
@@ -84,38 +93,44 @@ export async function runStartupChecks(): Promise<StartupResult> {
   const staking = (fn: string) => ({ address: c.TheNest, abi: theNestAbi as never, functionName: fn });
   const treasury = (fn: string) => ({ address: c.Treasury, abi: treasuryAbi as never, functionName: fn });
 
-  const wanted: { claim: string; call: ReturnType<typeof token>; expect: Address }[] = [
-    { claim: 'token.AVIANS() == Avians', call: token('AVIANS'), expect: c.Avians },
-    { claim: 'token.MINT_SINK() == ThePerch', call: token('MINT_SINK'), expect: c.ThePerch },
+  // `drift`: the council may move this pointer after its delay (2026-09-24).
+  const wanted: { claim: string; call: ReturnType<typeof token>; expect: Address; drift?: boolean }[] = [
+    { claim: 'token.AVIAN() == Avians', call: token('AVIAN'), expect: c.Avians },
+    { claim: 'token.MINT_SINK() == ThePerch', call: token('MINT_SINK'), expect: c.ThePerch, drift: true },
     // The transfer hook's target. A collection pointed at the wrong Nest would
     // expire nothing, and every brood would outlive its sale.
-    { claim: 'token.NEST() == TheNest', call: token('NEST'), expect: c.TheNest },
+    { claim: 'token.NEST() == TheNest', call: token('NEST'), expect: c.TheNest, drift: true },
     { claim: 'token.registry() == TraitRegistry', call: token('registry'), expect: c.TraitRegistry },
     { claim: 'amm.nft() == AvianStock', call: amm('nft'), expect: c.AvianStock },
     { claim: 'amm.avians() == Avians', call: amm('avians'), expect: c.Avians },
     { claim: 'staking.COLLECTION() == AvianStock', call: staking('COLLECTION'), expect: c.AvianStock },
-    { claim: 'staking.AVIANS() == Avians', call: staking('AVIANS'), expect: c.Avians },
-    { claim: 'treasury.STAKING() == TheNest', call: treasury('STAKING'), expect: c.TheNest },
-    { claim: 'treasury.AVIANS() == Avians', call: treasury('AVIANS'), expect: c.Avians },
+    { claim: 'staking.AVIAN() == Avians', call: staking('AVIAN'), expect: c.Avians },
+    { claim: 'treasury.STAKING() == TheNest', call: treasury('STAKING'), expect: c.TheNest, drift: true },
+    { claim: 'treasury.AVIAN() == Avians', call: treasury('AVIAN'), expect: c.Avians },
     // THE ROOST (2026-09-18). Bound to this Nest and this staking contract at
     // construction, and the Nest's cost sink is bound to it — a Roost from
     // another deployment would take every tier cost and split it to
     // strangers. All checked. (The Perch's `feeRecipient` is the Roost by
     // default but owner-settable to anything, so it is read on the admin
     // panel rather than refused here.)
-    { claim: 'roost.NEST() == TheNest', call: { address: roost, abi: theRoostAbi as never, functionName: 'NEST' }, expect: c.TheNest },
+    { claim: 'roost.NEST() == TheNest', call: { address: roost, abi: theRoostAbi as never, functionName: 'NEST' }, expect: c.TheNest, drift: true },
     { claim: 'roost.STAKING() == AviansStaking', call: { address: roost, abi: theRoostAbi as never, functionName: 'STAKING' }, expect: aviansStaking },
-    { claim: 'roost.AVIANS() == Avians', call: { address: roost, abi: theRoostAbi as never, functionName: 'AVIANS' }, expect: c.Avians },
-    { claim: 'aviansStaking.ROOST() == TheRoost', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'ROOST' }, expect: roost },
-    { claim: 'aviansStaking.AVIANS() == Avians', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'AVIANS' }, expect: c.Avians },
-    { claim: 'staking.costSink() == TheRoost', call: staking('costSink'), expect: roost },
+    { claim: 'roost.AVIAN() == Avians', call: { address: roost, abi: theRoostAbi as never, functionName: 'AVIAN' }, expect: c.Avians },
+    { claim: 'aviansStaking.ROOST() == TheRoost', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'ROOST' }, expect: roost, drift: true },
+    { claim: 'aviansStaking.AVIAN() == Avians', call: { address: aviansStaking, abi: aviansStakingAbi as never, functionName: 'AVIAN' }, expect: c.Avians },
+    { claim: 'staking.costSink() == TheRoost', call: staking('costSink'), expect: roost, drift: true },
+    // THE LOCKERS' LEG (2026-09-20). The Roost names its distributor and the
+    // distributor names its Roost: a pair from two deployments is refused.
+    { claim: 'roost.LOCKERS() == LockerRewards', call: { address: roost, abi: theRoostAbi as never, functionName: 'LOCKERS' }, expect: lockerRewards },
+    { claim: 'lockerRewards.ROOST() == TheRoost', call: { address: lockerRewards, abi: lockerRewardsAbi as never, functionName: 'ROOST' }, expect: roost, drift: true },
+    { claim: 'lockerRewards.AVIAN() == Avians', call: { address: lockerRewards, abi: lockerRewardsAbi as never, functionName: 'AVIAN' }, expect: c.Avians },
   ];
 
   if (pool) {
     const hook = (fn: string) => ({ address: pool.hook, abi: aviansHookAbi as never, functionName: fn });
     wanted.push(
-      { claim: 'hook.AVIANS() == Avians', call: hook('AVIANS'), expect: c.Avians },
-      { claim: 'hook.TREASURY() == Treasury', call: hook('TREASURY'), expect: c.Treasury },
+      { claim: 'hook.AVIAN() == Avians', call: hook('AVIAN'), expect: c.Avians },
+      { claim: 'hook.TREASURY() == Treasury', call: hook('TREASURY'), expect: c.Treasury, drift: true },
     );
   }
   if (sweeper) {
@@ -136,7 +151,53 @@ export async function runStartupChecks(): Promise<StartupResult> {
       ok: r.ok && same(r.value, w.expect),
       expected: w.expect,
       actual: r.ok ? r.value : 'the call failed',
+      // A call that failed is not a pointer that moved.
+      drift: w.drift && r.ok ? true : undefined,
     });
+  });
+
+  // ── THE COUNCIL (2026-09-24): one address on every seat ──
+  //
+  // Five seats, each asked `council()`. The seat itself is the council's to
+  // move (`setCouncil`), so a different address is drift like the pointers.
+  // A seat answering ZERO was never named: its pointers cannot move at all,
+  // which the card says, and which is a warning here rather than a refusal.
+  const councilWanted = councilAddress();
+  const councilSeats: { claim: string; name: string; address: Address; abi: never }[] = [
+    { claim: 'token.council() == council', name: 'the collection', address: c.AvianStock, abi: avianStockAbi as never },
+    { claim: 'treasury.council() == council', name: 'the Treasury', address: c.Treasury, abi: treasuryAbi as never },
+    { claim: 'staking.council() == council', name: 'the Nest', address: c.TheNest, abi: theNestAbi as never },
+    { claim: 'roost.council() == council', name: 'the Roost', address: roost, abi: theRoostAbi as never },
+  ];
+  if (pool) councilSeats.splice(1, 0, { claim: 'hook.council() == council', name: 'the hook', address: pool.hook, abi: aviansHookAbi as never });
+  const seatAnswers = await tryReadMany<Address>(
+    councilSeats.map((s) => ({ address: s.address, abi: s.abi, functionName: 'council' })), at,
+  );
+  const unnamed: string[] = [];
+  seatAnswers.forEach((r, i) => {
+    const seat = councilSeats[i];
+    const zero = r.ok && /^0x0{40}$/i.test(r.value);
+    if (zero) unnamed.push(seat.name);
+    checks.push({
+      claim: seat.claim,
+      ok: zero || (r.ok && !!councilWanted && same(r.value, councilWanted)),
+      expected: councilWanted ?? 'no council named',
+      actual: !r.ok ? 'the call failed'
+        : zero ? `no council is named on ${seat.name}; its structural pointers cannot move`
+          : r.value,
+      drift: r.ok && !zero ? true : undefined,
+    });
+  });
+
+  // One line for the whole council, never fatal: who it is, and where it sits.
+  checks.push({
+    claim: 'the council holds the seats',
+    ok: true,
+    expected: councilWanted ?? 'none named on this deployment',
+    actual: unnamed.length === councilSeats.length
+      ? 'no council is named on any seat; the structural pointers cannot move'
+      : `${councilWanted} on ${councilSeats.length - unnamed.length} of ${councilSeats.length} seats`
+        + (unnamed.length ? `; none named on ${unnamed.join(', ')}` : ''),
   });
 
   // ── the allowlist proofs, if this deployment names a file ──
@@ -253,7 +314,25 @@ export async function runStartupChecks(): Promise<StartupResult> {
     }
   }
 
-  // Everything above is fatal except the fee-curve note, which repairs itself.
+  // ── the dollar source (2026-09-22): one line, never fatal ──
+  // No dollars is a state the site handles (every dollar figure is simply
+  // absent), so this reports and never stops the boot.
+  try {
+    const source = await usdSource(at);
+    const answer = source ? decodeUsd(source, await tryReadMany<unknown>(usdReads(source), at)) : null;
+    checks.push({
+      claim: 'the dollar source answers', ok: true,
+      expected: manifest().usd ? `a WETH pool of ${manifest().usd!.token} with liquidity` : 'none named on this deployment',
+      actual: !manifest().usd ? 'no dollar source on this deployment; no dollar figures'
+        : !source ? 'no pool of it against WETH with liquidity; no dollar figures this session'
+          : answer === null ? `the ${source.fee / 10_000}% pool did not answer or is empty; no dollar figures this refresh`
+            : `$${formatReward(answer, 18, 2)} per ETH, from the ${source.fee / 10_000}% pool`,
+    });
+  } catch (e) {
+    checks.push({ claim: 'the dollar source answers', ok: true, expected: 'a price', actual: `it would not answer: ${String((e as Error)?.message ?? e)}` });
+  }
+
+  // Everything above is fatal except the fee-curve note and the dollar line.
   const failures = checks.filter((x) => !x.ok);
   last = { checks, failures, at };
   return last;
@@ -270,8 +349,12 @@ export async function getDeployment(): Promise<Deployment> {
     if (address) addresses[name] = address;
   }
   if (m.sweeper) addresses.Sweeper = m.sweeper;
+  if (m.council) addresses.Council = m.council;
   addresses.AviansStaking = m.aviansStaking;
   addresses.TheRoost = m.roost;
+  // The lockers' distributor is on the chain whatever the veil says; it is on
+  // this page only once the founder has unveiled the vault products.
+  if (unveiled('vaults')) addresses.LockerRewards = m.lockerRewards;
   // The third parties are READ OFF THE COLLECTION rather than listed here: the
   // registry, the account implementation and the transfer validator are all
   // immutables or owner state on this deployment, and asking is the only way to

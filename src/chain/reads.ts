@@ -318,7 +318,7 @@ async function satchelOf(
   const holds: SatchelHolding[] = [];
   if (eth > 0n) holds.push({ kind: 'eth', amount: eth });
   if (balances[0]?.ok && balances[0].value > 0n) {
-    holds.push({ kind: 'erc20', symbol: 'AVIANS', decimals: 18, amount: balances[0].value });
+    holds.push({ kind: 'erc20', symbol: 'AVIAN', decimals: 18, amount: balances[0].value });
   }
   satchelTokens.forEach((t, i) => {
     const b = balances[i + 1];
@@ -341,10 +341,14 @@ export async function getBird(id: TokenId, at?: At): Promise<Bird> {
     // A burnt bird reverts on `ownerOf` and `traitsOf` and answers on
     // `tokenCombo`. That is not a fault, so neither read may be strict: a page
     // for a burnt bird has to draw, and only `tokenCombo` can draw it.
-    const [traitsRaw, comboRes, ownerRes] = await tryReadMany<unknown>([
+    // The two attribute rows after the traits (2026-09-21) come from the
+    // same pinned batch; they revert for a burnt bird like `traitsOf` does.
+    const [traitsRaw, comboRes, ownerRes, mintComboRes, recomposedRes] = await tryReadMany<unknown>([
       { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'traitsOf', args: [BigInt(id)] },
       { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'tokenCombo', args: [BigInt(id)] },
       { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'ownerOf', args: [BigInt(id)] },
+      { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'isMintCombo', args: [BigInt(id)] },
+      { address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'recomposed', args: [BigInt(id)] },
     ], a);
     const totalMinted = Number(await readOne<number>({
       address: c.AvianStock, abi: avianStockAbi as unknown as Abi, functionName: 'totalMinted',
@@ -375,7 +379,11 @@ export async function getBird(id: TokenId, at?: At): Promise<Bird> {
       ? locationOf(ownerRes.value as Address, totalMinted)
       : { where: 'burnt' };
 
-    return { id, traits, combo, location, satchel, brood, broodLines };
+    return {
+      id, traits, combo, location, satchel, brood, broodLines,
+      ...(mintComboRes.ok ? { isMintCombo: !!mintComboRes.value } : {}),
+      ...(recomposedRes.ok ? { recomposed: !!recomposedRes.value } : {}),
+    };
   });
 }
 
@@ -1018,7 +1026,29 @@ export async function getTreasury(at?: At): Promise<TreasuryState> {
     const s = (functionName: string) =>
       ({ address: c.TheNest, abi: theNestAbi as unknown as Abi, functionName });
 
-    const [perCurrency, wide, nativeBalance] = await Promise.all([
+    // THE ROOST'S TENTH (2026-09-22). Read with `allowFailure`, because a
+    // Treasury deployed before it answers none of these: the card then shows
+    // the two shares that deployment has rather than failing whole. On the
+    // configured set all six answer and the third row appears.
+    const roostReads = [
+      t('roostBuyable'), t('roostOut', [ZERO_ADDRESS]), t('aviansToRoost'), t('lastRoostBuyAt'),
+      t('ADMIN_SHARE_BPS'), t('REWARDS_SHARE_BPS'), t('ROOST_SHARE_BPS'),
+    ];
+    // PRICED BY THE POOLS (2026-09-24). A v4 pool keeps no history, so the
+    // AVIAN pool's hook keeps one and the Treasury takes readings of it.
+    // `roostMeanTick` is READ FOR ITS REVERT as much as for its answer: what
+    // it refuses with is the one thing that decides whether the card offers
+    // the buy or a reading, so it goes in the same `allowFailure` batch and
+    // its failure is decoded to a name rather than swallowed.
+    const readingReads = [
+      t('lastReading'), t('prevReading'), t('TWAP_WINDOW'), t('READING_MAX_AGE'),
+      t('roostMeanTick'),
+    ];
+    // OPEN BY THE CLOCK (2026-09-24): when both buttons open, and whether the
+    // chain says they are open at this block. Same batch, same `allowFailure`:
+    // a Treasury from before answers neither and the card reads as it did.
+    const openingReads = [t('conversionsOpenAt'), t('conversionsOpen')];
+    const [perCurrency, wide, nativeBalance, roostAnswers] = await Promise.all([
       readMany<unknown>(currencies.flatMap((currency) => [
         t('cumulativeIn', [currency]),
         t('claimable', [currency]),
@@ -1030,6 +1060,7 @@ export async function getTreasury(at?: At): Promise<TreasuryState> {
       ], a),
       // The one balance that is not a `balanceOf`.
       client().getBalance({ address: c.Treasury, blockNumber: a.blockNumber }),
+      tryReadMany<unknown>([...roostReads, ...readingReads, ...openingReads], a),
     ]);
 
     const erc20 = currencies.filter((x) => x !== ZERO_ADDRESS);
@@ -1069,8 +1100,69 @@ export async function getTreasury(at?: At): Promise<TreasuryState> {
       };
     });
 
+    const num = (i: number): bigint | null => {
+      const x = roostAnswers[i];
+      if (!x.ok) return null;
+      if (typeof x.value === 'bigint') return x.value;
+      return typeof x.value === 'number' && Number.isInteger(x.value) ? BigInt(x.value) : null;
+    };
+    const roostFigures = roostReads.map((_, i) => num(i));
+    const lastRoostBuyAt = Number(roostFigures[3] ?? 0n); /* count */
+    const roost: TreasuryState['roost'] = roostFigures.every((x) => x !== null)
+      ? {
+        buyable: roostFigures[0]!,
+        everSpent: roostFigures[1]!,
+        everBought: roostFigures[2]!,
+        lastBuyAt: lastRoostBuyAt,
+        // Its own clock, under the conversion's interval: nothing bought yet
+        // means nothing to wait out, exactly as the conversion's `last != 0`.
+        nextAllowedAt: lastRoostBuyAt === 0 ? 0 : lastRoostBuyAt + asObject.minInterval,
+        sharesBps: {
+          admin: Number(roostFigures[4]!), /* count */
+          rewards: Number(roostFigures[5]!), /* count */
+          roost: Number(roostFigures[6]!), /* count */
+        },
+      }
+      : null;
+
+    // The two readings come back as `[tickCumulative, at]`; only the `at`
+    // matters here, because the tick is the contract's arithmetic and not
+    // anything a person reads. A Treasury that predates the readings fails
+    // every one of these and the card falls back to offering the buy alone.
+    const readingAt = (i: number): number | null => {
+      const x = roostAnswers[i];
+      if (!x.ok || !Array.isArray(x.value)) return null;
+      return Number(x.value[1] ?? 0); /* count */ // a uint32 second
+    };
+    const n = roostReads.length;
+    const lastAt = readingAt(n);
+    const prevAt = readingAt(n + 1);
+    const window = num(n + 2);
+    const maxAge = num(n + 3);
+    const meanAnswer = roostAnswers[n + 4];
+    const readings: TreasuryState['readings'] = lastAt !== null && prevAt !== null && window !== null
+      ? {
+        window: Number(window), /* count */
+        maxAge: Number(maxAge ?? 604_800n), /* count */
+        lastAt,
+        prevAt,
+        refusal: meanAnswer.ok ? null : asContractError(meanAnswer.error).errorName,
+      }
+      : null;
+
+    const o = roostReads.length + readingReads.length;
+    const openAtAnswer = num(o);
+    const openAnswer = roostAnswers[o + 1];
+    const opening: TreasuryState['opening'] = openAtAnswer !== null && openAnswer.ok
+      ? { openAt: Number(openAtAnswer), enabled: asObject.enabled, open: openAnswer.value === true } /* count */
+      : null;
+
     return {
       rows,
+      chainNow: a.timestamp,
+      roost,
+      readings,
+      opening,
       conversion: {
         enabled: asObject.enabled,
         minInterval: asObject.minInterval,
@@ -1147,7 +1239,7 @@ export async function getSupply(at?: At): Promise<{ total: Amount; inPool: Amoun
     const inPool = await readOne<bigint>({
       address: c.Avians, abi: aviansAbi as unknown as Abi, functionName: 'balanceOf', args: [c.ThePerch],
     }, a);
-    // AVIANS has no mint path, so everything the supply has lost was burned —
+    // AVIAN has no mint path, so everything the supply has lost was burned —
     // by the Roost, the one burner since 2026-09-18 (a fifth of everything it
     // receives, at each distribute). `roost.burned()` says the same number.
     return { total, inPool, burned: initial - total };

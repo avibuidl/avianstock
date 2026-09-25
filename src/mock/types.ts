@@ -86,7 +86,7 @@ export type Approvals = {
   aviansToCollection: Amount;
   aviansToNest: Amount;
   /**
-   * BUYING from the perch is a `transferFrom` of AVIANS, so it needs an
+   * BUYING from the perch is a `transferFrom` of AVIAN, so it needs an
    * allowance exactly as the mint does — a separate one, to a different
    * contract. Selling does not: that moves birds, which is `birdsToPerch`.
    */
@@ -173,6 +173,18 @@ export type Bird = {
    * leave it out (My Birds gets them from `getBrood` instead).
    */
   broodLines?: BroodTokenLine[];
+  /**
+   * TWO ANSWERS TO TWO QUESTIONS (2026-09-21), listed after the six traits
+   * wherever the site lists them, in the chain's order. `isMintCombo`: the
+   * traits are exactly what the bird was minted with, right now.
+   * `recomposed`: a trait-market swap has touched the bird at some point,
+   * for good. A never-swapped bird is Yes / No; a swapped one No / Yes; one
+   * swapped and later restored is Yes / Yes; No / No cannot happen. Filled by
+   * the single-bird read, in the same pinned batch as the traits; absent for
+   * a burnt bird, whose reads revert.
+   */
+  isMintCombo?: boolean;
+  recomposed?: boolean;
 };
 
 // ──────────────────────────────────────────────────────────────── the perch
@@ -248,9 +260,11 @@ export type TokenPrice = {
   decimals: number;
   /** ETH per one whole token, as 18-decimal base units. */
   ethPerToken: Amount;
-  /** The pool it was read from, and its fee tier — for the log, not the screen. */
-  pool: Address;
+  /** The pool it was read from — a v3 pool's address, or a v4 pool's id — and its fee tier: for the log, not the screen. */
+  pool: string;
   fee: number;
+  /** Where it was read: a v3 pool of the Treasury's venue, or (2026-09-22) the v4 pool the Treasury's route names. */
+  venue: 'v3' | 'v4';
 };
 
 /**
@@ -343,11 +357,11 @@ export type NestEvents = {
 };
 
 export type BroodState = {
-  tierCost: Record<Tier, Amount>;  // 5,000 / 15,000 / 25,000
+  tierCost: Record<Tier, Amount>;  // 10,000 / 30,000 / 50,000 (2026-09-22)
   totalWeight: bigint;
   /** Broods on the books, expired-unsettled included. */
   totalBrooding: number;
-  /** AVIANS paid on to the Roost by tier purchases and upgrades, ever (`totalForwarded`). */
+  /** AVIAN paid on to the Roost by tier purchases and upgrades, ever (`totalForwarded`). */
   totalForwarded: Amount;
   listed: RewardToken[];           // [] ⇒ nothing streams, and that is not a bug
   streams: RewardStream[];
@@ -467,8 +481,75 @@ export type TreasuryRow = {
  * Treasury-wide, not per currency, and the first five of the contract's seven
  * guards are answered by these figures rather than by a simulation.
  */
+/**
+ * THE ROOST'S TENTH (2026-09-22). The third share of the Treasury's ETH:
+ * anyone may spend it on AVIAN from the launch pool and the whole of what it
+ * buys goes to the Roost. Its own daily clock, under the same configuration
+ * as a conversion. Null on a deployment whose Treasury predates it: the card
+ * then shows the two shares it has, and says which deployment it is reading.
+ */
+export type RoostBuy = {
+  /** ETH the next `buyForRoost()` spends: the tenth less what buys spent, capped as a conversion is. */
+  buyable: Amount;
+  /** ETH ever spent on this leg, and the AVIAN it ever delivered to the Roost. */
+  everSpent: Amount;
+  everBought: Amount;
+  /** This leg's own clock. 0 before the first buy, and then no cooldown to wait out. */
+  lastBuyAt: UnixSeconds;
+  nextAllowedAt: UnixSeconds;
+  /** The three shares as the contract states them: 2000 / 7000 / 1000. */
+  sharesBps: { admin: number; rewards: number; roost: number };
+};
+
+/**
+ * The AVIAN pool's history as the Treasury keeps it (2026-09-24): the two
+ * readings, the window a buy averages over, how long a reading stays usable,
+ * and what `roostMeanTick()` answered when it was tried. `refusal` is the
+ * name of its revert, or null when it answered — which is the one thing that
+ * decides whether the Roost's buy can be priced at all. Null on a Treasury
+ * that predates the readings.
+ */
+export type Readings = {
+  /** `TWAP_WINDOW()`: 1,800 seconds. A reading is usable once it is this old. */
+  window: number;
+  /** `READING_MAX_AGE()`: a week. Past it the readings have expired. */
+  maxAge: number;
+  /** `lastReading().at` and `prevReading().at`; 0 when never taken. */
+  lastAt: UnixSeconds;
+  prevAt: UnixSeconds;
+  /** The name `roostMeanTick()` reverted with, or null when it answered. */
+  refusal: string | null;
+};
+
+/**
+ * When the two permissionless buttons open (2026-09-24): `conversionsOpenAt()`
+ * and the owner's flag, which is a pause now rather than a switch. Null on a
+ * Treasury that predates the clock, where `enabled` still means "switched on".
+ */
+export type Opening = {
+  /** The second both buttons open; 0 while the Treasury does not know the launch time. */
+  openAt: UnixSeconds;
+  /** `conversionConfig().enabled`: true unless the owner has paused. */
+  enabled: boolean;
+  /** `conversionsOpen()` at the block read: the chain's own answer. */
+  open: boolean;
+};
+
 export type TreasuryState = {
   rows: TreasuryRow[];
+  /**
+   * The block's own clock. Both cooldowns are chain timestamps, so the card
+   * counts down from this carried forward by the wall clock rather than from
+   * the machine's own time: on a fork an hour ahead the old arithmetic said
+   * "ready in 25 hours" for ever.
+   */
+  chainNow: UnixSeconds;
+  /** The Roost's tenth, or null on a Treasury that predates it. */
+  roost: RoostBuy | null;
+  /** The AVIAN pool's readings, or null on a Treasury that predates them. */
+  readings: Readings | null;
+  /** When both buttons open, or null on a Treasury that predates the clock. */
+  opening: Opening | null;
   conversion: {
     enabled: boolean;
     /** Seconds between conversions of ANY currency — one clock, shared. */
@@ -523,7 +604,7 @@ export type AdminCollection = {
   freeReleaseDelay: number;
   /**
    * What `rescue` will not let out. The collection must keep
-   * `requiredBacking()` in AVIANS behind the free mint, so only the excess is
+   * `requiredBacking()` in AVIAN behind the free mint, so only the excess is
    * sweepable — and the panel shows all three figures rather than one.
    */
   aviansHeld: Amount;
@@ -595,6 +676,12 @@ export type AdminPairRow = {
   target: Address;
   targetSymbol: string;
   venue: number;
+  /**
+   * `priceSource`: 0 no route, 1 a written floor, 2 the v3 pool's
+   * thirty-minute mean, 3 the AVIAN pool's readings (2026-09-24). Only a 1
+   * consults a floor, so only a 1 is offered the floor form.
+   */
+  source: number;
   floorPriceE18: Amount;
   floorSetAt: UnixSeconds;
 };
@@ -605,6 +692,8 @@ export type AdminRoute = { venue: number; v4: V4Hop[]; v3: V3Hop[] };
 
 export type AdminTreasury = {
   rows: TreasuryRow[];
+  /** The Roost's tenth (2026-09-22), or null on a Treasury that predates it. */
+  roost: RoostBuy | null;
   conversion: {
     enabled: boolean;
     minInterval: number;
@@ -626,8 +715,12 @@ export type AdminTreasury = {
     maxStreamDuration: number;
   };
   targets: AdminTargetRow[];
-  /** Every currency crossed with every target: the venue and the floor price. */
+  /** Every currency crossed with every target: the venue, the source and the floor price. */
   pairs: AdminPairRow[];
+  /** The AVIAN pool's readings, or null on a Treasury that predates them. */
+  readings: Readings | null;
+  /** When both buttons open, or null on a Treasury that predates the clock. */
+  opening: Opening | null;
   priceKeeper: Address | null;
   maxKeeperDropBps: number;
 };
@@ -736,7 +829,7 @@ export type ValidatorOperation =
   | { kind: 'addToAuthorizers'; listId: bigint; accounts: Address[] }
   | { kind: 'removeFromAuthorizers'; listId: bigint; accounts: Address[] };
 
-// ─────────────────────────────────────────────────────── trading AVIANS
+// ─────────────────────────────────────────────────────── trading AVIAN
 
 /**
  * The pool, before anything is typed into the form.
@@ -757,17 +850,19 @@ export type SwapState = {
   isLaunched: boolean;
   windowSeconds: number;
   windowEndsAt: UnixSeconds;
-  /** `FEE_BPS` plus the decaying launch extra. Falls every second in the window. */
+  /** `FEE_BPS` plus the decaying launch extra. Falls every second in the window: 9000 at its first second (2026-09-21). */
   buyFeeBps: number;
-  /** `FEE_BPS` alone. Never decays, never changes. */
+  /** `FEE_BPS`: the buy fee's floor, what a buy pays after the window. Never changes. */
+  feeBps: number;
+  /** `SELL_FEE_BPS`: 2% since 2026-09-17. Never decays, never changes. */
   sellFeeBps: number;
   /** The LP's cut, converted from Uniswap's hundredths-of-a-bip into bps. */
   poolFeeBps: number;
-  /** In AVIANS OUT, and only inside the window. */
+  /** In AVIAN OUT, and only inside the window. */
   maxBuyPerTx: Amount;
   ethBalance: Amount;
   aviansBalance: Amount;
-  /** AVIANS -> Permit2, the ordinary ERC-20 allowance. Step one of a sell. */
+  /** AVIAN -> Permit2, the ordinary ERC-20 allowance. Step one of a sell. */
   allowanceToPermit2: Amount;
   /** Permit2 -> the router. Step two. */
   permit2ToRouter: Amount;
@@ -866,7 +961,17 @@ export type ErrorName =
   // the treasury
   | 'ConversionDisabled' | 'CoolingDown' | 'NoRewardTokens' | 'NoTargets'
   | 'NothingToConvert' | 'NothingClaimable' | 'TargetNotListed' | 'ZeroSplitPart'
+  // the Roost's tenth (2026-09-22)
+  | 'NothingToBuyForRoost' | 'NoRoost'
   | 'NoFloorPrice' | 'FloorPriceStale' | 'FloorPriceTooFresh' | 'FloorPriceDropTooLarge' | 'SlippageTooHigh'
+  // priced by the pools' own history (2026-09-24)
+  | 'PriceUnsettled' | 'NoUsableReading' | 'ReadingTooYoung' | 'NoTickOracle'
+  // open by the clock (2026-09-24)
+  | 'LaunchUnknown' | 'ConversionsNotOpen'
+  // the council (2026-09-24)
+  | 'NotCouncil'
+  // the owner's seat, two paths (part 18)
+  | 'AcceptOwnershipDisabled' | 'NotTheOwnersProposal' | 'OwnerNotSilent'
   | 'MinOutIsZero' | 'NoRoute' | 'ConversionProducedNothing' | 'OwnableUnauthorizedAccount'
   // the nest (brooding, 2026-09-11). NotTheCollection is the perch's too.
   | 'LengthMismatch' | 'InvalidTier' | 'NotTheOwner' | 'AlreadyBrooding' | 'NotBrooding'
@@ -887,7 +992,7 @@ export type ErrorName =
   | 'OnlyThePerch' | 'NotHeldByThePerch'
   | 'WrongPool' | 'NotThePoolManager' | 'ExecutionFailed' | 'V4TooLittleReceived'
   | 'TransactionDeadlinePassed' | 'NoPool'
-  // the Roost and AVIANS staking (2026-09-18)
+  // the Roost and AVIAN staking (2026-09-18)
   | 'TooSoon' | 'NothingToDistribute' | 'NotTheAdmin' | 'NothingToClaim' | 'NothingHeld' | 'NothingDeliverable'
   | 'ZeroAmount' | 'InsufficientStake' | 'NotTheRoost' | 'NothingStaked' | 'InvalidCostSink'
   // the owner surface — the refusals only the admin panel can provoke
@@ -908,18 +1013,20 @@ export type ErrorName =
   | 'RouteTooLong' | 'HopGoesNowhere' | 'RouteDoesNotReachTarget' | 'NotAV3Pool'
   | 'NoPosition' | 'StillLocked' | 'UnlockNotLater' | 'AlreadyHoldsAPosition'
   // not the chain's
-  | 'UserRejected' | 'WrongNetwork' | 'NoWallet' | 'SatchelCycle' | 'ReadFailed'
+  | 'UserRejected' | 'InsufficientFunds' | 'WrongNetwork' | 'NoWallet' | 'SatchelCycle' | 'ReadFailed'
   // Broadcast, receipt unseen. The one outcome that is neither a success nor a
   // refusal, and the only one where the drawer must not say nothing was taken.
   | 'ReceiptUnseen' | 'Unknown';
 
-// ──────────────────────────────────────────── the Roost and AVIANS staking
+// ──────────────────────────────────────────── the Roost and AVIAN staking
 //
-// THE ROOST (2026-09-18). Where every AVIANS fee lands — the whole of every
+// THE ROOST (2026-09-18). Where every AVIAN fee lands — the whole of every
 // Perch fee and every brooding tier cost — and is split by a rule nobody can
-// change: 40% streamed to AVIANS stakers, 30% streamed to brooding birds
-// through the Nest, 20% burnt, 10% the admin's. Anyone may turn it, at most
-// once a day. HANDOVER section 9, "the Roost".
+// change. Since 2026-09-20: three figures, 35 / 30 / 20, rotating weekly
+// between AVIAN stakers, brooding birds through the Nest and the users of the
+// vault products through the lockers' distributor; 10% the admin's, 5%
+// burnt. Anyone may turn it, at most once a day. HANDOVER section 9, "the
+// Roost".
 
 export type RoostLeg = {
   /** Allocated to this leg and not yet deliverable (nobody staked / nothing brooding). */
@@ -929,35 +1036,53 @@ export type RoostLeg = {
   reason: string;
 };
 
+/** The Roost's three rotating legs (2026-09-20). Leg ids 0, 1, 2 on chain. */
+export type RoostLegName = 'staking' | 'nest' | 'lockers';
+
+/** This week's three figures, in bps. One of 3500/3000/2000, 3000/2000/3500, 2000/3500/3000. */
+export type RotatingSplit = { staking: number; nest: number; lockers: number };
+
 export type RoostState = {
-  /** Every unit of AVIANS that ever arrived. */
+  /** Every unit of AVIAN that ever arrived. */
   cumulativeIn: Amount;
   /** Arrived and not yet split: what the next distribute allocates. */
   unallocated: Amount;
-  /** The four outflows, ever. */
+  /** The five outflows, ever. */
   toStaking: Amount;
   toNest: Amount;
+  toLockers: Amount;
   burned: Amount;
   adminClaimed: Amount;
   /** The admin's tenth, allocated and unclaimed. */
   adminClaimable: Amount;
   staking: RoostLeg;
   nest: RoostLeg;
+  /** The lockers' leg: held at the Roost until the vault products exist. */
+  lockers: RoostLeg;
   /** When anyone may call `distribute()` again. 0 before the first turn. */
   nextDistributionAt: UnixSeconds;
   /** The block's own clock, so "too soon" is judged on the chain's time. */
   chainNow: UnixSeconds;
-  /** 4000 / 3000 / 2000 / 1000, read rather than assumed. */
-  splitBps: { staking: number; nest: number; burn: number; admin: number };
+  /**
+   * THE SPLIT (2026-09-20). Three figures that rotate weekly between the
+   * stakers, the brooding birds and the vault users on a fixed three-week
+   * cycle from `GENESIS`, and two constants: 1000 to the admin, 500 burnt.
+   * All read, none assumed; nobody can change any of it.
+   */
+  splitBps: RotatingSplit & { burn: number; admin: number };
+  /** The second the three figures next move one place. */
+  nextRotationAt: UnixSeconds;
+  /** The figures from that second: `splitAt(nextRotationAt)`. */
+  nextSplitBps: RotatingSplit;
   /** The Nest's owner, read live. */
   admin: Address;
 };
 
-/** What `distribute` did: the split, each leg's fate, and the burn. */
+/** What `distribute` did: the five-way split, each leg's fate, and the burn. */
 export type DistributeResult = {
-  allocated: { inflow: Amount; toStaking: Amount; toNest: Amount; toBurn: Amount; toAdmin: Amount } | null;
-  delivered: { leg: 'staking' | 'nest'; amount: Amount }[];
-  held: { leg: 'staking' | 'nest'; amount: Amount; reason: string }[];
+  allocated: { inflow: Amount; toStaking: Amount; toNest: Amount; toLockers: Amount; toBurn: Amount; toAdmin: Amount } | null;
+  delivered: { leg: RoostLegName; amount: Amount }[];
+  held: { leg: RoostLegName; amount: Amount; reason: string }[];
   burned: Amount;
 };
 
@@ -966,12 +1091,12 @@ export type DistributeResult = {
  * destination could take it. Splits nothing; the day's clock is untouched.
  */
 export type DeliverResult = {
-  delivered: { leg: 'staking' | 'nest'; amount: Amount }[];
-  held: { leg: 'staking' | 'nest'; amount: Amount; reason: string }[];
+  delivered: { leg: RoostLegName; amount: Amount }[];
+  held: { leg: RoostLegName; amount: Amount; reason: string }[];
 };
 
 /**
- * AVIANS STAKING. Stake AVIANS, earn AVIANS, by amount, streamed over a week
+ * AVIAN STAKING. Stake AVIAN, earn AVIAN, by amount, streamed over a week
  * from each of the Roost's deliveries. No lock, no cooldown, no fee, no owner.
  */
 export type StakingState = {
@@ -979,7 +1104,7 @@ export type StakingState = {
   staked: Amount;
   earned: Amount;
   aviansBalance: Amount;
-  /** AVIANS approved to the staking contract, for `stake`. */
+  /** AVIAN approved to the staking contract, for `stake`. */
   allowance: Amount;
   totalStaked: Amount;
   /** The contract's `rewardRate`: base units per second, scaled by 1e18 — raw, like the Nest's. Zero when no stream is running. */
@@ -996,4 +1121,164 @@ export type StakingState = {
   /** Seconds each delivery streams over. 604,800. */
   streamSeconds: number;
   chainNow: UnixSeconds;
+};
+
+/**
+ * THE FLYWHEEL SNAPSHOT (2026-09-22): the landing page's live figures, read
+ * from the chain at one block. Every figure a visitor checks before minting,
+ * staking or buying a bird, and nothing the wiring cannot read. Dollar
+ * figures are never stored: the view derives each from `usd.usdPerEth`, and
+ * when `usd` is null (no dollar source on this deployment) the dollar half of
+ * every figure is simply absent. A null `ethPerAvian` or `ethValue` (no
+ * price this refresh) hides that value the same way: not "$0", not a dash.
+ */
+export type FlywheelSnapshot = {
+  /** The block's own clock, and the block: the "at one block" of the footnote. */
+  readAt: UnixSeconds;
+  blockNumber: number;
+  birds: {
+    minted: number;
+    maxSupply: number;
+    /** The collection's `burned()`: birds the perch has burnt, a count. */
+    burned: number;
+    brooding: number;
+    onPerch: number;
+    /** What the perch pays for one bird right now: the sell quote. */
+    perchBuysAt: Amount;
+  };
+  avian: {
+    /** ETH per one AVIAN, 18 decimals; null on a deployment with no pool, or with no price this refresh. */
+    ethPerAvian: Amount | null;
+    /** AVIAN the Treasury has ever bought for the Roost (2026-09-22). Zero on a Treasury that predates the leg. */
+    boughtForRoost: Amount;
+    totalSupply: Amount;
+    burned: Amount;
+    originalSupply: Amount;
+    staked: Amount;
+  };
+  roost: {
+    /** Everything the fees have ever sent through it and it has split. */
+    allocated: Amount;
+    toStaking: Amount;
+    toNest: Amount;
+    burned: Amount;
+    /** Null before the Roost has ever turned. */
+    nextDistributeAt: UnixSeconds | null;
+  };
+  /** Dollars per ETH, 18 decimals like every Amount here; null when the deployment has no dollar source. */
+  usd: { usdPerEth: Amount } | null;
+  /** AVIAN first (brooding birds' and stakers' together), then by `ethValue` descending, unpriced last. */
+  paid: PaidOut[];
+  /**
+   * THE STAKERS' STREAM (part 19): the staking contract's own AVIAN stream,
+   * which the Nest's listing never shows. `periodFinish` is 0 until the
+   * Roost first funds it; `totalPaid` is what stakers have ever been paid.
+   */
+  stakers: { periodFinish: UnixSeconds; totalPaid: Amount };
+};
+
+/** One reward token the Nest has ever paid: the total ever paid to holders, and its value today. */
+export type PaidOut = {
+  token: Address;
+  symbol: string;
+  decimals: number;
+  amount: Amount;
+  /** The amount at today's pool price, in ETH; null when there is no price this refresh. */
+  ethValue: Amount | null;
+};
+
+/**
+ * THE COUNCIL (2026-09-24). The protocol's second key: a timelock contract
+ * only the founder's multisig may propose to. It holds the structural
+ * pointers (which contract is the Treasury, the Perch, the Nest, the Roost),
+ * the royalty, and the rescue that moves the admin seat to a fresh key.
+ * Nothing else, and every call waits in public first.
+ *
+ * The site never sends a council call: the multisig sends them, and this is
+ * read-only everywhere it appears.
+ */
+export type CouncilChange = {
+  /** The Council's own id for the scheduled call. */
+  id: Hex;
+  /** Its place in a batch: one id may carry several calls, one sentence each. */
+  index: number;
+  /** One plain sentence: "The hook's Treasury moves to 0x12…89ab". */
+  says: string;
+  /** `council.getTimestamp(id)`: when it may be executed. */
+  readyAt: UnixSeconds;
+  /**
+   * The rescue after the owner's silence is the one a holder should notice,
+   * and draws in the stronger tone; everything else, the owner's own
+   * proposal included, is a replacement (part 18).
+   */
+  kind: 'structural' | 'rescue';
+};
+
+export type CouncilState = {
+  /** The Council timelock, or null when no seat is named on this deployment. */
+  council: Address | null;
+  /**
+   * The seats that answer `council() == 0`, by name ("the Nest"): nothing
+   * structural can move on them, and the card says so for each. Empty when
+   * every seat names the council.
+   */
+  unnamedOn: string[];
+  /** `council.MULTISIG()`: the only address that may propose. Null with no council. */
+  multisig: Address | null;
+  /** `STRUCTURAL_DELAY` and `RESCUE_DELAY`, in seconds. */
+  structuralDelay: number;
+  rescueDelay: number;
+  /** The block's own clock, so a countdown runs on the chain's time and not this machine's. */
+  chainNow: UnixSeconds;
+  /** Scheduled, not executed and not cancelled; soonest first. */
+  pending: CouncilChange[];
+};
+
+/**
+ * THE OWNER'S SEAT (2026-09-24). The seat moves in two ways only: the owner
+ * proposes a fresh key on each owned seat and the council seats it a day
+ * later, or, after thirty days without a word from the owner, the council
+ * seats one of its own choosing. Each owned seat keeps its own clock.
+ */
+export type OwnedSeat = {
+  /** A stable key for the seat, for the senders and for React. */
+  id: 'collection' | 'perch' | 'nest' | 'treasury' | 'vault' | 'traitMarket';
+  /** "the collection", "the Perch": how a sentence names it. */
+  name: string;
+  /** Behind the veil until the founder unveils it: the control does not name it until then. */
+  veil?: 'vaults' | 'traitMarket';
+  /** `lastSeenAt()`: the owner's last sign of life on this seat. */
+  lastSeenAt: UnixSeconds;
+  /** `silentAt()`: lastSeenAt + SILENCE, when the council may act alone here. */
+  silentAt: UnixSeconds;
+  /** `pendingOwner()`: the latest proposal, or null when there is none. */
+  proposed: Address | null;
+  /**
+   * `owner()` on this seat (part 18). Each seat has its own: halfway through
+   * a council reseat they differ, and the control refuses before the first
+   * signature if the wallet asking does not hold every seat it would send to.
+   */
+  owner: Address;
+};
+
+export type SeatState = {
+  /** The six owned seats the manifest knows, in the order the control lists them. */
+  seats: OwnedSeat[];
+  /** `SILENCE()`, in seconds: 2,592,000, thirty days. */
+  silence: number;
+  /** The block's own clock, so "today" and the warning are the chain's and not this machine's. */
+  chainNow: UnixSeconds;
+};
+
+/**
+ * One of the seat control's two six-step sends, mid-way: how many seats have
+ * confirmed, of how many it is sending to, and where the current one stands.
+ */
+export type SeatRun = {
+  kind: 'still' | 'propose';
+  done: number;
+  of: number;
+  /** The seat being sent to now, by name. */
+  at: string;
+  phase: TxPhase;
 };

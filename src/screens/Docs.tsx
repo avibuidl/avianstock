@@ -1,9 +1,10 @@
 // Documentation.
 //
 // The reference page: why the register is the whole product, every number in
-// one place, what the contracts guarantee, how the art is built, exactly what
-// the owner can and cannot do, the order the launch happens in, and a glossary
-// between the words in the code and the words on the site.
+// one place, every contract and the liquidity lock (the Contracts page's, since
+// 2026-09-25), what the contracts guarantee, how the art is built, exactly
+// what the owner can and cannot do, and a glossary between the words in the
+// code and the words on the site.
 //
 // Sourced from LORE-BRIEF.md Parts A and B, HANDOVER.md and the appendix.
 // Every number here is canon and unrounded.
@@ -11,22 +12,25 @@
 import { useEffect, useRef, useState } from 'react';
 import s from './Docs.module.css';
 import { Icon } from '../components/Icon';
-import { StockDisclaimer, Unread } from '../components/Primitives';
-import { avians, formatBps, rewardSplitLine } from '../lib/format';
-import { href } from '../router';
-import { ADDRESSES, useCollection, useRewardSplit } from '../mock';
+import { CopyAddress, ExplorerLink, NumberGroup } from '../components/Numbers';
+import { ErrorState, PanelSkeleton, Tag, Unread } from '../components/Primitives';
+import { avians, formatBps, formatDays, rewardSplitLine } from '../lib/format';
+import { href, useOpenAt } from '../router';
+import {
+  ADDRESSES, NETWORK, unveiled, useCollection, useDeployment, useLaunch, useNow, useRewardSplit, useVault,
+} from '../mock';
 
 const SECTIONS = [
   ['choose', 'Why choosing was the hard part'],
   ['numbers', 'The numbers'],
+  ['contracts', 'The contracts'],
   ['guarantees', 'What the contracts guarantee'],
   ['art', 'The art'],
   ['powers', 'Who can do what'],
-  ['sequence', 'The order it happens in'],
   ['words', 'The words'],
 ] as const;
 
-export function Docs() {
+export function Docs({ at }: { at?: string } = {}) {
   // This page states the collection's numbers, and three of them are the
   // owner's to change: the price, the floor it may not go under (an immutable,
   // but a constructor argument rather than a literal), and the royalty, which
@@ -39,8 +43,15 @@ export function Docs() {
   // Which tokens earn and in what proportion: both owner-set, neither a
   // constant.
   const split = useRewardSplit();
+  // The opening fee's ceiling is the hook's own: FEE_BPS + MAX_EXTRA_FEE_BPS,
+  // read, so this page cannot quote a figure the contract stopped charging
+  // (it said 25% for a day after the hook went to 90%).
+  const launch = useLaunch();
+  const opening = launch.data ? formatBps(launch.data.feeBps + launch.data.maxExtraFeeBps) : null;
   const [active, setActive] = useState<string>(SECTIONS[0][0]);
   const refs = useRef<Record<string, HTMLElement | null>>({});
+  // #/docs/contracts (and the old #/contracts) opens the page at that section.
+  useOpenAt(at);
 
   // Mark the section you are actually reading, not the one you clicked.
   useEffect(() => {
@@ -126,21 +137,23 @@ export function Docs() {
                 ['Possible combinations', '1,866,240'],
               ]} />
               <NumberGroup title="The perch and the Roost" rows={[
-                ['The perch buys any bird for', '90,000 AVIANS, always'],
-                ['It sells the next bird for', '110,000 AVIANS, or 115,000 AVIANS for one you pick'],
+                ['The perch buys any bird for', '90,000 AVIAN, always'],
+                ['It sells the next bird for', '110,000 AVIAN, or 115,000 AVIAN for one you pick'],
                 ['Birds burnt by the perch', 'one in every hundred sold to it; the seller is paid in full'],
                 ['The burn stops at', '2,222 living birds: nothing burns until 2,223 are alive'],
                 ['Perch fees', 'whole to the Roost'],
-                ['Brooding tiers, paid to the Roost', '5,000 / 15,000 / 25,000 AVIANS for 1x / 2x / 3x weight'],
-                ['The Roost splits everything', '40% to AVIANS stakers, 30% to brooding birds, 20% burnt, 10% to the protocol, at most once a day'],
-                ['AVIANS staking', 'each delivery streams over 7 days; no lock, no cooldown, no fee'],
+                ['Brooding tiers, paid to the Roost', '10,000 / 30,000 / 50,000 AVIAN for 1x / 2x / 3x weight'],
+                ['The Roost splits everything', unveiled('vaults')
+                  ? '35 / 30 / 20 between AVIAN stakers, brooding birds and vault users, rotating weekly; 10% to the protocol, 5% burnt; at most once a day'
+                  : 'this week\'s shares to AVIAN stakers and brooding birds, rotating weekly; 10% to the protocol, 5% burnt; at most once a day'],
+                ['AVIAN staking', 'each delivery streams over 7 days; no lock, no cooldown, no fee'],
                 ['Reward tokens', split.data ? rewardSplitLine(split.data, ADDRESSES.Avians) : <Unread />],
               ]} />
               <NumberGroup title="The token and the pool" rows={[
-                ['AVIANS supply', '1,000,000,000, minted once, no owner'],
-                ['In the launch pool', '800,000,000 AVIANS, single-sided'],
-                ['Behind the free birds', '200,000,000 AVIANS, moving to the perch as each is claimed'],
-                ['Opening window', '5 minutes; the buy fee starts at 25% and falls to 1%; at most 50,000,000 AVIANS per transaction'],
+                ['AVIAN supply', '1,000,000,000, minted once, no owner'],
+                ['In the launch pool', '800,000,000 AVIAN, single-sided'],
+                ['Behind the free birds', '200,000,000 AVIAN, moving to the perch as each is claimed'],
+                ['Opening window', opening ? `5 minutes; the buy fee starts at ${opening} and falls to 1%; at most 50,000,000 AVIAN per transaction` : <Unread />],
                 ['Pool fee afterwards', '1% on buys, 2% on sells, on the ETH side, forever'],
                 ['Liquidity lock', '365 days minimum, extendable, never shortenable'],
                 ['Royalty', c ? (c.royaltyBps === 0 ? 'None' : `${formatBps(c.royaltyBps)}, to the Treasury`) : <Unread />],
@@ -163,12 +176,15 @@ export function Docs() {
                   any other token.
                 </p></div>
                 <div><p className="small" style={{ margin: 0 }}>
-                  Perch fees and brooding tiers, in AVIANS: to the Roost. 40% to AVIANS stakers,
-                  30% to brooding birds, 20% burnt, 10% to the protocol, once a day.
+                  Perch fees and brooding tiers, in AVIAN: to the Roost. This week&rsquo;s figures
+                  to AVIAN stakers{unveiled('vaults') ? ', brooding birds and vault users (35 / 30 / 20, moving one place a week)' : ' and brooding birds, moving one place a week'},
+                  10% to the protocol, 5% burnt, once a day.
                 </p></div>
               </div>
             </>
           ))}
+
+          {section('contracts', 'The contracts', <TheContracts />)}
 
           {section('guarantees', 'What the contracts guarantee', (
             <>
@@ -191,14 +207,14 @@ export function Docs() {
                   </p>
                 </div>
                 <div>
-                  <h4>The mint is paid in AVIANS, and the payment does not come to us.</h4>
+                  <h4>The mint is paid in AVIAN, and the payment does not come to us.</h4>
                   <p className="small">
                     It goes, in the same transaction, to the perch that will buy the bird back. The
                     collection never holds it and the owner cannot redirect it.
                   </p>
                 </div>
                 <div>
-                  <h4>Every bird can always be sold back for 90,000 AVIANS.</h4>
+                  <h4>Every bird can always be sold back for 90,000 AVIAN.</h4>
                   <p className="small">
                     The perch always holds enough to pay it, a proven invariant, which is why the
                     mint price has a floor{floor ? ` of ${floor}` : ''}: a cheaper mint could drain
@@ -211,7 +227,7 @@ export function Docs() {
                   <p className="small">
                     The perch counts every sale into it, resales included, and the bird whose
                     arrival makes the count a multiple of a hundred is burnt in the same
-                    transaction. Its seller is paid the usual 90,000 AVIANS in full; no AVIANS move
+                    transaction. Its seller is paid the usual 90,000 AVIAN in full; no AVIAN move
                     for the burn. Nothing burns while 2,222 or fewer birds are alive.
                   </p>
                   <p className="tiny dim" style={{ marginTop: 10 }}>
@@ -230,9 +246,9 @@ export function Docs() {
                 <div>
                   <h4>The opening cannot be bent.</h4>
                   <p className="small">
-                    Five minutes, a buy fee starting at 25% and falling to 1%, and no transaction may
-                    buy more than 50,000,000 AVIANS. Then 1% on buys and 2% on sells, forever. The
-                    contract enforcing it has no owner and no settings.
+                    Five minutes, a buy fee starting at {opening ?? 'up to 90%'} and falling to 1%, and no
+                    transaction may buy more than 50,000,000 AVIAN. Then 1% on buys and 2% on sells,
+                    forever. The contract enforcing it has no owner and no settings.
                   </p>
                 </div>
                 <div>
@@ -341,7 +357,7 @@ export function Docs() {
                   </thead>
                   <tbody>
                     <tr>
-                      <td>AVIANS, the token</td>
+                      <td>AVIAN, the token</td>
                       <td>Nothing. It has no owner.</td>
                       <td>Mint, pause, tax, blacklist or upgrade.</td>
                     </tr>
@@ -352,8 +368,8 @@ export function Docs() {
                     </tr>
                     <tr>
                       <td>The perch</td>
-                      <td>Set where the fees are sent (the Roost today); rescue tokens that are not AVIANS.</td>
-                      <td>Move the perch&rsquo;s AVIANS, move its birds, or change 90,000 / 110,000 / 115,000.</td>
+                      <td>Set where the fees are sent (the Roost today); rescue tokens that are not AVIAN.</td>
+                      <td>Move the perch&rsquo;s AVIAN, move its birds, or change 90,000 / 110,000 / 115,000.</td>
                     </tr>
                     <tr>
                       <td>The nest</td>
@@ -363,7 +379,7 @@ export function Docs() {
                     <tr>
                       <td>The Roost and staking</td>
                       <td>Claim the protocol&rsquo;s tenth. The staking contract has no owner.</td>
-                      <td>Change the 40 / 30 / 20 / 10 split, turn the Roost more than once a day, or touch a stake.</td>
+                      <td>Change the split or its rotation, turn the Roost more than once a day, or touch a stake.</td>
                     </tr>
                     <tr>
                       <td>The Treasury</td>
@@ -386,36 +402,6 @@ export function Docs() {
             </>
           ))}
 
-          {section('sequence', 'The order it happens in', (
-            <>
-              <p className="lede" style={{ maxWidth: 760 }}>
-                The order is fixed even though the clock is not. We will not post a date we might
-                have to move.
-              </p>
-              <div className={s.steps} style={{ marginTop: 28 }}>
-                {[
-                  ['Contracts deployed, art on chain', 'Nothing is mintable yet.'],
-                  ['The allowlist is collected', 'Snapshots, sign-ups, and addresses added by hand.'],
-                  ['The reward list is configured', 'NVDA, SPY, SPCX and AAPL are listed. Nothing streams yet, because nothing has earned yet.'],
-                  ['The pool launches', '800,000,000 AVIANS, single-sided, at a published time. The five-minute window runs.'],
-                  ['The free mint opens', '2,000 birds, one per allowlisted wallet.'],
-                  ['The paid mint opens', `${price ?? 'A fixed price in AVIANS'} each, and several may be minted in one transaction.`],
-                  ['The streams start', 'Brooding is live from deployment. The stream starts once fees and royalties have arrived and somebody triggers a conversion.'],
-                  ['Unclaimed free birds may be released', 'Only after the free mint has been open for a total of 24 hours.'],
-                ].map(([title, body], i) => (
-                  <div key={title} className={s.step}>
-                    <span className="numbox" aria-hidden="true">{i + 1}</span>
-                    <div>
-                      <h4>{title}</h4>
-                      <p className="small">{body}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 28, maxWidth: 860 }}><StockDisclaimer /></div>
-            </>
-          ))}
-
           {section('words', 'The words', (
             <>
               <p className="lede" style={{ maxWidth: 760 }}>
@@ -434,8 +420,8 @@ export function Docs() {
                       ['ERC-6551 token-bound account', 'the satchel: the bird’s own wallet'],
                       ['TheNest, brood, tiers, weight', 'the nest: brooding, the tier, the share of the stream'],
                       ['settle', 'delivering what a brooding bird has accrued'],
-                      ['TheRoost, distribute', 'the Roost: every AVIANS fee, split once a day'],
-                      ['AviansStaking', 'staking AVIANS, on the Roost page'],
+                      ['TheRoost, distribute', 'the Roost: every AVIAN fee, split once a day'],
+                      ['AviansStaking', 'staking AVIAN, on the Roost page'],
                       ['ERC-721C transfer validator', 'the Gate: on-chain royalty enforcement'],
                       ['Uniswap v4 pool + hook', 'the pool, and its fee'],
                       ['LAUNCH_AT, WINDOW', 'First Light: the opening time and the five minutes'],
@@ -459,7 +445,7 @@ export function Docs() {
               </div>
 
               <p className="small" style={{ marginTop: 32 }}>
-                <a href={href({ name: 'contracts' })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <a href={href({ name: 'docs', at: 'contracts' })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   Every address, with an explorer link <Icon name="arrow" size={13} color="var(--accent)" />
                 </a>
               </p>
@@ -471,19 +457,88 @@ export function Docs() {
   );
 }
 
-/** One group of the numbers: a heading, then label and value rows with a single hairline under the group. */
-function NumberGroup({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) {
+/**
+ * THE CONTRACTS (2026-09-25), the Contracts page's content as a section of
+ * Docs: every address, and the lock on the pool's liquidity.
+ *
+ * THIS SECTION OWNS THE DEPLOYMENT READ'S REPORTING, as the Contracts page
+ * did. Both tables render only from a read that landed, so a pending read is
+ * drawn as pending and a failed one as a failure, never as two empty tables
+ * with nothing said.
+ */
+function TheContracts() {
+  const deployment = useDeployment();
+  const vault = useVault();
+  const now = useNow(30000);
+  const d = deployment.data;
+
   return (
-    <div className={s.group}>
-      <h4>{title}</h4>
-      <dl className={s.numbers}>
-        {rows.map(([k, v]) => (
-          <div key={k} className={s.numberRow}>
-            <dt className="small dim">{k}</dt>
-            <dd className="small">{v}</dd>
+    <>
+      {deployment.loading && !d ? (
+        <div style={{ marginTop: 24 }}><PanelSkeleton lines={8} /></div>
+      ) : deployment.error || !d ? (
+        <div style={{ marginTop: 24 }}>
+          <ErrorState
+            title="The addresses could not be read."
+            detail="Nothing is wrong with the contracts. Try again in a moment."
+            onRetry={deployment.reload}
+          />
+        </div>
+      ) : (
+        <>
+          <NumberGroup
+            title="The project’s own contracts"
+            rows={Object.entries(d.addresses).map(([name, addr]) => [
+              name,
+              <CopyAddress
+                value={addr}
+                label={name}
+                after={<ExplorerLink href={`${NETWORK.blockExplorerUrls[0]}/address/${addr}`} label={name} />}
+              />,
+            ])}
+          />
+          <NumberGroup
+            title="Third-party contracts on this chain"
+            rows={Object.entries(d.thirdParty).map(([name, addr]) => [name, <CopyAddress value={addr} label={name} />])}
+          />
+        </>
+      )}
+
+      {/* The lock, as it was on the Contracts page: three figures and its one rule. */}
+      <div style={{ marginTop: 32 }}>
+        <div className="row">
+          <h4 style={{ margin: 0 }}>The liquidity lock</h4>
+          <span className="spacer" />
+          {vault.data?.isLocked ? <Tag tone="ok"><Icon name="lock" size={11} /> Locked</Tag> : null}
+        </div>
+        <p className="small dim" style={{ marginTop: 6 }}>
+          The pool&rsquo;s liquidity position, held by the vault. The lock can be extended. It
+          cannot be shortened.
+        </p>
+
+        {vault.loading && !vault.data ? (
+          <div style={{ marginTop: 16 }}><PanelSkeleton lines={2} /></div>
+        ) : vault.error ? (
+          <div style={{ marginTop: 16 }}>
+            <ErrorState title="The lock could not be read." onRetry={vault.reload} />
           </div>
-        ))}
-      </dl>
-    </div>
+        ) : vault.data ? (
+          <div className="lock-facts">
+            <div>
+              <div className="num" style={{ fontSize: 22 }}>#{vault.data.tokenId}</div>
+              <div className="label" style={{ marginTop: 4 }}>Position</div>
+            </div>
+            <div>
+              <div className="num" style={{ fontSize: 22 }}>{formatDays(vault.data.lockSeconds)}</div>
+              <div className="label" style={{ marginTop: 4 }}>Locked for, at least</div>
+            </div>
+            <div>
+              <div className="num" style={{ fontSize: 22 }}>{formatDays(Math.max(0, vault.data.unlockAt - now))}</div>
+              <div className="label" style={{ marginTop: 4 }}>Unlocks in</div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }

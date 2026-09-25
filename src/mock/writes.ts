@@ -16,9 +16,9 @@ import type {
 import { ContractError, SELECTORS } from './errors';
 import { scenario, takeForcedError } from './scenario';
 import {
-  MAX_SUPPLY, PRICE, TIER_COST, YOU, overlay, rewardTokenMeta, satchelAddressOf, world,
+  ADDRESSES, MAX_SUPPLY, PRICE, TIER_COST, YOU, overlay, rewardTokenMeta, satchelAddressOf, world,
 } from './fixtures';
-import { checkTransferSafety, comboTaken } from './reads';
+import { checkTransferSafety, comboTaken, getTreasury, mockOpening } from './reads';
 import { isValid } from '../art/traits';
 import { requireChain, sleep } from './wallet';
 
@@ -70,7 +70,7 @@ export function approveAviansForPerch(amount: Amount, on?: OnPhase) {
   return send(on, () => { overlay.approvals.aviansToPerch = amount; return {}; });
 }
 
-/** The only approval brooding needs: AVIANS to the Nest, for the tier costs. */
+/** The only approval brooding needs: AVIAN to the Nest, for the tier costs. */
 export function approveAviansForNest(amount: Amount, on?: OnPhase) {
   return send(on, () => { overlay.approvals.aviansToNest = amount; return {}; });
 }
@@ -142,7 +142,7 @@ export async function mint(
 }
 
 /**
- * One transaction, one AVIANS transfer of price() * n, one approval for that
+ * One transaction, one AVIAN transfer of price() * n, one approval for that
  * total. All or nothing: if any bird in the batch is refused the whole batch
  * reverts with THAT bird's error and nothing is minted.
  */
@@ -285,7 +285,7 @@ export async function buyNamed(ids: TokenId[], on?: OnPhase) {
 // ── the nest — HANDOVER section 5 ────────────────────────────────────────
 //
 // BROODING IS NOT CUSTODIAL. Nothing here moves a bird; the mock's writes
-// change the brood record, burn AVIANS, and move accrual to a destination —
+// change the brood record, burn AVIAN, and move accrual to a destination —
 // so every state the screen can show is reachable by doing the thing, not
 // only by flipping the switcher.
 
@@ -568,7 +568,12 @@ export async function sweep(ids: TokenId[], tokens: Address[], on?: OnPhase): Pr
 export async function convertAndStream(currency: Address | null, on?: OnPhase) {
   requireChain();
   const t = scenario().treasury;
-  if (t === 'disabled') throw new ContractError('ConversionDisabled');
+  if (t === 'paused') throw new ContractError('ConversionDisabled');
+  if (t === 'launch-unknown') throw new ContractError('LaunchUnknown');
+  if (t === 'opens-later') {
+    const { openAt } = mockOpening(t, Math.floor(Date.now() / 1000));
+    throw new ContractError('ConversionsNotOpen', { openAt });
+  }
   if (t === 'cooling-down') {
     const now = Math.floor(Date.now() / 1000);
     throw new ContractError('CoolingDown', { nextAllowedAt: now + 82_800, currentTime: now });
@@ -580,6 +585,62 @@ export async function convertAndStream(currency: Address | null, on?: OnPhase) {
   if (t === 'nothing-convertible') throw new ContractError('NothingToConvert');
 
   return send(on, () => ({ converted: 590_640_000_000_000_000n }));
+}
+
+/**
+ * The Roost's tenth (2026-09-22): anyone, on its own daily clock. The fixture
+ * pool's price is the swap fixture's, 1 ETH = 2,000,000 AVIAN.
+ */
+export async function buyForRoost(on?: OnPhase) {
+  requireChain();
+  const t = scenario().treasury;
+  if (t === 'paused') throw new ContractError('ConversionDisabled');
+  if (t === 'launch-unknown') throw new ContractError('LaunchUnknown');
+  if (t === 'opens-later') {
+    const { openAt } = mockOpening(t, Math.floor(Date.now() / 1000));
+    throw new ContractError('ConversionsNotOpen', { openAt });
+  }
+  if (t === 'roost-buy-cooling') {
+    const now = Math.floor(Date.now() / 1000);
+    throw new ContractError('CoolingDown', { nextAllowedAt: now + 82_800, currentTime: now });
+  }
+  const treasury = await getTreasury();
+  const buyable = treasury.roost?.buyable ?? 0n;
+  if (buyable === 0n) {
+    throw new ContractError('NothingToBuyForRoost', { balance: treasury.rows[0].balance, unspentShare: 0n });
+  }
+  if (t === 'no-targets') throw new ContractError('NoRoute');
+  // Priced by the pools (2026-09-24): no usable reading means no price, and a
+  // pool that has strayed from its own mean is refused rather than filled.
+  if (t === 'readings-absent' || t === 'readings-too-young') {
+    const now = Math.floor(Date.now() / 1000);
+    throw new ContractError('NoUsableReading', { lastAt: t === 'readings-absent' ? 0 : now - 420, prevAt: 0 });
+  }
+  if (t === 'pool-unsettled') {
+    throw new ContractError('PriceUnsettled', { token: ADDRESSES.Avians, meanTick: 4_200, spotTick: 5_600 });
+  }
+  return send(on, () => {
+    const amountOut = buyable * 2_000_000n;
+    overlay.roostSpent += buyable;
+    overlay.roostBought = (overlay.roostBought ?? 0n) + amountOut;
+    return { amountIn: buyable, amountOut };
+  });
+}
+
+/**
+ * A reading of the AVIAN pool (2026-09-24). Anyone's, and it refuses only
+ * when the last one is still too young to be replaced — which is the state
+ * the card already declines to draw the button in.
+ */
+export async function takeRoostReading(on?: OnPhase) {
+  requireChain();
+  const t = scenario().treasury;
+  const now = Math.floor(Date.now() / 1000);
+  if (t === 'readings-too-young') {
+    const at = now - 420;
+    throw new ContractError('ReadingTooYoung', { at, usableAt: at + 1_800 });
+  }
+  return send(on, () => ({ at: now }));
 }
 
 /** `onlyOwner` on the contract. The card hides the button; this is the refusal. */

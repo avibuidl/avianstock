@@ -83,6 +83,48 @@
 .side .btn { width: 100%; }
 .side__scrim { display: none; }
 
+/*
+  The rail (2026-09-21). On a wide screen with a pointer the sidebar rests at
+  72px: the mark, each page as its icon in its box, the wallet as its dot. It
+  opens to the full 200px over the page while the pointer is on it or the
+  keyboard is in it, and closes when they leave; the page beside it keeps the
+  128px for good, because the open column lies over it rather than pushing
+  it. Three custom properties carry the state, so the elements below read
+  one rule each. Below the breakpoint, and on a screen with nothing to hover
+  with, none of this applies: the drawer and the full column stay.
+*/
+@media (min-width: 1281px) and (hover: hover) {
+  .frame { grid-template-columns: var(--sidebar-rail) minmax(0, 1fr); }
+  .side {
+    --label: none; --justify: center; --pad-x: 0px;
+    width: var(--sidebar-rail);
+    overflow-x: hidden;
+    transition: width var(--motion) linear;
+  }
+  .side:hover, .side:focus-within {
+    --label: inline; --justify: flex-start; --pad-x: var(--s3);
+    width: var(--sidebar-w);
+  }
+  /* Shut by a click (Sidebar.tsx): at rest again although the pointer is
+     still on it, until the pointer leaves and comes back. */
+  .side.side--shut, .side.side--shut:hover, .side.side--shut:focus-within {
+    --label: none; --justify: center; --pad-x: 0px;
+    width: var(--sidebar-rail);
+  }
+  .side .brand { justify-content: var(--justify); }
+  .side .brand__wordmark { display: var(--label); }
+  .side .side__nav a,
+  .side .side__navAction { justify-content: var(--justify); padding-left: var(--pad-x); padding-right: var(--pad-x); }
+  .side .side__nav a span,
+  .side .side__navAction span { display: var(--label); }
+  .side .wchip { justify-content: var(--justify); padding-left: var(--pad-x); padding-right: var(--pad-x); }
+  .side .wchip .mono,
+  .side .wchip__text,
+  .side .wchip__net { display: var(--label); }
+  .side .btn { padding-left: var(--pad-x); padding-right: var(--pad-x); }
+  .side .btn span { display: var(--label); }
+}
+
 /* ── the top line: the price band ────────────────────────────────────── */
 
 /*
@@ -189,7 +231,19 @@
 }
 .swatch__mark--bad { background: var(--crimson); color: var(--chalk); }
 
-.strip { display: flex; flex-wrap: wrap; gap: var(--s2); }
+/* Top-aligned, so a swatch that carries a word under it does not stretch
+   the plain ones beside it. */
+.strip { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: flex-start; }
+
+/* A swatch with a word under it: the two "None" pieces, whose tiles are
+   empty by design. The tile keeps its size; the word hangs below it. */
+.swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.swatch-caption {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-dim);
+  line-height: 1;
+}
 
 @media (max-width: 720px) {
   .swatch { width: 52px; height: 52px; }
@@ -369,6 +423,26 @@
 .ticker__mark--down { border-top: 6px solid var(--refusal); }
 
 /*
+  The council's half (2026-09-25). While a change waits, the band is two
+  equal halves with a hairline between them: the changes on the left, the
+  prices on the right. Same 36px, so the page under it never moves. The
+  label stays put at the half's start and the changes scroll out from under
+  it; one change that fits stands still.
+*/
+.ticker--split { display: flex; }
+.ticker__half { flex: 1 1 0; min-width: 0; }
+.ticker__half + .ticker__half { border-left: 1px solid var(--line); }
+.ticker__half--council { display: flex; align-items: center; }
+.ticker__half--council .ticker__viewport { flex: 1 1 auto; min-width: 0; }
+.ticker__label { flex: none; padding: 0 var(--s3) 0 var(--s4); }
+.ticker__viewport--still .ticker__track { animation: none; }
+.ticker__change { gap: var(--s2); font-size: 12.5px; }
+.ticker__says { color: var(--text); }
+/* The rescue: the stronger tone the card gives it, a rule and the strong ink. */
+.ticker__change--rescue { border-left: 2px solid var(--line-strong); padding-left: var(--s2); }
+.ticker__change--rescue .ticker__says { color: var(--text-strong); font-weight: 600; }
+
+/*
   No motion: one row that wraps, no sliding, no second copy. The OS setting,
   or the dev switcher's `reduced-motion` state, which adds the class.
 */
@@ -381,5 +455,19 @@
 .ticker--static .ticker__track { animation: none; flex: 1 1 auto; flex-wrap: wrap; padding: var(--s2) var(--s4); row-gap: var(--s1); }
 .ticker--static .ticker__track + .ticker__track { display: none; }
 
-/* The footer's links, one row, gaps rather than separators. */
-.foot__links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+/* The footer's marks (2026-09-25): four small icon links, evenly spaced, in
+   the footer's dim tone and the site's hover tone. One not live yet is
+   present but inert, in the palette's dimmest tone for a mark. The first
+   sits flush with the text above it; the hit boxes overlap nothing. */
+.foot__marks { display: flex; gap: var(--s4); list-style: none; margin: var(--s3) 0 0 -8px; padding: 0; }
+.foot__mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  color: var(--text-dim);
+}
+.foot__mark:hover, .foot__mark:focus-visible { color: var(--teal-pale); text-decoration: none; }
+.foot__mark--soon, .foot__mark--soon:hover { color: var(--ash); cursor: default; }
+@media (max-width: 720px) {
+  .foot__marks { gap: var(--s2); margin-left: -14px; }
+  .foot__mark { width: 44px; height: 44px; }
+}
