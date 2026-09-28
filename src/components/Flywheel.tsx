@@ -115,7 +115,7 @@ export function FlywheelSnapshotSection({ onTrade }: { onTrade: () => void }) {
           <div className={s.actions}>
             {/* No pool on this deployment: nothing to get it from, so no button rather than a dead one. */}
             {canSwap() ? <button type="button" className="btn btn--compact" onClick={onTrade}>Get AVIAN</button> : null}
-            <a className="btn btn--ghost btn--compact" href={href({ name: 'roost' })}>Stake</a>
+            <a className="btn btn--ghost btn--compact" href={href({ name: 'nest', at: 'stake' })}>Stake</a>
           </div>
         </div>
 

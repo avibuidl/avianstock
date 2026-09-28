@@ -11,7 +11,7 @@ import { FlywheelSnapshotSection } from '../components/Flywheel';
 import { CATEGORIES } from '../art/traits';
 import { comboHex, packCombo, type TraitIndices } from '../art/render';
 import { avians, formatCount } from '../lib/format';
-import { href } from '../router';
+import { href, useOpenAt } from '../router';
 import { useCollection } from '../mock';
 
 // The hero bird and the row of hats beneath it are the same bird: one plumage,
@@ -28,7 +28,9 @@ const GALLERY: TraitIndices[] = [
 // One swatch per category, the six choices of the bird at the top of the page.
 const SIX: TraitIndices = [1, 4, 14, 1, 3, 4];
 
-export function Landing({ onTrade }: { onTrade: () => void }) {
+export function Landing({ onTrade, at }: { onTrade: () => void; at?: 'join' }) {
+  // #/join opens the page at the six steps: My Nest points anyone new here.
+  useOpenAt(at);
   const collection = useCollection();
   const [hw, setHw] = useState(7);
   const c = collection.data;
@@ -169,7 +171,7 @@ export function Landing({ onTrade }: { onTrade: () => void }) {
         </div>
       </section>
 
-      <section className={s.sec}>
+      <section className={s.sec} id="join">
         <h2>Join the Aviary.</h2>
         {/*
           Two rows of three (2026-09-25), reading 1-2-3 then 4-5-6: the same

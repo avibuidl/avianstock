@@ -46,8 +46,23 @@ export type Scenario = {
    * previous holder's brood ended with the sale and nobody has settled;
    * 'settled-claimable' is a held-back share of yours waiting for `claim`.
    */
-  brood: 'none' | 'brooding' | 'brooding-to-wallet' | 'expired-unsettled' | 'settled-claimable' | 'mixed';
-  rewards: 'none-listed' | 'accruing' | 'one-paused' | 'all-paused';
+  /**
+   * 'twelve' (2026-09-27): My Nest's holder, twelve birds with four brooding
+   * at mixed tiers and a held-back share to claim; 'twelve-quiet': the same
+   * holder with nothing claimable. 'three' (2026-09-28): the seven, three
+   * of them brooding at mixed tiers, for the Earning now panel.
+   */
+  brood: 'none' | 'brooding' | 'brooding-to-wallet' | 'expired-unsettled' | 'settled-claimable' | 'mixed' | 'twelve' | 'twelve-quiet' | 'three';
+  /**
+   * Which reward tokens are listed and how their streams stand. 'two-streams'
+   * (2026-09-28): NVDA and AVIAN listed, both streaming; 'one-ended': all
+   * five listed, SPY's stream two days past its end; 'not-funded': all five
+   * listed, none funded yet. In those three the AVIAN stream is fast (the
+   * wallet's figure moves every second at four places) and NVDA's slow (every
+   * few seconds at six). 'snap': 'two-streams' with the chain accruing three
+   * times what the screen estimates, so each read visibly corrects the figure.
+   */
+  rewards: 'none-listed' | 'accruing' | 'one-paused' | 'all-paused' | 'two-streams' | 'one-ended' | 'not-funded' | 'snap';
   /**
    * The Sweeper, on your satchels. 'some-granted' is two of them, with stock
    * inside; 'all-swept' is every bird granted and every satchel emptied —
@@ -55,7 +70,8 @@ export type Scenario = {
    * comes from `rewards` ('one-paused'), not from here: a paused token
    * refuses the sweep the same way it refuses a settle.
    */
-  sweeper: 'none-granted' | 'some-granted' | 'all-granted' | 'all-swept';
+  /** 'read-fails': the Sweeper's read fails while everything else loads. */
+  sweeper: 'none-granted' | 'some-granted' | 'all-granted' | 'all-swept' | 'read-fails';
 
   /**
    * The Treasury card. Each value is one of the contract's guards failing, or
@@ -157,7 +173,8 @@ export type Scenario = {
    * held at the Roost and the wallet has since staked, so the DELIVER button
    * is live; 'held-nobody-staked': the same leg held with nobody staked yet.
    */
-  staking: 'mid-week' | 'nothing-staked' | 'held-with-staker' | 'held-nobody-staked';
+  /** 'just-delivered': staked, a stream that began this second, nothing earned yet; 'read-fails': the staking read fails. */
+  staking: 'mid-week' | 'nothing-staked' | 'held-with-staker' | 'held-nobody-staked' | 'just-delivered' | 'read-fails';
 
   /**
    * THE FLYWHEEL SNAPSHOT (2026-09-22), the landing page's live figures.
@@ -272,6 +289,19 @@ export const PRESETS: Preset[] = [
   { group: 'The perch', name: 'The burn is far off', patch: { burnClock: 'far' } },
   { group: 'The perch', name: 'The burn is three away', patch: { burnClock: 'near' } },
   { group: 'The perch', name: 'The next bird burns', patch: { burnClock: 'one-away' } },
+
+  { group: 'My Nest', name: 'Disconnected', patch: { connection: 'disconnected' } },
+  { group: 'My Nest', name: 'Connected, no birds, nothing staked', patch: { data: 'empty', staking: 'nothing-staked' } },
+  { group: 'My Nest', name: 'Twelve birds, four brooding, rewards in all three places, AVIAN staked', patch: { brood: 'twelve', sweeper: 'some-granted', staking: 'mid-week', rewards: 'accruing', satchel: 'holds-birds' } },
+  { group: 'My Nest', name: 'The same holder, nothing claimable', patch: { brood: 'twelve-quiet', sweeper: 'all-swept', staking: 'just-delivered', rewards: 'accruing' } },
+  { group: 'My Nest', name: 'The Sweeper fails to read, the rest loads', patch: { brood: 'twelve', sweeper: 'read-fails', staking: 'mid-week', rewards: 'accruing' } },
+  { group: 'My Nest', name: 'Staking fails to read, the rest loads', patch: { brood: 'twelve', sweeper: 'some-granted', staking: 'read-fails', rewards: 'accruing' } },
+  // Earning now (2026-09-28). The sheet mid "Collect everything" is the twelve-bird scene at #/nest/rewards, with the button pressed.
+  { group: 'Earning now', name: 'Two streams running, NVDA and AVIAN, three birds brooding at mixed tiers', patch: { brood: 'three', rewards: 'two-streams', staking: 'mid-week' } },
+  { group: 'Earning now', name: 'One stream ended', patch: { brood: 'three', rewards: 'one-ended', staking: 'mid-week' } },
+  { group: 'Earning now', name: 'Nothing brooding', patch: { brood: 'none', rewards: 'accruing', staking: 'mid-week' } },
+  { group: 'Earning now', name: 'No stream at all: tokens listed, none funded', patch: { brood: 'three', rewards: 'not-funded', staking: 'mid-week' } },
+  { group: 'Earning now', name: 'A read lands mid-tick: the chain says more, the figure snaps', patch: { brood: 'three', rewards: 'snap', staking: 'mid-week' } },
 
   { group: 'The nest', name: 'Nothing brooding', patch: { brood: 'none', rewards: 'accruing' } },
   { group: 'The nest', name: 'Brooding, to the birds', patch: { brood: 'brooding', rewards: 'accruing' } },

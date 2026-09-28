@@ -144,12 +144,13 @@ function totalStakedNow(): Amount {
 function myStakeNow(): Amount {
   if (roostOverlay.staked !== null) return roostOverlay.staked;
   const s = scenario().staking;
-  return s === 'mid-week' ? e18(250_000) : s === 'held-with-staker' ? e18(50_000) : 0n;
+  return s === 'mid-week' || s === 'just-delivered' ? e18(250_000) : s === 'held-with-staker' ? e18(50_000) : 0n;
 }
 
 export function getStaking(_who: Address | null): Promise<StakingState> {
   return read(() => {
     const s = scenario();
+    if (s.staking === 'read-fails') throw new ContractError('ReadFailed');
     const w = world();
     const now = Math.floor(Date.now() / 1000);
     const staked = myStakeNow();
@@ -159,7 +160,9 @@ export function getStaking(_who: Address | null): Promise<StakingState> {
     // sends the held 8,000 on, which then streams from that moment.
     const heldScene = s.staking === 'held-with-staker' || s.staking === 'held-nobody-staked';
     const delivered = heldScene ? roostOverlay.deliveredStaking : e18(494_400);
-    const started = heldScene ? (roostOverlay.deliveredAt ?? now) : now - Math.floor(WEEK / 2);
+    // 'just-delivered' (2026-09-27): the week's stream began this second, so
+    // a staker has earned nothing yet and My Nest's rewards read "nothing yet".
+    const started = heldScene ? (roostOverlay.deliveredAt ?? now) : s.staking === 'just-delivered' ? now : now - Math.floor(WEEK / 2);
     const periodFinish = delivered > 0n ? started + WEEK : 0;
     const perSec = delivered / BigInt(WEEK);
     // The chain keeps the rate scaled by 1e18; so does the mock.

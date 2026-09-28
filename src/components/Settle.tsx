@@ -13,7 +13,7 @@
 // what actually happened: a `RewardHeld` inside a confirmed settle is a
 // partial outcome, said as one.
 
-import { useState } from 'react';
+import { useEffect, useState , type ReactNode } from 'react';
 import { Box, Note } from './Primitives';
 import { WriteGate } from './Wallet';
 import { useTx, type TxRow } from './Tx';
@@ -66,7 +66,7 @@ export function nestNote(ev: NestEvents): string | undefined {
 }
 
 export function SettleControl({
-  ids, label, symbolOf, onConnect, onDone, ghost, disabled, compact,
+  ids, label, symbolOf, onConnect, onDone, ghost, disabled, compact, autoPreview, extra, settleLabel,
 }: {
   ids: TokenId[];
   label: string;
@@ -77,6 +77,12 @@ export function SettleControl({
   disabled?: boolean;
   /** The site's compact CTA size (the homepage Bird Engine's), for a press that sits in a line of text. */
   compact?: boolean;
+  /** Open on the preview, no first press: the settle sheet on My Nest (2026-09-27). */
+  autoPreview?: boolean;
+  /** One more press beside Settle in the preview: "Send to my wallet" or "Send to its satchel" (2026-09-28). */
+  extra?: ReactNode;
+  /** The settle press's own words in the preview, "Settle to its satchel"; "Settle" without. */
+  settleLabel?: string;
 }) {
   const tx = useTx();
   const who = useAddress();
@@ -90,6 +96,7 @@ export function SettleControl({
     try { setPreview(await simulateSettle(who, ids)); } catch { setPreview({ ids: [], moves: [] }); }
     setPreviewing(false);
   };
+  useEffect(() => { if (autoPreview) void doPreview(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doSettle = async () => {
     if (!preview) return;
@@ -150,16 +157,17 @@ export function SettleControl({
           </p>
         </>
       )}
-      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+      <div className="row row--wrap" style={{ gap: 8, marginTop: 12 }}>
         {preview.moves.length ? (
           <WriteGate onConnect={onConnect}>
             <button type="button" className="btn btn--small" disabled={busy || tx.busy} onClick={doSettle}>
-              Settle
+              {settleLabel ?? 'Settle'}
             </button>
           </WriteGate>
         ) : null}
+        {extra}
         <button type="button" className="btn btn--ghost btn--small" onClick={() => setPreview(null)}>
-          {preview.moves.length ? 'Not now' : 'Close'}
+          {preview.moves.length ? 'Cancel' : 'Close'}
         </button>
       </div>
     </Box>

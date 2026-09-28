@@ -664,7 +664,7 @@ function Actions(p: {
           </button>
           {!p.freeOpen && p.paidOpen && !p.compact ? (
             <button type="button" className="btn btn--ghost btn--small" style={{ minHeight: 48 }} disabled={p.taken || p.checking} onClick={p.onAddToBatch}>
-              <Icon name="plus" size={14} /> Add to the batch
+              <Icon name="plus" size={14} /> Add to batch
             </button>
           ) : null}
         </div>
@@ -805,7 +805,7 @@ function bump(t: TraitIndices, cat: number): TraitIndices {
  * What goes on the easel once the bird that was on it has been added to the
  * batch — or minted.
  *
- * It has to DIFFER FROM EVERY BIRD IN THE TRAY. "Add to the batch" used to
+ * It has to DIFFER FROM EVERY BIRD IN THE TRAY. "Add to batch" used to
  * leave the same composition on the easel, so the tray and the easel held one
  * bird between them while the panel counted two, and the transaction that
  * followed was `mintMany` with the same combination twice — refused before the

@@ -103,8 +103,8 @@ export function StreamsBlock({ fly, read }: { fly: FlywheelSnapshot | undefined;
       <div className={s.top}>
         <h4>The streams</h4>
         <span className={s.calls}>
-          {fly ? <a className="btn btn--ghost btn--compact" href={href({ name: 'roost' })}>Stake AVIAN</a> : null}
-          {r && r.streams.length > 0 ? <a className="btn btn--ghost btn--compact" href={href({ name: 'nest' })}>Brood a bird</a> : null}
+          {fly ? <a className="btn btn--ghost btn--compact" href={href({ name: 'nest', at: 'stake' })}>Stake AVIAN</a> : null}
+          {r && r.streams.length > 0 ? <a className="btn btn--ghost btn--compact" href={href({ name: 'nest', at: 'birds' })}>Brood a bird</a> : null}
         </span>
       </div>
       {!r ? (

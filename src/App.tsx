@@ -26,9 +26,7 @@ import { Compose } from './screens/Compose';
 import { Flock } from './screens/Flock';
 import { BirdDetail } from './screens/BirdDetail';
 import { Perch } from './screens/Perch';
-import { Nest } from './screens/Nest';
-import { Roost } from './screens/Roost';
-import { YourBirds } from './screens/YourBirds';
+import { MyNest } from './screens/MyNest';
 import { FirstLight } from './screens/FirstLight';
 import { BirdEngine } from './screens/BirdEngine';
 
@@ -80,14 +78,12 @@ export function App() {
 
           <main id="main">
             <ErrorBoundary where={route.name}>
-            {route.name === 'landing' ? <Landing onTrade={() => setTradeOpen(true)} />
+            {route.name === 'landing' ? <Landing onTrade={() => setTradeOpen(true)} at={route.at} />
               : route.name === 'compose' ? <Compose onConnect={openWallet} />
                 : route.name === 'flock' ? <Flock />
                   : route.name === 'bird' ? <BirdDetail id={route.id} onConnect={openWallet} />
                     : route.name === 'perch' ? <Perch onConnect={openWallet} />
-                      : route.name === 'nest' ? <Nest onConnect={openWallet} />
-                        : route.name === 'roost' ? <Roost onConnect={openWallet} />
-                        : route.name === 'birds' ? <YourBirds onConnect={openWallet} />
+                      : route.name === 'nest' ? <MyNest onConnect={openWallet} at={route.at} />
                           : route.name === 'first-light' ? <FirstLight />
                             : route.name === 'docs' ? <Docs at={route.at} />
                               : route.name === 'engine' ? <BirdEngine onConnect={openWallet} at={route.at} />

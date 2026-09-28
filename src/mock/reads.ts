@@ -150,6 +150,8 @@ export function getBrood(who: Address | null): Promise<BroodState> {
  */
 export function getSweep(_who: Address, extra: Address[] = []): Promise<SweepState> {
   return read(() => {
+    // My Nest's "one section fails while the others load" scene (2026-09-27).
+    if (scenario().sweeper === 'read-fails') throw new ContractError('ReadFailed');
     const w = world();
     const extras = extra
       .filter((x, i) => extra.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i)

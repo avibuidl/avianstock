@@ -249,9 +249,11 @@ waiting, the three legs and whether each would move
 lockers' leg is held until the vault products exist), one **Distribute**
 button enabled when the day is up and there is something to move, a
 **Deliver** button when a held leg can go, receipts decoded into
-`Allocated/Delivered/Held/Burned` with all five legs. `#/roost`
-(`screens/Roost.tsx`) is staking: the staking card, my stake, claimable, share, the stream's daily rate and end, the undelivered
-remainder, and stake / withdraw / claim / exit. `stake` needs an AVIAN
+`Allocated/Delivered/Held/Burned` with all five legs. Staking is My Nest's
+(`components/StakingCard.tsx`, on `#/nest` since 2026-09-27; `#/roost`
+opens it there): the staking card, my stake, what it has earned, share, the
+the undelivered remainder, stake, withdraw stake and withdraw earnings (the
+claim, also one row of My Nest's Rewards panel). `stake` needs an AVIAN
 approval to the staking contract (approve-only: the contract takes no
 permit). The manifest carries `roost`, `aviansStaking` and `lockerRewards`,
 required; the generator reads them from the deploy broadcast and cross-checks
@@ -341,12 +343,60 @@ row). On a chain deployment the read and the senders refuse plainly until
 read-only now: `acceptOwnership` is disabled on every contract, so its
 Accept button and hand-over form could only have been refused.
 
+### My Nest
+
+The holder's one page (`screens/MyNest.tsx`, 2026-09-27): My Birds, The
+Nest and The Roost merged, so a holder sees their birds, broods them, sells
+them to the Perch, stakes AVIAN and collects every reward without leaving
+the page. `#/nest`; `#/birds` opens it at the birds and `#/roost` at the
+stake (`at` on the route, `useOpenAt`). Top to bottom (the band of four
+figures went on 2026-09-28): the birds, the flock's grid, each card (`components/BirdCard.tsx`) one height in every
+state with the picture, the name and its state tag, two lines (its weight
+and where it settles, then what it has earned so far, valued the way the
+homepage values a payout), and one row at the foot: Brood or Settle, Sell,
+and a menu with the rest (Upgrade, its satchel and the send form, its
+page; turning a satchel brood's rewards to the wallet is "Send to my
+wallet" in the bird's sheet, beside Settle in the settle's confirmation); picking several offers Brood and Sell for the set;
+then Earning now beside the stake (`components/Earning.tsx`, arithmetic in
+`lib/earning.ts`, 2026-09-28): what the wallet's brooding birds have earned
+and not yet settled, all together, growing as you watch: one row per token
+the Nest streams (tag, the amount ticking with the page's second clock and
+snapping to the chain's word on each read, its value, when the stream
+ends) and one quiet line below (no total above, since 2026-09-28); the digits
+come from the rate (enough to move each second, four to six) and are held
+between reads on a column sized to the largest amount; tokens and totals
+only, never a bird. The rewards are a
+sheet since the same day, opened by "Manage rewards" in the birds' section
+head (beside "Settle all", or alone), by the band's "Claimable now", and by
+`#/nest/rewards`; it cannot be dismissed while "Collect everything" runs.
+Since 2026-09-28 it opens on the Sweeper itself: its token rows with one
+Collect each and "Collect everything" (one sweep) in its head, its grants
+under them, then the Nest's held-back shares with one Claim each; staking's
+AVIAN is the Stake AVIAN card's, and "Settle all" sits at the far right of
+Earning now's head.
+The Rewards sheet (`components/Rewards.tsx`,
+rows from `lib/rewards.ts`) lists everything claimable as rows of one shape
+(token, amount, value, where it is, one button) from three reads that load
+and fail on their own: the stock in the birds' wallets (the Sweeper, one
+sweep per token or one for all), the Nest's held-back shares, the AVIAN
+earned by staking; "Collect everything" runs them in turn with the seat
+control's progress line ("1 of 3 · claiming NVDA held by the Nest"); the
+Sweeper's one-time grant per bird (`SweeperSetup` in `components/Collect.tsx`)
+folds behind one line. The sheets: brood and upgrade
+(`components/BroodSheet.tsx`, with which tokens stream now and a link to the
+Bird Engine), sell (the same sell sheet), settle (`components/SettleSheet.tsx`),
+the bird's satchel and send (`components/BirdSheet.tsx`). Disconnected, the
+page shows its own shape: the band's labels with dashes, each section's
+heading with one sentence, one connect prompt, a link to the six steps
+(`#/join`). Fixtures under "My Nest" in the switcher, including one section
+failing while the others load. The protocol's streams list and counters are
+the Bird Engine's; buying birds is the Perch's.
+
 ### The Bird Engine, and the contracts in Docs
 
 `#/bird-engine` (`screens/BirdEngine.tsx`, 2026-09-25; its first day it was
 "The Flywheel" at `#/flywheel`, which still opens it) holds the protocol's
-machinery, where Contracts was in the sidebar, so the Nest is about brooding
-and the Roost page about staking. Two by two on a wide screen: the Treasury
+machinery, where Contracts was in the sidebar. Two by two on a wide screen: the Treasury
 card beside the Roost card, each moved whole with its handlers, then the
 Nest's streams beside the figures (`RoostFigures` and `NestFigures` in
 `components/Counters.tsx`, drawn with the homepage Flywheel section's own

@@ -20,12 +20,12 @@ import { NETWORK, canSwap, useConnection, useOwnerStatus } from '../mock';
 const NAV: { label: string; route: Route; icon: IconName; needsWallet?: boolean }[] = [
   { label: 'Compose', route: { name: 'compose' }, icon: 'plus' },
   { label: 'The Flock', route: { name: 'flock' }, icon: 'search' },
-  { label: 'The Perch', route: { name: 'perch' }, icon: 'refresh' },
-  { label: 'My Birds', route: { name: 'birds' }, icon: 'wallet', needsWallet: true },
-  { label: 'The Nest', route: { name: 'nest' }, icon: 'nest' },
-  { label: 'The Roost', route: { name: 'roost' }, icon: 'home' },
-  { label: 'The Bird Engine', route: { name: 'engine' }, icon: 'cycle' },
-  { label: 'Docs', route: { name: 'docs' }, icon: 'info' },
+  { label: 'The Perch', route: { name: 'perch' }, icon: 'cycle' },
+  // My Birds, The Nest and The Roost became one page, My Nest, on 2026-09-27.
+  // In the list for everyone: disconnected, it shows its own shape.
+  { label: 'My Nest', route: { name: 'nest' }, icon: 'nest' },
+  { label: 'The Bird Engine', route: { name: 'engine' }, icon: 'cog' },
+  { label: 'Docs', route: { name: 'docs' }, icon: 'book' },
 ];
 
 export function Sidebar({ onWallet, onTrade }: { onWallet: () => void; onTrade: () => void }) {

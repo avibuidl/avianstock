@@ -4,7 +4,7 @@
 export type IconName =
   | 'check' | 'cross' | 'warn' | 'lock' | 'arrow' | 'ext' | 'clock' | 'refresh'
   | 'minus' | 'plus' | 'chev' | 'wallet' | 'burn' | 'dots' | 'copy' | 'info'
-  | 'nest' | 'home' | 'search' | 'sliders' | 'menu' | 'swap' | 'cycle'
+  | 'nest' | 'home' | 'search' | 'sliders' | 'menu' | 'swap' | 'cycle' | 'cog' | 'book'
   // The footer's marks (2026-09-25): the project's places off this site, drawn
   // in the same stroke on the same grid rather than as images.
   | 'x' | 'opensea' | 'dexscreener' | 'github';
@@ -39,9 +39,14 @@ const PATHS: Record<Exclude<IconName, BrandName>, string> = {
   sliders: 'M4 2.5v11M8 2.5v11M12 2.5v11M2.5 10h3M6.5 5.5h3M10.5 8.5h3',
   // Two parallel arrows, opposite ways: a trade, both directions.
   swap: 'M2.5 5h10.5M10.5 2.5L13 5l-2.5 2.5M13.5 11H3M5.5 8.5L3 11l2.5 2.5',
-  // The Flywheel: two arcs of one circle, each ending in its arrowhead, so
-  // they chase each other round. The Perch's refresh is one arc and one head.
+  // Two arcs of one circle, each ending in its arrowhead, so they chase each
+  // other round: the Perch's since 2026-09-28 (birds go in, birds come out).
   cycle: 'M2.6 7A5.5 5.5 0 0 1 12 4.1M13.4 9A5.5 5.5 0 0 1 4 11.9M12.4 1.6v2.9H9.5M3.6 14.4v-2.9h2.9',
+  // The Bird Engine (2026-09-28): a cogwheel, eight teeth round a hub, the
+  // machinery the page shows. The cycle it wore went to the Perch.
+  cog: 'M6.8 3.46L7.15 1.76L8.85 1.76L9.2 3.46A4.7 4.7 0 0 1 10.36 3.94L11.81 2.98L13.02 4.19L12.06 5.64A4.7 4.7 0 0 1 12.54 6.8L14.24 7.15L14.24 8.85L12.54 9.2A4.7 4.7 0 0 1 12.06 10.36L13.02 11.81L11.81 13.02L10.36 12.06A4.7 4.7 0 0 1 9.2 12.54L8.85 14.24L7.15 14.24L6.8 12.54A4.7 4.7 0 0 1 5.64 12.06L4.19 13.02L2.98 11.81L3.94 10.36A4.7 4.7 0 0 1 3.46 9.2L1.76 8.85L1.76 7.15L3.46 6.8A4.7 4.7 0 0 1 3.94 5.64L2.98 4.19L4.19 2.98L5.64 3.94A4.7 4.7 0 0 1 6.8 3.46zM8 5.9a2.1 2.1 0 100 4.2 2.1 2.1 0 000-4.2z',
+  // Docs (2026-09-28): an open book, two pages at the spine.
+  book: 'M8 4.6C6.4 3.4 4.3 3.1 1.8 3.3v9.2c2.5-.2 4.6.1 6.2 1.3 1.6-1.2 3.7-1.5 6.2-1.3V3.3c-2.5-.2-4.6.1-6.2 1.3zM8 4.6v9.2',
   // X: the long stroke as an outlined bar, the short one crossing it.
   x: 'M2.5 2.5h3l8 11h-3zM13 2.5L9.2 6.9M6.8 9.1L3 13.5',
 };

@@ -29,7 +29,18 @@ test('the first day\'s #/flywheel still opens the Bird Engine', () => {
   assert.deepEqual(parse('#/flywheel/roost'), { name: 'engine', at: 'roost' });
 });
 
-test('the Roost and the Nest keep their addresses', () => {
-  assert.deepEqual(parse('#/roost'), { name: 'roost' });
+test('My Nest at #/nest, and the old My Birds and Roost addresses open it at their sections', () => {
   assert.deepEqual(parse('#/nest'), { name: 'nest' });
+  assert.deepEqual(parse('#/birds'), { name: 'nest', at: 'birds' });
+  assert.deepEqual(parse('#/roost'), { name: 'nest', at: 'stake' });
+  assert.deepEqual(parse('#/nest/rewards'), { name: 'nest', at: 'rewards' });
+  assert.deepEqual(parse('#/nest/elsewhere'), { name: 'nest' });
+  assert.equal(href({ name: 'nest', at: 'stake' }), '#/nest/stake');
+  assert.equal(href({ name: 'nest' }), '#/nest');
+});
+
+test('#/join opens the homepage at the six steps', () => {
+  assert.deepEqual(parse('#/join'), { name: 'landing', at: 'join' });
+  assert.equal(href({ name: 'landing', at: 'join' }), '#/join');
+  assert.equal(href({ name: 'landing' }), '#/');
 });

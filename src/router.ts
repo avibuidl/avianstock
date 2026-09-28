@@ -7,14 +7,15 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
 export type Route =
-  | { name: 'landing' }
+  // `at` on the landing page: the six steps, for anyone new (#/join).
+  | { name: 'landing'; at?: 'join' }
   | { name: 'compose' }
   | { name: 'flock' }
   | { name: 'bird'; id: number }
   | { name: 'perch' }
-  | { name: 'nest' }
-  | { name: 'roost' }
-  | { name: 'birds' }
+  // My Nest (2026-09-27): the holder's one page. `at`: its birds, its
+  // rewards or its stake, from the old addresses #/birds and #/roost too.
+  | { name: 'nest'; at?: 'birds' | 'rewards' | 'stake' }
   | { name: 'first-light' }
   // `at`: a section or card on the page to open at, from the path's second
   // part (#/docs/contracts, #/bird-engine/roost). The page scrolls to it.
@@ -31,13 +32,15 @@ export function parse(hash: string): Route {
     case 'flock': return { name: 'flock' };
     case 'bird': return { name: 'bird', id: Number(arg) || 1 };
     case 'perch': return { name: 'perch' };
-    case 'nest': return { name: 'nest' };
+    case 'nest': return arg === 'birds' || arg === 'rewards' || arg === 'stake' ? { name: 'nest', at: arg } : { name: 'nest' };
     // The Nest was once called the incubator; old links keep working rather
-    // than dropping someone on the landing page. (It was also briefly "the
-    // roost" — that name now belongs to the Roost, the fee splitter, below.)
+    // than dropping someone on the landing page. My Birds and The Roost
+    // became sections of My Nest on 2026-09-27, and their addresses open it
+    // at that section.
     case 'incubator': return { name: 'nest' };
-    case 'roost': return { name: 'roost' };
-    case 'birds': return { name: 'birds' };
+    case 'birds': return { name: 'nest', at: 'birds' };
+    case 'roost': return { name: 'nest', at: 'stake' };
+    case 'join': return { name: 'landing', at: 'join' };
     case 'first-light': return { name: 'first-light' };
     case 'docs': return arg ? { name: 'docs', at: arg } : { name: 'docs' };
     // The Contracts page became a section of Docs on 2026-09-25; the old
@@ -58,8 +61,9 @@ export function parse(hash: string): Route {
 
 export function href(route: Route): string {
   switch (route.name) {
-    case 'landing': return '#/';
+    case 'landing': return route.at ? '#/join' : '#/';
     case 'bird': return `#/bird/${route.id}`;
+    case 'nest': return route.at ? `#/nest/${route.at}` : '#/nest';
     case 'docs': return route.at ? `#/docs/${route.at}` : '#/docs';
     case 'engine': return route.at ? `#/bird-engine/${route.at}` : '#/bird-engine';
     default: return `#/${route.name}`;

@@ -161,7 +161,7 @@ export function Docs({ at }: { at?: string } = {}) {
               <NumberGroup title="The art" rows={[
                 ['Canvas', '32 × 32 pixels, 48 colours, one palette'],
                 ['Traits', '70, in 6 categories, over one locked base'],
-                ['Stored', 'on-chain, 12,866 bytes for the whole collection, on one contract'],
+                ['Stored', 'on-chain, 12,872 bytes for the whole collection, on one contract'],
               ]} />
 
               <h4 style={{ marginTop: 40 }}>Where the money goes</h4>
@@ -327,7 +327,7 @@ export function Docs({ at }: { at?: string } = {}) {
 
                   <h4 style={{ marginTop: 28 }}>Entirely on-chain.</h4>
                   <p className="small">
-                    The whole collection&rsquo;s pixels live in one 12,866-byte contract, and the
+                    The whole collection&rsquo;s pixels live in one 12,872-byte contract, and the
                     image is rendered from chain state. No server, no IPFS, no link that can die.
                   </p>
                 </div>
@@ -421,7 +421,7 @@ export function Docs({ at }: { at?: string } = {}) {
                       ['TheNest, brood, tiers, weight', 'the nest: brooding, the tier, the share of the stream'],
                       ['settle', 'delivering what a brooding bird has accrued'],
                       ['TheRoost, distribute', 'the Roost: every AVIAN fee, split once a day'],
-                      ['AviansStaking', 'staking AVIAN, on the Roost page'],
+                      ['AviansStaking', 'staking AVIAN, on My Nest'],
                       ['ERC-721C transfer validator', 'the Gate: on-chain royalty enforcement'],
                       ['Uniswap v4 pool + hook', 'the pool, and its fee'],
                       ['LAUNCH_AT, WINDOW', 'First Light: the opening time and the five minutes'],

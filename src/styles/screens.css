@@ -70,10 +70,6 @@ a.tile:hover { color: inherit; }
 /* A card a page opens at (#/bird-engine/roost) stops clear of the phone's header. */
 .anchor, .engine__cell, .engine__cell > [id] { scroll-margin-top: calc(var(--header-h) + var(--s4)); }
 
-/* The Nest's "Brooding now" heading: "Settle all" on its right, and the
-   settle preview, when pressed, on a line of its own under it. */
-.now-head > .box { flex: 1 1 100%; margin-top: var(--s3); }
-
 /* ── the bird engine ─────────────────────────────────────────────────── */
 
 /*
@@ -96,14 +92,6 @@ a.tile:hover { color: inherit; }
 .engine .treasury { grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; }
 /* The streams block keeps its homepage spacing everywhere but here, in a cell. */
 .engine .engine__streams > * { margin-top: 0; }
-
-.two-up {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s5);
-  align-items: start;
-  margin-top: var(--s6);
-}
 
 .tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
 .tier {
@@ -140,8 +128,8 @@ a.tile:hover { color: inherit; }
 
 /* ── your birds ───────────────────────────────────────────────────────── */
 
-/* Six across, the flock's tile size: the satchel column that used to sit
-   beside the cards is a dialog now, so the cards have the whole page. */
+/* Six across, the flock's tile size (My Nest's birds; the card's inside is
+   MyNest.module.css's). */
 .bird-cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s4); margin-top: var(--s6); }
 .bird-card { position: relative; border: 1px solid var(--line); background: var(--panel); }
 .bird-card--on { border-color: var(--accent); outline: 1px solid var(--accent); }
@@ -156,15 +144,6 @@ a.tile:hover { color: inherit; }
 }
 .bird-card__pick:hover { border-color: var(--accent); }
 .bird-card__pick--on { background: var(--accent); border-color: var(--accent); }
-/* The card's one or two buttons in a row, equal widths, one filling the row
-   on its own. The card is a sixth of the page, so the labels are one word. */
-.bird-card__actions {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: var(--s2);
-}
-.bird-card__actions .btn { padding-left: var(--s2); padding-right: var(--s2); }
 
 .hold-row {
   display: flex; align-items: center; gap: var(--s3);
@@ -257,7 +236,6 @@ a.tile:hover { color: inherit; }
   .perch-grid { grid-template-columns: minmax(0, 1fr); }
   .solvency { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
   .treasury { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
-  .two-up { grid-template-columns: minmax(0, 1fr); }
   .engine { grid-template-columns: minmax(0, 1fr); }
   .bird-detail { grid-template-columns: minmax(0, 1fr); }
   .fl-grid { grid-template-columns: minmax(0, 1fr); }

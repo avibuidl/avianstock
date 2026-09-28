@@ -29,6 +29,8 @@ export const PERCH_BUY_NAMED = e18(115_000);
 /** The Nest's own constants: 10,000 / 30,000 / 50,000 since 2026-09-22 (tiers 2 and 3 doubled). */
 export const TIER_COST: Record<Tier, Amount> = { 1: e18(10_000), 2: e18(30_000), 3: e18(50_000) };
 export const TIER_WEIGHT: Record<Tier, bigint> = { 1: 1n, 2: 2n, 3: 3n };
+/** When this page loaded: the chain's unsettled figures grow from here at the streams' rates, so a read lands where the screen's estimate is. */
+const EPOCH = Math.floor(Date.now() / 1000);
 export const WINDOW_SECONDS = 300;
 export const FEE_BPS = 100;
 /** The opening fee's extra, on top of FEE_BPS: 90% in total at the first second (2026-09-21; was 25%). */
@@ -325,7 +327,10 @@ export function world(s: Scenario = scenario()) {
   // scenario decides which of them carry a brood, and of what kind. An
   // "expired" brood is one whose activator is somebody else — the bird was
   // bought after its previous holder brooded it, and the split is theirs.
-  const heldIdsBase = blank ? [] : [902, 1118, 1204, 1377, 1447, 1562, 1588];
+  const heldIdsBase = blank ? []
+    // My Nest's holder (2026-09-27): the seven, and five more.
+    : s.brood === 'twelve' || s.brood === 'twelve-quiet' ? [902, 1118, 1204, 1377, 1447, 1562, 1588, 211, 486, 733, 1019, 1305]
+      : [902, 1118, 1204, 1377, 1447, 1562, 1588];
   const walletIds = [
     ...heldIdsBase,
     ...overlay.minted,
@@ -335,7 +340,7 @@ export function world(s: Scenario = scenario()) {
     .filter((id) => !overlay.transferredAway.has(id));
 
   const now = Math.floor(Date.now() / 1000);
-  const since: Record<number, number> = { 902: now - 14 * 86400, 1118: now - 6 * 86400, 1447: now - 2 * 86400 };
+  const since: Record<number, number> = { 902: now - 14 * 86400, 1118: now - 6 * 86400, 1447: now - 2 * 86400, 1377: now - 21 * 86400, 1562: now - 9 * 86400 };
   const live = (id: TokenId, tier: Tier, toWallet = false): [TokenId, MockBrood] =>
     [id, { activator: YOU, tier, activatedAt: since[id] ?? now - 3600, expiredAt: 0, toWallet }];
   const expiredOf = (id: TokenId, tier: Tier): [TokenId, MockBrood] =>
@@ -348,6 +353,11 @@ export function world(s: Scenario = scenario()) {
     'expired-unsettled': [live(902, 3), expiredOf(1118, 2)],
     'settled-claimable': [live(902, 3)],
     mixed: [live(902, 3), live(1118, 2, true), expiredOf(1447, 1)],
+    // Four brooding at mixed tiers, one of them to the wallet; the rest resting.
+    twelve: [live(902, 3), live(1118, 2, true), live(1377, 1), live(1562, 2)],
+    'twelve-quiet': [live(902, 3), live(1118, 2, true), live(1377, 1), live(1562, 2)],
+    // Three at mixed tiers, one to the wallet: the Earning now panel's holder.
+    three: [live(902, 3), live(1118, 2, true), live(1377, 1)],
   }[s.brood];
 
   const broods = new Map<TokenId, MockBrood>(broodPlan);
@@ -361,9 +371,11 @@ export function world(s: Scenario = scenario()) {
   // The flywheel's first-day scene (2026-09-22) is launch day: no reward
   // token listed yet, so nothing streams and the landing page says so.
   const listed = s.rewards === 'none-listed' || s.flywheel === 'first-day' ? []
-    // Part 19: the Nest without AVIAN, while the staking contract still pays it.
-    : s.stakers === 'unlisted' ? REWARD_TOKENS.filter((t) => t.symbol !== 'AVIAN')
-      : REWARD_TOKENS;
+    // Earning now (2026-09-28): two streams only, a stock and AVIAN.
+    : s.rewards === 'two-streams' || s.rewards === 'snap' ? REWARD_TOKENS.filter((t) => t.symbol === 'NVDA' || t.symbol === 'AVIAN')
+      // Part 19: the Nest without AVIAN, while the staking contract still pays it.
+      : s.stakers === 'unlisted' ? REWARD_TOKENS.filter((t) => t.symbol !== 'AVIAN')
+        : REWARD_TOKENS;
   /** A token's place among all five, so its figures do not move when one is unlisted. */
   const place = (token: { symbol: string }) => REWARD_TOKENS.findIndex((t) => t.symbol === token.symbol);
   const pausedSymbols = s.rewards === 'all-paused' ? ['NVDA', 'SPY', 'SPCX', 'AAPL']
@@ -393,6 +405,7 @@ export function world(s: Scenario = scenario()) {
     'some-granted': [902, 1204],
     'all-granted': walletIds,
     'all-swept': walletIds,
+    'read-fails': [] as TokenId[],
   }[s.sweeper];
   const satchelDeployed = (id: TokenId): boolean =>
     id === 1204 || id % 3 === 0 || grantPlan.includes(id) || overlay.satchelsDeployed.has(id);
@@ -489,21 +502,45 @@ export function world(s: Scenario = scenario()) {
   // A live stream of 2,000 tokens a day per token, three days in, as the
   // chain keeps it: base units per second scaled by 1e18. A bird's share
   // (weight / totalWeight) visibly ticks between reads on the brood screen.
+  // 'not-funded': listed, never funded, so nothing streams; 'one-ended':
+  // SPY's stream two days past its end while the rest run.
+  const unfunded = s.rewards === 'not-funded';
+  // The Earning now scenes (2026-09-28): a fast AVIAN stream and a slow NVDA
+  // one, so the wallet's AVIAN figure moves every second and its NVDA every
+  // few. Everywhere else, 2,000 a day per token.
+  const watching = s.rewards === 'two-streams' || s.rewards === 'one-ended' || s.rewards === 'not-funded' || s.rewards === 'snap';
+  const perDayOf = (symbol: string) => (watching ? (symbol === 'AVIAN' ? 12_000 : symbol === 'NVDA' ? 18 : 2_000) : 2_000);
   const streams: RewardStream[] = listed.map((token) => ({
     token,
-    rate: (e18(2_000) * e18(1)) / 86400n,
-    periodFinish: now + 4 * 86400,
-    escrowed: perWeight[place(token)] * 12_000n,
-    totalPaid: perWeight[place(token)] * 3200n,
+    rate: unfunded ? 0n : (e18(perDayOf(token.symbol)) * e18(1)) / 86400n,
+    periodFinish: unfunded ? 0 : s.rewards === 'one-ended' && token.symbol === 'SPY' ? now - 2 * 86400 : now + 4 * 86400,
+    escrowed: unfunded ? 0n : perWeight[place(token)] * 12_000n,
+    totalPaid: unfunded ? 0n : perWeight[place(token)] * 3200n,
     totalReturned: perWeight[place(token)] * 140n,
   }));
+
+  /**
+   * What the stream has added to a live brood since the page loaded: the
+   * chain's word grows as the screen's estimate does, so a read lands where
+   * the estimate is. In 'snap' the chain says three times as much, so each
+   * read visibly corrects the figure.
+   */
+  function accruedSince(b: MockBrood, symbol: string): Amount {
+    if (b.expiredAt !== 0) return 0n;
+    const st = streams.find((x) => x.token.symbol === symbol);
+    if (!st || st.periodFinish === 0 || totalWeight === 0n) return 0n;
+    const until = Math.min(now, st.periodFinish);
+    if (until <= EPOCH) return 0n;
+    const perSec = (st.rate * TIER_WEIGHT[b.tier]) / totalWeight / e18(1);
+    return perSec * BigInt(until - EPOCH) * (s.rewards === 'snap' ? 3n : 1n);
+  }
 
   /** `earned(id, token)` — what a settle would move for this bird, in total. */
   function unsettledOf(id: TokenId, symbol: string): Amount {
     const b = broods.get(id);
     if (!b || listed.length === 0) return 0n;
     if (!listed.some((t) => t.symbol === symbol)) return 0n;
-    const gross = perWeight[place({ symbol })] * TIER_WEIGHT[b.tier];
+    const gross = perWeight[place({ symbol })] * TIER_WEIGHT[b.tier] + accruedSince(b, symbol);
     const paid = overlay.settledUpTo.get(id)?.get(symbol) ?? 0n;
     return gross > paid ? gross - paid : 0n;
   }
@@ -521,7 +558,7 @@ export function world(s: Scenario = scenario()) {
 
   // A held-back share: the wallet refused a delivery at an earlier settle.
   const claimable = new Map<string, Amount>();
-  if (!blank && (s.brood === 'settled-claimable' || s.brood === 'mixed') && listed.length) {
+  if (!blank && (s.brood === 'settled-claimable' || s.brood === 'mixed' || s.brood === 'twelve') && listed.length) {
     const sym = s.brood === 'mixed' ? 'AAPL' : 'NVDA';
     if (!overlay.claimed.has(sym)) claimable.set(sym, perWeight[listed.findIndex((t) => t.symbol === sym)] * 5n);
   }

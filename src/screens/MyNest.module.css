@@ -1,0 +1,120 @@
+/* My Nest (2026-09-27): the holder's one page. One column system down the
+   whole page (the page's own gutters, the site's hairline cards), one
+   vertical scale between sections (32) and a smaller one inside them
+   (16 / 8). Every card is the site's .panel or .bird-card: one border, no
+   radius, the same padding. */
+
+.head { display: flex; flex-wrap: wrap; gap: var(--s4); align-items: flex-start; }
+.head :global(.lede) { margin-top: var(--s2); }
+
+.sec { margin-top: var(--s6); }
+.secHead { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; min-height: 32px; }
+.secHead h3 { margin: 0; }
+.secRight { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+
+/* The grid of cards, the flock's density; the same footprint while loading. */
+/* Every card one height, whatever its state: the lines are always there. */
+.cards { margin-top: var(--s4); }
+.cardBody { padding: 12px 14px 14px; display: flex; flex-direction: column; }
+/* The name and its tag on one line of one height, so the lines and the buttons under it sit level on every card. */
+.cardName { display: flex; align-items: center; gap: var(--s2); min-height: 24px; }
+.cardName a { white-space: nowrap; }
+.cardLine { font-size: 12px; line-height: 18px; height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardLine1 { margin-top: 8px; color: var(--text); }
+.cardLine2 { color: var(--text-dim); }
+/* One row at the foot, one height: the next thing to do, Sell, and the menu
+   at the right. The buttons are the compact size (the section's "Settle all"),
+   hugging their labels rather than stretched across the card. */
+.cardActions { display: flex; align-items: center; gap: var(--s2); margin-top: auto; padding-top: 12px; }
+.menuWrap { position: relative; margin-left: auto; }
+.menuButton {
+  width: 32px; min-height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--text-strong); cursor: pointer;
+}
+.menuButton:hover, .menuButton[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
+/* The menu opens over the card, above the row, so it is never clipped by the page's end. */
+.menu {
+  position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 6;
+  min-width: 200px; background: var(--panel); border: 1px solid var(--line-strong);
+  padding: 4px 0;
+}
+.menuItem {
+  display: block; width: 100%; text-align: left;
+  padding: 8px 12px; font-size: 13px; line-height: 1.3;
+  background: transparent; border: 0; color: var(--text); cursor: pointer; text-decoration: none;
+}
+.menuItem:hover, .menuItem:focus-visible { background: var(--panel-inset); color: var(--text-strong); text-decoration: none; }
+.menuItem:disabled { color: var(--text-dim); cursor: default; }
+
+/* A card's footprint while the birds are read. */
+.cardSkeleton { border: 1px solid var(--line); background: var(--panel); }
+.cardSkeleton .art { aspect-ratio: 1; background: var(--slate); animation: skel 1.2s ease-in-out infinite; }
+@keyframes skel { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
+
+/* The staking card's stake and withdraw, side by side: two equal columns,
+   one on a phone; each column's buttons sit at its foot so the two rows align. */
+.stakeForms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
+.stakeForm { display: flex; flex-direction: column; min-width: 0; }
+.stakeFoot { margin-top: auto; padding-top: 10px; }
+
+/* Rewards beside the stake: two equal columns, one on a phone. */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); margin-top: var(--s6); align-items: start; }
+
+/* Rewards: rows of one shape. The compared figures share a column. */
+.rows { margin-top: var(--s3); min-height: 56px; }
+.row {
+  display: grid; grid-template-columns: 64px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: var(--s3); align-items: center; padding: 10px 0; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.rowToken { min-width: 0; }
+.rowAmount { font-family: var(--font-mono); font-weight: 500; color: var(--text-strong); font-variant-numeric: tabular-nums; font-size: 14px; overflow-wrap: anywhere; }
+.rowValue { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+.rowWhere { min-width: 0; }
+.rowAction { display: flex; justify-content: flex-end; }
+.rowFailed { grid-template-columns: minmax(0, 1fr) auto; }
+.rowEmpty { padding: 10px 0; }
+.progress { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s2); margin-top: 10px; }
+.setup { margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--line); }
+
+/* Earning now (2026-09-28): rows of one shape on one grid: tag, the
+   growing amount, its value, the stream's end (no total above them, by the
+   founder's decision). The amount's column is sized to the largest amount in the list and
+   the figures are tabular, so the digits change without a jitter. At 375
+   the countdown drops to a second, dim line. */
+.erows { margin-top: var(--s4); min-height: 56px; }
+.erow {
+  display: grid; grid-template-columns: 64px minmax(max-content, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--s3); align-items: center; padding: 10px 0; border-top: 1px solid var(--line); min-height: 44px;
+}
+.erow:first-child { border-top: 0; }
+.etok { min-width: 0; }
+.eamt { font-family: var(--font-mono); font-weight: 500; color: var(--text-strong); font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
+.eval { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+.eends { min-width: 0; }
+.enote { margin: var(--s3) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
+
+/* Disconnected: the page's shape, each section's heading with one sentence. */
+.shape { margin-top: var(--s4); min-height: 120px; }
+
+@media (max-width: 1080px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .stakeForms { grid-template-columns: minmax(0, 1fr); }
+  .row { grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-areas: "tok amt btn" "tok where btn"; row-gap: 2px; }
+  .rowToken { grid-area: tok; } .rowAmount { grid-area: amt; } .rowValue { display: none; } .rowWhere { grid-area: where; } .rowAction { grid-area: btn; }
+  .rowFailed { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: none; }
+  .erow { grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-areas: "tok amt val" "tok ends ends"; row-gap: 2px; }
+  .etok { grid-area: tok; } .eamt { grid-area: amt; } .eval { grid-area: val; text-align: right; } .eends { grid-area: ends; }
+}
+
+/* The card's tag beside its name (2026-09-28): a step smaller than the site's
+   tag, so "#1,204" and "Holds 2 birds" share the card's one line at six
+   across; the name never truncates. On a phone the tag sits under the name
+   on every card, so the cards stay one height and their buttons level. */
+.cardName a { flex-shrink: 0; }
+.cardName :global(.tag) { font-size: 10px; padding: 2px 6px; letter-spacing: 0.04em; }
+@media (max-width: 720px) {
+  .cardName { flex-direction: column; align-items: flex-start; gap: 6px; min-height: 52px; }
+  .cardName :global(.spacer) { display: none; }
+}

@@ -170,7 +170,7 @@ export function Perch({ onConnect }: { onConnect: () => void }) {
         bird, always, and sells the next one for <span className="num">{avians(p.buyNext)}</span> or
         one you pick for <span className="num">{avians(p.buyNamed)}</span>. One bird in every
         hundred sold to it is burnt; the seller is paid in full either way. To sell a bird, open{' '}
-        <a href={href({ name: 'birds' })}>My Birds</a>.
+        <a href={href({ name: 'nest', at: 'birds' })}>My Nest</a>.
       </p>
 
       {!p.operatorWhitelisted ? (
